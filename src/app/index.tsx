@@ -1,98 +1,1093 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Easing,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { Defs, LinearGradient, Stop, Svg } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Reanimated, {
+  Easing as REasing,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { AnimatedPressable } from '@/components/animated-pressable';
+import { SkeletonPulse } from '@/components/skeleton-pulse';
+import { useCountUp } from '@/hooks/use-count-up';
+import { Icon } from '@/components/Icon';
+import { C, Fonts, Radius, RingGradient, Shadow, Spacing } from '@/constants/theme';
+import {
+  addWater,
+  deleteFoodLog,
+  getDailyTotals,
+  getProfile,
+  getTodayLog,
+  getWaterToday,
+  getWeekTotals,
+  updateFoodLog,
+  type DailyTotals,
+  type DayTotal,
+  type Goal,
+  type Profile,
+} from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type TodayEntry = Awaited<ReturnType<typeof getTodayLog>>[number];
+type WaterData = { ml: number; glasses: number };
+
+interface WeekInsight {
+  readout: string;
+  one_change: string;
+  tomorrow_plan: string;
+  days_logged: number;
+  week_start: string;
+}
+
+// ─── Calorie ring — gradient + mount animation ───────────────────────────────
+
+const RING_SIZE   = 148;
+const RING_R      = 62;
+const RING_STROKE = 13;
+const RING_CIRCUM = 2 * Math.PI * RING_R; // ≈ 389.6
+const GRADIENT_ID = 'calRingGrad';
+
+// react-native-svg circle doesn't directly accept Animated values via
+// Animated.createAnimatedComponent in all RN versions, so we animate a wrapper
+// View's scale as a glow and drive the dashoffset via a JS-animated value
+// interpolated as a string prop. We pass it as `strokeDashoffset` directly.
+
+const AnimatedCircleWrapper = Animated.createAnimatedComponent(
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('react-native-svg').Circle,
+);
+
+function CalorieRing({ eaten, target }: { eaten: number; target: number }) {
+  const ratio  = target > 0 ? Math.min(eaten / target, 1) : 0;
+  const targetOffset = RING_CIRCUM * (1 - ratio);
+  const diff = target - eaten;
+  const over = diff < 0;
+
+  const animOffset = useRef(new Animated.Value(RING_CIRCUM)).current;
+  const firstSweep = useRef(true);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  // Count the centre "kcal left/over" number when it changes (e.g. after a log).
+  const displayDiff = useCountUp(diff, 350);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then(setReduceMotion)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      animOffset.setValue(targetOffset);
+      return;
+    }
+    if (firstSweep.current) {
+      // First mount: full sweep from empty for the signature reveal.
+      firstSweep.current = false;
+      animOffset.setValue(RING_CIRCUM);
+      Animated.timing(animOffset, {
+        toValue: targetOffset,
+        duration: 1100,
+        easing: Easing.bezier(0.2, 0.7, 0.2, 1),
+        useNativeDriver: false,
+      }).start();
+    } else {
+      // Data refresh after a log: ease from the current arc to the new value.
+      Animated.timing(animOffset, {
+        toValue: targetOffset,
+        duration: 450,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [targetOffset, reduceMotion, animOffset]);
+
+  return (
+    <View style={rs.wrap}>
+      {/* Soft green glow behind the ring */}
+      <View style={rs.glow} />
+      <Svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
+        <Defs>
+          <LinearGradient id={GRADIENT_ID} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={RingGradient.from} />
+            <Stop offset="1" stopColor={RingGradient.to} />
+          </LinearGradient>
+        </Defs>
+        {/* Track */}
+        <AnimatedCircleWrapper
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={RING_R}
+          fill="none"
+          stroke={C.bg}
+          strokeWidth={RING_STROKE}
+        />
+        {/* Animated progress */}
+        <AnimatedCircleWrapper
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={RING_R}
+          fill="none"
+          stroke={`url(#${GRADIENT_ID})`}
+          strokeWidth={RING_STROKE}
+          strokeLinecap="round"
+          strokeDasharray={RING_CIRCUM}
+          strokeDashoffset={animOffset}
+          transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+        />
+      </Svg>
+      <View style={rs.center}>
+        <Text style={rs.num}>{Math.abs(Math.round(displayDiff)).toLocaleString()}</Text>
+        <Text style={rs.label}>{over ? 'kcal over' : 'kcal left'}</Text>
+      </View>
+    </View>
+  );
+}
+
+const rs = StyleSheet.create({
+  wrap: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    alignSelf: 'center',
+    position: 'relative',
+  },
+  glow: {
+    position: 'absolute',
+    top: 10,
+    bottom: 10,
+    left: 10,
+    right: 10,
+    borderRadius: RING_SIZE / 2,
+    backgroundColor: 'rgba(47,125,91,0.13)',
+  },
+  center: {
+    position: 'absolute',
+    top: 0, bottom: 0, left: 0, right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  num: {
+    fontFamily: Fonts?.display ?? 'system',
+    fontSize: 38,
+    fontWeight: '700',
+    color: C.ink,
+    lineHeight: 40,
+    letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
+  },
+  label: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 11,
+    color: C.inkSoft,
+    marginTop: 5,
+    fontWeight: '500',
+  },
+});
+
+// ─── Verdict dot ─────────────────────────────────────────────────────────────
+
+const VERDICT_COLORS: Record<string, string> = {
+  good: C.green,
+  ok:   C.amber,
+  avoid:C.red,
+};
+
+function VerdictDot({ verdict }: { verdict: string | null }) {
+  const color = verdict ? (VERDICT_COLORS[verdict] ?? C.inkFaint) : C.inkFaint;
+  return <View style={[dot.circle, { backgroundColor: color }]} />;
+}
+
+const dot = StyleSheet.create({
+  circle: { width: 9, height: 9, borderRadius: 5, flexShrink: 0 },
+});
+
+// ─── Week balance strip (dark card) ──────────────────────────────────────────
+
+const MON_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+function dayLabel(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return MON_LABELS[(new Date(y, m - 1, d).getDay() + 6) % 7];
+}
+
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function WeekStrip({ days, target }: { days: DayTotal[]; target: number }) {
+  const today     = todayStr();
+  const logged    = days.filter((d) => d.items > 0).length;
+  const metaText  = days.length === 0 ? '' : `${logged} of 7 logged`;
+
+  return (
+    <View style={wk.card}>
+      <View style={wk.header}>
+        <Text style={wk.title}>This week</Text>
+        {metaText ? <Text style={wk.meta}>{metaText}</Text> : null}
+      </View>
+      <View style={wk.dots}>
+        {days.map((day) => {
+          const isToday  = day.log_date === today;
+          const hasData  = day.items > 0;
+          const ratio    = target > 0 && hasData ? day.kcal / target : 0;
+          const dotColor = !hasData
+            ? 'rgba(255,255,255,0.12)'
+            : ratio <= 1.1
+              ? C.green
+              : ratio <= 1.25
+                ? C.amber
+                : C.red;
+          return (
+            <View key={day.log_date} style={wk.day}>
+              <Text style={[wk.dayLabel, isToday && wk.dayLabelToday]}>
+                {dayLabel(day.log_date)}
+              </Text>
+              <View style={[wk.dot, { backgroundColor: dotColor }, isToday && wk.dotToday]} />
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const wk = StyleSheet.create({
+  card: {
+    // Dark gradient card
+    backgroundColor: '#1C3027',
+    borderRadius: Radius.xl,
+    paddingHorizontal: 19,
+    paddingTop: 18,
+    paddingBottom: 16,
+    ...Shadow.dark,
+  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  title:  { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 15, color: '#fff' },
+  meta:   { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: '#9FB4AB' },
+  dots:   { flexDirection: 'row', justifyContent: 'space-between' },
+  day:    { alignItems: 'center', gap: 8 },
+  dayLabel:      { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, color: '#8FA399' },
+  dayLabelToday: { color: '#fff', fontWeight: '600' },
+  dot: { width: 23, height: 23, borderRadius: 12 },
+  dotToday: { shadowColor: '#fff', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.18, shadowRadius: 5, elevation: 4 },
+});
+
+// ─── Week AI insight card ─────────────────────────────────────────────────────
+
+function WeekInsightCard({
+  data,
+  loading,
+  onRefresh,
+}: {
+  data: WeekInsight | null;
+  loading: boolean;
+  onRefresh: () => void;
+}) {
+  if (!loading && !data) return null;
+
+  if (loading && !data) {
     return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
+      <View style={wi.card}>
+        <SkeletonPulse style={wi.skGroup}>
+          <View style={wi.skRow}>
+            <View style={wi.skChip} />
+            <View style={wi.skBadge} />
+          </View>
+          <View style={[wi.skLine, { width: '95%' }]} />
+          <View style={[wi.skLine, { width: '80%' }]} />
+          <View style={[wi.skLine, { width: '65%' }]} />
+          <View style={[wi.skLine, { width: '50%', marginTop: 8 }]} />
+          <View style={[wi.skLine, { width: '85%' }]} />
+        </SkeletonPulse>
+      </View>
     );
   }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+
+  if (!data) return null;
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <View style={wi.card}>
+      <View style={wi.header}>
+        <View style={wi.headerLeft}>
+          <Text style={wi.title}>Your week</Text>
+          <View style={wi.badge}>
+            <Text style={wi.badgeText}>{data.days_logged} of 7 logged</Text>
+          </View>
+        </View>
+        <AnimatedPressable onPress={onRefresh} hitSlop={12} style={wi.refreshBtn} disabled={loading}>
+          <Icon name="refresh" color={C.inkFaint} size={16} strokeWidth={2} />
+        </AnimatedPressable>
+      </View>
+
+      <Text style={wi.readout}>{data.readout}</Text>
+
+      <View style={wi.section}>
+        <Text style={wi.sectionLabel}>One change to try</Text>
+        <Text style={wi.sectionBody}>{data.one_change}</Text>
+      </View>
+
+      <View style={wi.section}>
+        <Text style={wi.sectionLabel}>Tomorrow</Text>
+        <Text style={wi.sectionBody}>{data.tomorrow_plan}</Text>
+        <AnimatedPressable onPress={() => router.push('/plan' as never)} hitSlop={8} style={wi.planLink}>
+          <Text style={wi.planLinkText}>See full plan →</Text>
+        </AnimatedPressable>
+      </View>
+    </View>
   );
 }
+
+const wi = StyleSheet.create({
+  card: {
+    backgroundColor: C.card,
+    borderRadius: Radius.xl,
+    padding: 19,
+    gap: 10,
+    ...Shadow.md,
+  },
+  header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  title: {
+    fontFamily: Fonts?.displaySemi ?? 'system',
+    fontSize: 15,
+    color: C.ink,
+  },
+  badge: {
+    backgroundColor: C.greenSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  badgeText: {
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 11,
+    fontWeight: '600',
+    color: C.greenInk,
+  },
+  refreshBtn:  { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  readout: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 14.5,
+    color: C.inkSoft,
+    lineHeight: 22,
+  },
+  section:      { gap: 3, marginTop: 2 },
+  sectionLabel: {
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color: C.inkFaint,
+  },
+  sectionBody: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 14,
+    color: C.ink,
+    lineHeight: 21,
+  },
+  // plan link
+  planLink:     { marginTop: 5, alignSelf: 'flex-start' },
+  planLinkText: {
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.green,
+  },
+  // skeleton
+  skGroup: { gap: 10 },
+  skRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  skChip: { height: 14, width: 90, borderRadius: 7, backgroundColor: C.line },
+  skBadge:{ height: 14, width: 70, borderRadius: 7, backgroundColor: C.line },
+  skLine: { height: 12, borderRadius: 6, backgroundColor: C.line },
+});
+
+// ─── Water card ──────────────────────────────────────────────────────────────
+
+const GLASS_INNER_H = 21;
+
+// A single glass whose water level eases in/out when it fills or empties.
+function WaterGlass({ full }: { full: boolean }) {
+  const fill = useSharedValue(full ? 1 : 0);
+  useEffect(() => {
+    fill.value = withTiming(full ? 1 : 0, { duration: 350, easing: REasing.out(REasing.cubic) });
+  }, [full, fill]);
+  const fillStyle = useAnimatedStyle(() => ({ height: fill.value * GLASS_INNER_H }));
+  return (
+    <View style={wa.glass}>
+      <Reanimated.View style={[wa.glassFillInner, fillStyle]} />
+    </View>
+  );
+}
+
+function WaterCard({ glasses, goal, onAdd, adding }: {
+  glasses: number; goal: number; onAdd: () => void; adding: boolean;
+}) {
+  const shownGlasses = Math.round(useCountUp(glasses, 350));
+  const dropScale = useSharedValue(1);
+  const dropStyle = useAnimatedStyle(() => ({ transform: [{ scale: dropScale.value }] }));
+
+  function handlePress() {
+    if (adding) return;
+    dropScale.value = withSequence(
+      withTiming(1.25, { duration: 100, easing: REasing.out(REasing.quad) }),
+      withTiming(1, { duration: 100, easing: REasing.out(REasing.quad) }),
+    );
+    onAdd();
+  }
+
+  return (
+    <View style={wa.card}>
+      <View style={wa.header}>
+        <View>
+          <Text style={wa.title}>Water</Text>
+          <Text style={wa.count}>
+            <Text style={wa.countBold}>{shownGlasses}</Text>
+            {` of ${goal} glasses`}
+          </Text>
+        </View>
+        <AnimatedPressable style={wa.addBtn} onPress={handlePress} disabled={adding} pressedScale={0.96}>
+          <Reanimated.View style={dropStyle}>
+            <Icon name="droplet" color={C.waterBlueInk} size={15} strokeWidth={2.2} />
+          </Reanimated.View>
+          <Text style={wa.addText}>{adding ? '…' : 'Glass'}</Text>
+        </AnimatedPressable>
+      </View>
+      <View style={wa.glasses}>
+        {Array.from({ length: goal }).map((_, i) => (
+          <WaterGlass key={i} full={i < glasses} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const wa = StyleSheet.create({
+  card: {
+    backgroundColor: C.card,
+    borderRadius: Radius.xl,
+    paddingHorizontal: 19,
+    paddingVertical: 17,
+    ...Shadow.md,
+  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  title:  { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 16, color: C.ink },
+  count:  { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, marginTop: 2 },
+  countBold: { color: C.waterBlue, fontFamily: Fonts?.bodySemi ?? 'system', fontWeight: '600' },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EAF4F7',
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    borderRadius: 11,
+  },
+  addText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13, fontWeight: '600', color: C.waterBlueInk },
+  glasses: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  glass:     { width: 19, height: 25, borderWidth: 2, borderColor: '#CFE3E8', borderRadius: 4, borderBottomLeftRadius: 9, borderBottomRightRadius: 9, overflow: 'hidden', justifyContent: 'flex-end' },
+  glassFillInner: { backgroundColor: C.waterBlue, borderBottomLeftRadius: 7, borderBottomRightRadius: 7 },
+});
+
+// ─── Today list ──────────────────────────────────────────────────────────────
+
+function formatQtyUnit(quantity: number | null | undefined, unit: string | null | undefined): string | null {
+  if (quantity == null || unit == null) return null;
+  if (unit === 'piece') return `${quantity} piece${quantity !== 1 ? 's' : ''}`;
+  return `${quantity} ${unit}`;
+}
+
+function TodayItem({ item, onEdit, onDelete }: { item: TodayEntry; onEdit: () => void; onDelete: () => void }) {
+  const mealLabel   = item.meal_type ? item.meal_type.charAt(0).toUpperCase() + item.meal_type.slice(1) : 'Snack';
+  const sourceLabel = item.source === 'scan' ? 'Scanned' : item.source === 'quick_add' ? 'Quick add' : '';
+  const qtyUnit     = formatQtyUnit(item.quantity, item.unit);
+  const metaText    = qtyUnit ? `${mealLabel} · ${qtyUnit}` : mealLabel;
+  return (
+    <Reanimated.View
+      style={ti.row}
+      entering={FadeInDown.duration(300)
+        .easing(REasing.out(REasing.cubic))
+        .withInitialValues({ transform: [{ translateY: 12 }] })}
+    >
+      <Pressable style={ti.rowMain} onPress={onEdit} accessibilityLabel={`Edit ${item.name}`}>
+        <VerdictDot verdict={item.verdict ?? null} />
+        <View style={ti.info}>
+          <Text style={ti.name} numberOfLines={1}>
+            {item.name}
+            {sourceLabel ? <Text style={ti.tag}>{' · '}{sourceLabel}</Text> : null}
+          </Text>
+          <Text style={ti.meta}>{metaText}</Text>
+        </View>
+        <Text style={ti.kcal}>
+          {item.kcal}<Text style={ti.kcalUnit}> kcal</Text>
+        </Text>
+      </Pressable>
+      <Pressable onPress={onDelete} hitSlop={10} style={ti.delBtn}>
+        <Text style={ti.delBtnText}>×</Text>
+      </Pressable>
+    </Reanimated.View>
+  );
+}
+
+const ti = StyleSheet.create({
+  row:       { flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line },
+  rowMain:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 13 },
+  info:      { flex: 1, gap: 1 },
+  name:      { fontFamily: Fonts?.bodyMed ?? 'system', fontSize: 14.5, color: C.ink, fontWeight: '500' },
+  tag:       { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint },
+  meta:      { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint, marginTop: 1 },
+  kcal:      { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 14.5, fontWeight: '600', color: C.ink, fontVariant: ['tabular-nums'] },
+  kcalUnit:  { fontFamily: Fonts?.body ?? 'system', fontSize: 11, fontWeight: '400', color: C.inkFaint },
+  delBtn:    { paddingLeft: 4, paddingRight: 2, paddingVertical: 13 },
+  delBtnText:{ fontSize: 20, lineHeight: 24, color: C.inkFaint },
+});
+
+// ─── Edit-a-logged-entry sheet ───────────────────────────────────────────────
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+function EditLogBody({ entry, onClose, onSaved }: {
+  entry: TodayEntry; onClose: () => void; onSaved: () => void;
+}) {
+  const hasQty  = entry.quantity != null && entry.unit != null;
+  const isPiece = entry.unit === 'piece';
+  const oldQty  = Number(entry.quantity) || 0;
+  const oldKcal = Number(entry.kcal) || 0;
+  const step    = isPiece ? 1  : 10;
+  const minA    = isPiece ? 1  : 10;
+  const maxA    = isPiece ? 20 : 2000;
+  const unitLabel = isPiece ? (oldQty === 1 ? 'piece' : 'pieces') : String(entry.unit ?? '');
+
+  const clampQty = (n: number) =>
+    isPiece ? Math.max(1, Math.min(20, Math.round(n * 2) / 2)) : Math.max(1, Math.min(2000, Math.round(n)));
+
+  const [qty, setQty]           = useState(hasQty ? oldQty : 0);
+  const [qtyDraft, setQtyDraft] = useState(hasQty ? String(oldQty) : '');
+  const [kcalDraft, setKcalDraft] = useState(String(oldKcal));
+  const [saving, setSaving]     = useState(false);
+
+  function applyQty(next: number) {
+    const c = clampQty(next);
+    setQty(c);
+    setQtyDraft(String(c));
+    if (hasQty && oldQty > 0) setKcalDraft(String(Math.round(oldKcal * (c / oldQty))));
+  }
+  function commitQty() {
+    const parsed = isPiece ? parseFloat(qtyDraft) : parseInt(qtyDraft, 10);
+    if (Number.isNaN(parsed)) { setQtyDraft(String(qty)); return; }
+    applyQty(parsed);
+  }
+
+  async function handleSave() {
+    if (saving) return;
+    setSaving(true);
+    const newKcal = Math.max(0, parseInt(kcalDraft, 10) || 0);
+    const fields: {
+      quantity?: number; kcal: number; protein_g?: number; carbs_g?: number; fat_g?: number;
+    } = { kcal: newKcal };
+
+    if (hasQty && oldQty > 0) {
+      const ratio = qty / oldQty;
+      fields.quantity  = qty;
+      fields.protein_g = round1((Number(entry.protein_g) || 0) * ratio);
+      fields.carbs_g   = round1((Number(entry.carbs_g)   || 0) * ratio);
+      fields.fat_g     = round1((Number(entry.fat_g)     || 0) * ratio);
+    } else {
+      const ratio = oldKcal > 0 ? newKcal / oldKcal : 1;
+      fields.protein_g = round1((Number(entry.protein_g) || 0) * ratio);
+      fields.carbs_g   = round1((Number(entry.carbs_g)   || 0) * ratio);
+      fields.fat_g     = round1((Number(entry.fat_g)     || 0) * ratio);
+    }
+
+    try {
+      await updateFoodLog(entry.id, fields);
+      onSaved();
+    } catch {
+      setSaving(false);
+      Alert.alert('Could not save changes. Please try again.');
+    }
+  }
+
+  return (
+    <Pressable style={es.overlay} onPress={onClose}>
+      <Pressable style={es.sheet} onPress={() => undefined}>
+        <View style={es.handle} />
+        <View style={es.headerRow}>
+          <Text style={es.title} numberOfLines={1}>{entry.name}</Text>
+          <Pressable onPress={onClose} hitSlop={12} style={es.closeBtn}>
+            <Text style={es.closeTxt}>×</Text>
+          </Pressable>
+        </View>
+
+        {hasQty ? (
+          <View style={es.fieldRow}>
+            <Text style={es.fieldLabel}>Amount</Text>
+            <View style={es.amtGroup}>
+              <Pressable
+                style={[es.stepBtn, qty <= minA && es.stepDim]}
+                onPress={() => applyQty(qty - step)}
+                disabled={qty <= minA}
+                hitSlop={8}
+              >
+                <Text style={[es.stepTxt, qty <= minA && es.stepTxtDim]}>−</Text>
+              </Pressable>
+              <TextInput
+                style={es.numInput}
+                value={qtyDraft}
+                onChangeText={(t) => setQtyDraft(isPiece ? t.replace(/[^0-9.]/g, '') : t.replace(/[^0-9]/g, ''))}
+                onBlur={commitQty}
+                onSubmitEditing={commitQty}
+                keyboardType={isPiece ? 'decimal-pad' : 'number-pad'}
+                returnKeyType="done"
+                maxLength={6}
+                selectTextOnFocus
+              />
+              <Pressable
+                style={[es.stepBtn, qty >= maxA && es.stepDim]}
+                onPress={() => applyQty(qty + step)}
+                disabled={qty >= maxA}
+                hitSlop={8}
+              >
+                <Text style={[es.stepTxt, qty >= maxA && es.stepTxtDim]}>+</Text>
+              </Pressable>
+              <Text style={es.unit}>{unitLabel}</Text>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={es.fieldRow}>
+          <Text style={es.fieldLabel}>Calories</Text>
+          <View style={es.kcalGroup}>
+            <TextInput
+              style={es.numInput}
+              value={kcalDraft}
+              onChangeText={(t) => setKcalDraft(t.replace(/[^0-9]/g, ''))}
+              keyboardType="number-pad"
+              returnKeyType="done"
+              maxLength={5}
+              selectTextOnFocus
+            />
+            <Text style={es.unit}>kcal</Text>
+          </View>
+        </View>
+
+        <Text style={es.hint}>
+          {hasQty ? 'Calories & macros scale with the amount.' : 'Macros scale with the calories.'}
+        </Text>
+
+        <Pressable style={[es.saveBtn, saving && es.saveDim]} onPress={handleSave} disabled={saving}>
+          {saving ? <ActivityIndicator color="#fff" /> : <Text style={es.saveTxt}>Save changes</Text>}
+        </Pressable>
+      </Pressable>
+    </Pressable>
+  );
+}
+
+const es = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: C.card,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: 32,
+  },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: C.line, alignSelf: 'center', marginBottom: 18 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
+  title: { flex: 1, fontFamily: Fonts?.display ?? 'system', fontSize: 20, color: C.ink, letterSpacing: -0.3 },
+  closeBtn: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  closeTxt: { fontSize: 22, lineHeight: 26, color: C.inkFaint },
+
+  fieldRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  fieldLabel: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: C.inkSoft },
+  amtGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  kcalGroup: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  stepBtn: { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, borderColor: C.green, alignItems: 'center', justifyContent: 'center' },
+  stepDim: { borderColor: C.line },
+  stepTxt: { fontSize: 18, lineHeight: 22, color: C.green, fontWeight: '500' },
+  stepTxtDim: { color: C.inkFaint },
+  numInput: {
+    minWidth: 56,
+    textAlign: 'center',
+    backgroundColor: C.bg,
+    borderWidth: 1,
+    borderColor: C.line,
+    borderRadius: Radius.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 16,
+    fontWeight: '600',
+    color: C.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  unit: { fontFamily: Fonts?.body ?? 'system', fontSize: 13, color: C.inkSoft },
+
+  hint: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint, marginTop: -4, marginBottom: 18 },
+  saveBtn: { backgroundColor: C.green, borderRadius: Radius.md, height: 52, alignItems: 'center', justifyContent: 'center', ...Shadow.md },
+  saveDim: { opacity: 0.7 },
+  saveTxt: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: '#fff' },
+});
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function proteinTarget(weight_kg: number | null, goal: Goal | undefined): number | null {
+  if (weight_kg == null) return null;
+  const factor =
+    goal === 'build_muscle' || goal === 'recomp' ? 2.0 :
+    goal === 'lose'         ? 1.8 :
+    goal === 'gain'         ? 1.6 :
+                              1.4;
+  return Math.round((weight_kg * factor) / 5) * 5;
+}
+
+function round5(n: number): number {
+  return Math.round(n / 5) * 5;
+}
+
+function macroTargets(
+  weight_kg: number | null,
+  goal: Goal | undefined,
+  dailyTargetKcal: number | null,
+): { protein_g: number; carbs_g: number; fat_g: number } | null {
+  if (weight_kg == null || dailyTargetKcal == null) return null;
+  const protein_g = proteinTarget(weight_kg, goal);
+  if (protein_g == null) return null;
+  const fat_g = Math.max(
+    round5((0.27 * dailyTargetKcal) / 9),
+    round5(0.5 * weight_kg),
+  );
+  const carbs_g = Math.max(0, round5((dailyTargetKcal - protein_g * 4 - fat_g * 9) / 4));
+  return { protein_g, carbs_g, fat_g };
+}
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function goalLabel(g?: Profile['goal']): string {
+  if (g === 'lose')          return 'Lose slowly';
+  if (g === 'gain')          return 'Gain weight';
+  if (g === 'build_muscle')  return 'Build muscle';
+  if (g === 'recomp')        return 'Recomp';
+  return 'Maintain';
+}
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
+  const [totals,         setTotals]         = useState<DailyTotals | null>(null);
+  const [profile,        setProfile]        = useState<Profile | null>(null);
+  const [log,            setLog]            = useState<TodayEntry[]>([]);
+  const [weekData,       setWeekData]       = useState<DayTotal[]>([]);
+  const [water,          setWater]          = useState<WaterData>({ ml: 0, glasses: 0 });
+  const [loading,        setLoading]        = useState(true);
+  const [addingWater,    setAddingWater]    = useState(false);
+  const [insightData,    setInsightData]    = useState<WeekInsight | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+  const [editing,        setEditing]        = useState<TodayEntry | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [t, p, l, w, wk] = await Promise.all([
+        getDailyTotals(), getProfile(), getTodayLog(), getWaterToday(), getWeekTotals(),
+      ]);
+      setTotals(t); setProfile(p); setLog(l); setWater(w); setWeekData(wk);
+    } catch (e) {
+      console.warn('[Home] load error', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadInsight = useCallback(async (force = false) => {
+    setInsightLoading(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) return;
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+      if (!apiUrl) throw new Error('No API URL');
+      const res = await fetch(`${apiUrl}/insights/weekly`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, ...(force ? { force: true } : {}) }),
+      });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const json: { insight: WeekInsight } = await res.json();
+      setInsightData(json.insight);
+    } catch {
+      // on failure keep existing data if any; hide card if none
+    } finally {
+      setInsightLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    setLoading(true);
+    load();
+    loadInsight();
+  }, [load, loadInsight]));
+
+  function handleDelete(id: string, name: string) {
+    Alert.alert('Remove this entry?', name, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteFoodLog(id);
+            await load();
+          } catch { /* silently ignore */ }
+        },
+      },
+    ]);
+  }
+
+  async function handleAddWater() {
+    setAddingWater(true);
+    try {
+      await addWater(250);
+      const w = await getWaterToday();
+      setWater(w);
+    } catch { /* ignore */ }
+    finally { setAddingWater(false); }
+  }
+
+  const target      = profile?.daily_target_kcal ?? 2000;
+  const maintenance = profile?.maintenance_kcal  ?? target;
+  const eaten       = totals?.kcal ?? 0;
+  const waterGoal   = profile?.water_goal_glasses ?? 8;
+  const dayName     = DAYS[new Date().getDay()];
+  const targets     = macroTargets(profile?.weight_kg ?? null, profile?.goal, profile?.daily_target_kcal ?? null);
+
+  // Stagger the main sections in on first appearance only (not on every focus).
+  const didStagger = useRef(false);
+  useEffect(() => { if (!loading) didStagger.current = true; }, [loading]);
+  const enter = (i: number) =>
+    didStagger.current
+      ? undefined
+      : FadeInDown.duration(300)
+          .delay(i * 60)
+          .easing(REasing.out(REasing.cubic))
+          .withInitialValues({ transform: [{ translateY: 12 }] });
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <View style={hs.root}>
+      <SafeAreaView style={hs.flex} edges={['top']}>
+        <ScrollView style={hs.flex} contentContainerStyle={hs.scroll} showsVerticalScrollIndicator={false}>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+          {/* Greeting */}
+          <View style={hs.greet}>
+            <View style={hs.greetText}>
+              <Text style={hs.eyebrow}>{dayName}</Text>
+              <Text style={hs.greetTitle}>{greeting()}</Text>
+            </View>
+            <AnimatedPressable
+              onPress={() => router.push('/settings' as never)}
+              hitSlop={10}
+              style={hs.gearBtn}
+              accessibilityLabel="Settings"
+            >
+              <Icon name="gear" color={C.inkSoft} size={22} strokeWidth={1.8} />
+            </AnimatedPressable>
+          </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+          {loading ? (
+            <View style={{ alignItems: 'center', marginTop: 40 }}>
+              <View style={[hs.calCard, { alignItems: 'center', paddingVertical: 40 }]}>
+                <Text style={hs.loadingText}>Loading…</Text>
+              </View>
+            </View>
+          ) : (
+            <>
+              {/* ── Calorie card ── */}
+              <Reanimated.View style={hs.calCard} entering={enter(0)}>
+                {/* Ring — centered hero */}
+                <CalorieRing eaten={eaten} target={target} />
 
-        {Platform.OS === 'web' && <WebBadge />}
+                {/* Stats row below the ring */}
+                <View style={hs.statsRow}>
+                  <View style={hs.stat}>
+                    <Text style={hs.statKey}>Maintenance</Text>
+                    <Text style={hs.statVal}>{maintenance.toLocaleString()}</Text>
+                  </View>
+                  <View style={[hs.stat, hs.statDiv]}>
+                    <Text style={hs.statKey}>Eaten</Text>
+                    <Text style={hs.statVal}>{eaten.toLocaleString()}</Text>
+                  </View>
+                  <View style={[hs.stat, hs.statDiv]}>
+                    <Text style={hs.statKey}>Goal</Text>
+                    <Text style={[hs.statVal, hs.statGoal]}>{goalLabel(profile?.goal)}</Text>
+                  </View>
+                </View>
+
+                {/* Macros */}
+                <View style={hs.macros}>
+                  <MacroChip label="Protein" value={totals?.protein_g ?? 0} unit="g" target={targets?.protein_g ?? null} />
+                  <MacroChip label="Carbs"   value={totals?.carbs_g   ?? 0} unit="g" target={targets?.carbs_g   ?? null} />
+                  <MacroChip label="Fat"     value={totals?.fat_g      ?? 0} unit="g" target={targets?.fat_g      ?? null} />
+                </View>
+                <Text style={hs.disclaimer}>Estimates for general guidance, not medical advice. Consult a doctor if you have a health condition.</Text>
+              </Reanimated.View>
+
+              {/* Week balance */}
+              <Reanimated.View entering={enter(1)}>
+                <WeekStrip days={weekData} target={target} />
+              </Reanimated.View>
+
+              {/* AI weekly insight */}
+              <Reanimated.View entering={enter(2)}>
+                <WeekInsightCard
+                  data={insightData}
+                  loading={insightLoading}
+                  onRefresh={() => loadInsight(true)}
+                />
+              </Reanimated.View>
+
+              {/* Water */}
+              <Reanimated.View entering={enter(3)}>
+                <WaterCard glasses={water.glasses} goal={waterGoal} onAdd={handleAddWater} adding={addingWater} />
+              </Reanimated.View>
+
+              {/* Today list */}
+              <View>
+                <View style={hs.secHeader}>
+                  <Text style={hs.secTitle}>Today</Text>
+                  <AnimatedPressable style={hs.secLinkWrap} onPress={() => router.push('/add')}>
+                    <Icon name="plus" color={C.green} size={15} strokeWidth={2.2} />
+                    <Text style={hs.secLink}>Add food</Text>
+                  </AnimatedPressable>
+                </View>
+                {log.length === 0 ? (
+                  <Text style={hs.empty}>Nothing logged yet — scan or add your first food.</Text>
+                ) : (
+                  log.map((item) => (
+                    <TodayItem
+                      key={item.id}
+                      item={item}
+                      onEdit={() => setEditing(item)}
+                      onDelete={() => handleDelete(item.id, item.name)}
+                    />
+                  ))
+                )}
+              </View>
+            </>
+          )}
+        </ScrollView>
       </SafeAreaView>
-    </ThemedView>
+
+      {/* Edit a logged entry */}
+      <Modal
+        visible={editing !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditing(null)}
+      >
+        {editing ? (
+          <EditLogBody
+            key={editing.id}
+            entry={editing}
+            onClose={() => setEditing(null)}
+            onSaved={() => { setEditing(null); load(); }}
+          />
+        ) : null}
+      </Modal>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+function MacroChip({ label, value, unit, warn = false, target }: {
+  label: string; value: number; unit: string; warn?: boolean; target?: number | null;
+}) {
+  return (
+    <View style={[mc.chip, warn && mc.chipWarn]}>
+      <Text style={[mc.key, warn && mc.keyWarn]}>{label}</Text>
+      <Text style={[mc.val, warn && mc.valWarn]}>
+        {Math.round(value)}
+        {target != null
+          ? <Text style={[mc.unit, warn && mc.keyWarn]}> / {target} {unit}</Text>
+          : <Text style={[mc.unit, warn && mc.keyWarn]}> {unit}</Text>
+        }
+      </Text>
+    </View>
+  );
+}
+
+const mc = StyleSheet.create({
+  chip:     { flex: 1, backgroundColor: C.bg, borderRadius: 14, paddingHorizontal: 13, paddingVertical: 11 },
+  chipWarn: { backgroundColor: C.redSoft },
+  key:      { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkSoft },
+  keyWarn:  { color: C.red },
+  val:      { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 19, fontWeight: '600', color: C.ink, marginTop: 3, fontVariant: ['tabular-nums'] },
+  valWarn:  { color: C.red },
+  unit:     { fontSize: 13, fontWeight: '400', color: C.inkFaint },
+});
+
+// ─── Screen styles ────────────────────────────────────────────────────────────
+
+const hs = StyleSheet.create({
+  root:  { flex: 1, backgroundColor: C.bg },
+  flex:  { flex: 1 },
+  scroll:{ paddingHorizontal: 22, paddingBottom: 120, gap: 16 },
+
+  greet:      { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingTop: 8, marginBottom: 4 },
+  greetText:  { flex: 1 },
+  gearBtn:    { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  eyebrow:    { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600', letterSpacing: 1.1, textTransform: 'uppercase', color: C.inkFaint },
+  greetTitle: { fontFamily: Fonts?.display ?? 'system', fontSize: 25, color: C.ink, marginTop: 3, letterSpacing: -0.3 },
+
+  calCard: {
+    backgroundColor: C.card,
+    borderRadius: Radius.xl,
+    padding: 20,
+    paddingBottom: 18,
+    ...Shadow.md,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  loadingText: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint },
+
+  // Stats row (below ring)
+  statsRow: { flexDirection: 'row', marginTop: 18 },
+  stat:     { flex: 1, alignItems: 'center', paddingHorizontal: 6 },
+  statDiv:  { borderLeftWidth: 1, borderLeftColor: C.line },
+  statKey:  { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkSoft },
+  statVal:  { fontFamily: Fonts?.displaySemi ?? 'system', fontWeight: '600', fontSize: 18, color: C.ink, marginTop: 5, letterSpacing: -0.3, fontVariant: ['tabular-nums'] },
+  statGoal: { color: C.greenInk },
+
+  macros: { flexDirection: 'row', gap: 10, marginTop: 18 },
+
+  secHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 0 },
+  secTitle:    { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 17, color: C.ink, letterSpacing: -0.2 },
+  secLinkWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  secLink:     { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13, color: C.green, fontWeight: '600' },
+  empty:       { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint, textAlign: 'center', paddingVertical: Spacing.four },
+  disclaimer:  { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, color: C.inkFaint, textAlign: 'center', lineHeight: 15, marginTop: 8 },
 });

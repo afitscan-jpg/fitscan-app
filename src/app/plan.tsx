@@ -1,0 +1,565 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { AnimatedPressable } from '@/components/animated-pressable';
+import { SkeletonPulse } from '@/components/skeleton-pulse';
+import { Icon } from '@/components/Icon';
+import { C, Fonts, Radius, Shadow } from '@/constants/theme';
+import { logFood, type MealType } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type ItemUnit = 'piece' | 'g' | 'ml';
+
+interface PlanItem {
+  name: string;
+  amount: number;
+  unit: ItemUnit;
+  kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+}
+
+interface PlanMeal {
+  meal_type: MealType;
+  title: string;
+  items: PlanItem[];
+}
+
+interface PlanTotals {
+  kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+}
+
+interface Plan {
+  meals: PlanMeal[];
+  totals: PlanTotals;
+  note: string | null;
+  adjusted: boolean;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const MEAL_LABELS: Record<MealType, string> = {
+  breakfast: 'Breakfast',
+  lunch:     'Lunch',
+  snack:     'Snack',
+  dinner:    'Dinner',
+};
+
+type DietValue = 'veg' | 'egg' | 'non_veg' | 'vegan' | 'keto';
+
+const DIET_CHIPS: Array<{ label: string; value: DietValue }> = [
+  { label: 'Veg',      value: 'veg' },
+  { label: 'Veg + Egg', value: 'egg' },
+  { label: 'Non-veg',  value: 'non_veg' },
+  { label: 'Vegan',    value: 'vegan' },
+  { label: 'Keto-ish', value: 'keto' },
+];
+
+function formatAmount(amount: number, unit: ItemUnit): string {
+  if (unit === 'piece') return `${amount} piece${amount !== 1 ? 's' : ''}`;
+  return `${amount} ${unit}`;
+}
+
+function tomorrowLabel(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+// Cache key is scoped to tomorrow's local date so a stale plan from a previous
+// day is never shown.
+function planCacheKey(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  return `plan:${y}-${m}-${da}`;
+}
+
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+function SkeletonMealCard() {
+  return (
+    <SkeletonPulse style={sk.card}>
+      <View style={sk.eyebrow} />
+      <View style={sk.title} />
+      <View style={sk.line} />
+      <View style={sk.line} />
+      <View style={[sk.line, { width: '60%' }]} />
+      <View style={sk.btn} />
+    </SkeletonPulse>
+  );
+}
+
+const sk = StyleSheet.create({
+  card:    { backgroundColor: C.card, borderRadius: Radius.xl, padding: 16, gap: 10, ...Shadow.sm },
+  eyebrow: { height: 10, width: 70, borderRadius: 5, backgroundColor: C.line },
+  title:   { height: 14, width: '75%', borderRadius: 6, backgroundColor: C.line, marginBottom: 2 },
+  line:    { height: 12, width: '90%', borderRadius: 5, backgroundColor: C.line },
+  btn:     { height: 40, borderRadius: Radius.md, backgroundColor: C.line, marginTop: 4 },
+  totals:  { height: 60, borderRadius: Radius.md, backgroundColor: C.line },
+});
+
+// ─── Meal card ────────────────────────────────────────────────────────────────
+
+function MealCard({
+  meal,
+  logged,
+  onLog,
+}: {
+  meal: PlanMeal;
+  logged: boolean;
+  onLog: () => Promise<void>;
+}) {
+  const [logging, setLogging] = useState(false);
+
+  async function handleLog() {
+    if (logged || logging) return;
+    setLogging(true);
+    try {
+      await onLog();
+    } catch {
+      // meal stays unlogged; button resets
+    } finally {
+      setLogging(false);
+    }
+  }
+
+  return (
+    <View style={mc.card}>
+      <Text style={mc.eyebrow}>{MEAL_LABELS[meal.meal_type] ?? meal.meal_type}</Text>
+      <Text style={mc.title}>{meal.title}</Text>
+
+      <View style={mc.itemList}>
+        {meal.items.map((item, i) => (
+          <View key={i} style={mc.itemRow}>
+            <Text style={mc.itemName} numberOfLines={2}>{item.name}</Text>
+            <Text style={mc.itemMeta}>
+              {formatAmount(item.amount, item.unit)}
+              <Text style={mc.itemKcal}> · {item.kcal} kcal</Text>
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      <AnimatedPressable
+        style={[mc.logBtn, logged && mc.logBtnDone]}
+        onPress={handleLog}
+        disabled={logged || logging}
+      >
+        {logging ? (
+          <ActivityIndicator color={logged ? C.greenInk : '#fff'} size="small" />
+        ) : logged ? (
+          <View style={mc.logBtnDoneRow}>
+            <Icon name="check" color={C.greenInk} size={15} strokeWidth={2.4} />
+            <Text style={[mc.logBtnText, mc.logBtnTextDone]}>Logged</Text>
+          </View>
+        ) : (
+          <Text style={mc.logBtnText}>Log this meal</Text>
+        )}
+      </AnimatedPressable>
+    </View>
+  );
+}
+
+const mc = StyleSheet.create({
+  card: { backgroundColor: C.card, borderRadius: Radius.xl, padding: 16, gap: 10, ...Shadow.md },
+  eyebrow: {
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: C.inkFaint,
+  },
+  title: {
+    fontFamily: Fonts?.displaySemi ?? 'system',
+    fontSize: 15,
+    color: C.ink,
+    marginTop: -2,
+  },
+  itemList: { gap: 7, marginTop: 2 },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  itemName: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 13.5,
+    color: C.inkSoft,
+    flex: 1,
+    lineHeight: 19,
+  },
+  itemMeta: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 13,
+    color: C.inkSoft,
+    textAlign: 'right',
+    flexShrink: 0,
+  },
+  itemKcal: { color: C.inkFaint, fontSize: 12.5 },
+  logBtn: {
+    backgroundColor: C.green,
+    borderRadius: Radius.md,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  pressed:        { opacity: 0.85 },
+  logBtnDone:     { backgroundColor: C.greenSoft },
+  logBtnDoneRow:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  logBtnText:     { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: '#fff' },
+  logBtnTextDone: { color: C.greenInk },
+});
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+export default function PlanScreen() {
+  const [plan, setPlan]               = useState<Plan | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState(false);
+  const [loggedMeals, setLoggedMeals] = useState<Set<number>>(new Set());
+  const [dietOverride, setDietOverride] = useState<DietValue | null>(null);
+
+  const fetchPlan = useCallback(async (
+    force = false,
+    override: DietValue | null = null,
+    opts: { silent?: boolean } = {},
+  ) => {
+    // Silent = a background refresh while cached content is on screen: don't
+    // flip into the loading/error states, just swap the result in on success.
+    const silent = opts.silent ?? false;
+    if (!silent) {
+      setLoading(true);
+      setError(false);
+    }
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('No user');
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+      if (!apiUrl) throw new Error('No API URL');
+      const res = await fetch(`${apiUrl}/insights/plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          ...(force ? { force: true } : {}),
+          ...(override ? { diet_override: override } : {}),
+        }),
+      });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const json: { plan: Plan; plan_date: string } = await res.json();
+      setPlan(json.plan);
+      AsyncStorage.setItem(planCacheKey(), JSON.stringify(json.plan)).catch(() => {});
+    } catch {
+      // A failed background refresh keeps the cached plan visible.
+      if (!silent) setError(true);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
+
+  // On mount: paint the cached plan immediately (if any), then refresh from the
+  // network in the background. Only show the full loading state with no cache.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      let hadCache = false;
+      try {
+        const cached = await AsyncStorage.getItem(planCacheKey());
+        if (cached && alive) {
+          setPlan(JSON.parse(cached) as Plan);
+          setLoading(false);
+          hadCache = true;
+        }
+      } catch {
+        // ignore malformed cache — fall through to a normal load
+      }
+      if (alive) fetchPlan(false, null, { silent: hadCache });
+    })();
+    return () => { alive = false; };
+  }, [fetchPlan]);
+
+  function selectDiet(value: DietValue) {
+    if (loading) return;
+    const next = dietOverride === value ? null : value;
+    setDietOverride(next);
+    setLoggedMeals(new Set());
+    fetchPlan(true, next);
+  }
+
+  async function handleLogMeal(mealIndex: number): Promise<void> {
+    const meal = plan?.meals[mealIndex];
+    if (!meal) return;
+    await Promise.all(
+      meal.items.map((item) =>
+        logFood({
+          name:      item.name,
+          kcal:      item.kcal,
+          protein_g: item.protein_g,
+          carbs_g:   item.carbs_g,
+          fat_g:     item.fat_g,
+          source:    'ai_estimate',
+          meal_type: meal.meal_type,
+          quantity:  item.amount,
+          unit:      item.unit,
+        })
+      )
+    );
+    setLoggedMeals((prev) => new Set([...prev, mealIndex]));
+  }
+
+  return (
+    <View style={s.root}>
+      <SafeAreaView style={s.flex} edges={['top']}>
+        {/* ── Header ── */}
+        <View style={s.header}>
+          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+            <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
+          </Pressable>
+          <View style={s.headerText}>
+            <Text style={s.title}>Tomorrow's plan</Text>
+            <Text style={s.subtitle}>{tomorrowLabel()}</Text>
+          </View>
+          <Pressable
+            onPress={() => { setLoggedMeals(new Set()); fetchPlan(true, dietOverride); }}
+            hitSlop={12}
+            style={[s.refreshBtn, loading && { opacity: 0.3 }]}
+            disabled={loading}
+          >
+            <Icon name="refresh" color={C.inkFaint} size={19} strokeWidth={2} />
+          </Pressable>
+        </View>
+
+        <ScrollView
+          style={s.flex}
+          contentContainerStyle={s.scroll}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Diet chips */}
+          <View style={s.dietWrap}>
+            <Text style={s.dietLabel}>Today I want</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.dietRow}
+            >
+              {DIET_CHIPS.map((chip) => {
+                const on = dietOverride === chip.value;
+                return (
+                  <AnimatedPressable
+                    key={chip.value}
+                    style={[s.chip, on && s.chipOn]}
+                    onPress={() => selectDiet(chip.value)}
+                    disabled={loading}
+                  >
+                    <Text style={[s.chipText, on && s.chipTextOn]}>{chip.label}</Text>
+                  </AnimatedPressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {loading ? (
+            <>
+              <Text style={s.loadingMsg}>
+                Building tomorrow&apos;s plan — this takes ~20 seconds the first time.
+              </Text>
+              <SkeletonPulse style={sk.totals} />
+              <SkeletonMealCard />
+              <SkeletonMealCard />
+              <SkeletonMealCard />
+            </>
+          ) : error ? (
+            <View style={s.center}>
+              <Text style={s.centerTitle}>Couldn&apos;t load plan</Text>
+              <Text style={s.centerSub}>Check your connection and try again.</Text>
+              <AnimatedPressable
+                style={s.retryBtn}
+                onPress={() => fetchPlan(false, dietOverride)}
+              >
+                <Text style={s.retryText}>Try again</Text>
+              </AnimatedPressable>
+            </View>
+          ) : plan ? (
+            <>
+              {/* Totals strip — liveRow from add.tsx */}
+              <View style={s.liveRow}>
+                <View style={s.liveStat}>
+                  <Text style={s.liveVal}>{plan.totals.kcal}</Text>
+                  <Text style={s.liveKey}>kcal</Text>
+                </View>
+                <View style={s.liveStat}>
+                  <Text style={s.liveVal}>{plan.totals.protein_g}g</Text>
+                  <Text style={s.liveKey}>protein</Text>
+                </View>
+                <View style={s.liveStat}>
+                  <Text style={s.liveVal}>{plan.totals.carbs_g}g</Text>
+                  <Text style={s.liveKey}>carbs</Text>
+                </View>
+                <View style={s.liveStat}>
+                  <Text style={s.liveVal}>{plan.totals.fat_g}g</Text>
+                  <Text style={s.liveKey}>fat</Text>
+                </View>
+              </View>
+
+              {plan.meals.map((meal, i) => (
+                <MealCard
+                  key={i}
+                  meal={meal}
+                  logged={loggedMeals.has(i)}
+                  onLog={() => handleLogMeal(i)}
+                />
+              ))}
+
+              {plan.note ? (
+                <Text style={s.note}>{plan.note}</Text>
+              ) : null}
+              {plan.adjusted ? (
+                <Text style={s.adjustedNote}>
+                  Portions were scaled to match your calorie target.
+                </Text>
+              ) : null}
+            </>
+          ) : null}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  root:  { flex: 1, backgroundColor: C.bg },
+  flex:  { flex: 1 },
+  scroll: { paddingHorizontal: 22, paddingBottom: 100, gap: 12 },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
+    gap: 10,
+  },
+  backBtn:     { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  headerText:  { flex: 1 },
+  title: {
+    fontFamily: Fonts?.display ?? 'system',
+    fontSize: 20,
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 12,
+    color: C.inkFaint,
+    marginTop: 1,
+  },
+  refreshBtn:  { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+
+  // Diet chips
+  dietWrap: { gap: 8 },
+  dietLabel: {
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+    color: C.inkFaint,
+  },
+  dietRow: { flexDirection: 'row', gap: 8, paddingRight: 4 },
+  chip: {
+    backgroundColor: C.card,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    minHeight: 36,
+    justifyContent: 'center',
+    ...Shadow.sm,
+  },
+  chipOn: { backgroundColor: C.green },
+  chipText: {
+    fontFamily: Fonts?.bodyMed ?? 'system',
+    fontSize: 13,
+    fontWeight: '500',
+    color: C.inkSoft,
+  },
+  chipTextOn: { color: '#fff' },
+
+  loadingMsg: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 13,
+    color: C.inkFaint,
+    lineHeight: 19,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  pressed: { opacity: 0.85 },
+
+  // Totals strip
+  liveRow: {
+    flexDirection: 'row',
+    backgroundColor: C.greenSoft,
+    borderRadius: Radius.md,
+    paddingVertical: 14,
+  },
+  liveStat: { flex: 1, alignItems: 'center' },
+  liveVal: {
+    fontFamily: Fonts?.displaySemi ?? 'system',
+    fontSize: 17,
+    fontWeight: '600',
+    color: C.greenInk,
+    fontVariant: ['tabular-nums'],
+  },
+  liveKey: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 11,
+    color: C.greenInk,
+    opacity: 0.7,
+    marginTop: 2,
+  },
+
+  // Error state
+  center:      { alignItems: 'center', paddingTop: 80, gap: 8 },
+  centerTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 16, fontWeight: '600', color: C.ink },
+  centerSub:   { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint, textAlign: 'center' },
+  retryBtn:    { marginTop: 8, backgroundColor: C.card, borderRadius: Radius.md, paddingHorizontal: 22, minHeight: 48, alignItems: 'center', justifyContent: 'center', ...Shadow.sm },
+  retryText:   { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: C.green },
+
+  note: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 13,
+    color: C.inkFaint,
+    textAlign: 'center',
+    lineHeight: 19,
+    paddingHorizontal: 10,
+  },
+  adjustedNote: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 12,
+    color: C.inkFaint,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+});

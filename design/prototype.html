@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitScan — UI prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Inter:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600&family=Noto+Sans+Bengali:wght@400;500&family=Noto+Sans+Tamil:wght@400;500&family=Noto+Sans+Telugu:wght@400;500&family=Noto+Sans+Kannada:wght@400;500&family=Noto+Sans+Malayalam:wght@400;500&family=Noto+Sans+Gujarati:wght@400;500&family=Noto+Sans+Gurmukhi:wght@400;500&family=Noto+Sans+Arabic:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B2A23; --ink-soft:#54635B; --ink-faint:#8A968F;
+    --bg:#F4EFE6; --card:#FFFFFF; --line:#E7E0D3;
+    --green:#2F7D5B; --green-soft:#E2EFE7; --green-ink:#1C5640;
+    --amber:#BE7A2A; --amber-soft:#F6E9D5; --amber-ink:#7A4E14;
+    --red:#BD443B; --red-soft:#F7E3E0; --red-ink:#7C271F;
+    --marigold:#E69138;
+    --r:18px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:'Inter',system-ui,sans-serif; color:var(--ink);
+    background:var(--bg);
+    background-image:radial-gradient(circle at 50% 0%, #FAF6EE 0%, var(--bg) 60%);
+    min-height:100vh; padding:28px 16px 48px;
+  }
+  .devanagari{font-family:'Noto Sans Devanagari','Inter',sans-serif}
+  .script{font-family:'Noto Sans Devanagari','Noto Sans Bengali','Noto Sans Tamil','Noto Sans Telugu','Noto Sans Kannada','Noto Sans Malayalam','Noto Sans Gujarati','Noto Sans Gurmukhi','Noto Sans Arabic','Inter',sans-serif}
+  .lang-search{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
+    border-radius:13px;padding:12px 15px;margin-top:14px}
+  .lang-search svg{width:18px;height:18px;stroke:var(--ink-faint);flex:none}
+  .lang-search input{border:none;outline:none;font-family:'Inter';font-size:15px;width:100%;background:none;color:var(--ink)}
+  .lang-list{margin-top:12px;display:flex;flex-direction:column;gap:8px;max-height:284px;overflow-y:auto;padding:2px 6px 2px 2px}
+  .lang-list::-webkit-scrollbar{width:5px}
+  .lang-list::-webkit-scrollbar-thumb{background:#D8CFBE;border-radius:9px}
+  .lg-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);padding:8px 2px 2px}
+  .lg-label:first-child{padding-top:0}
+  .wrap{max-width:430px;margin:0 auto}
+
+  /* preview chrome */
+  .preview-head{text-align:center;margin-bottom:18px}
+  .preview-head h1{font-family:'Bricolage Grotesque';font-weight:600;font-size:19px;letter-spacing:-.02em}
+  .preview-head p{color:var(--ink-soft);font-size:13px;margin-top:3px}
+  .pills{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:14px auto 20px;max-width:430px}
+  .pill{font-size:12px;font-weight:500;border:1px solid var(--line);background:var(--card);
+    color:var(--ink-soft);padding:6px 12px;border-radius:999px;cursor:pointer;transition:.15s}
+  .pill:hover{border-color:var(--green)}
+  .pill.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  /* phone */
+  .phone{width:390px;max-width:100%;margin:0 auto;background:var(--card);
+    border:1px solid var(--line);border-radius:40px;overflow:hidden;
+    box-shadow:0 24px 60px -28px rgba(27,42,35,.35);position:relative;min-height:780px}
+  .statusbar{display:flex;justify-content:space-between;align-items:center;
+    padding:14px 24px 6px;font-size:12px;font-weight:500;color:var(--ink-soft)}
+  .screen{display:none;padding:0 0 96px}
+  .screen.show{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.screen.show{animation:none}}
+
+  .pad{padding:0 22px}
+  h2.title{font-family:'Bricolage Grotesque';font-weight:600;letter-spacing:-.02em;font-size:24px;line-height:1.1}
+  .eyebrow{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
+  .muted{color:var(--ink-soft)}
+  .faint{color:var(--ink-faint)}
+
+  /* buttons */
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    border:none;border-radius:14px;padding:15px;font-family:'Inter';font-weight:600;
+    font-size:15px;cursor:pointer;transition:.15s}
+  .btn-primary{background:var(--green);color:#fff}
+  .btn-primary:hover{background:var(--green-ink)}
+  .btn-ghost{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+  .btn-ghost:hover{border-color:var(--ink-faint)}
+  .row2{display:flex;gap:10px}
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px}
+
+  /* ===== onboarding ===== */
+  #onboarding{padding-top:40px}
+  .ob-mark{width:54px;height:54px;border-radius:16px;background:var(--green);
+    display:flex;align-items:center;justify-content:center;margin-bottom:22px}
+  .ob-mark svg{width:28px;height:28px;stroke:#fff}
+  .ob-hero{font-family:'Bricolage Grotesque';font-weight:600;font-size:30px;line-height:1.08;letter-spacing:-.025em}
+  .ob-sub{color:var(--ink-soft);font-size:15px;margin-top:10px;line-height:1.5}
+  .lang-list{margin-top:30px;display:flex;flex-direction:column;gap:10px}
+  .lang{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);
+    background:var(--card);border-radius:14px;padding:16px 18px;cursor:pointer;transition:.15s}
+  .lang:hover{border-color:var(--green);background:var(--green-soft)}
+  .lang .l-name{font-weight:600;font-size:16px}
+  .lang .l-sub{font-size:13px;color:var(--ink-faint)}
+  .lang .l-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--line)}
+  .lang.sel .l-check{border-color:var(--green);background:var(--green);box-shadow:inset 0 0 0 3px #fff}
+  .lang.sel{border-color:var(--green);background:var(--green-soft)}
+
+  /* ===== home ===== */
+  .greet{padding:8px 22px 0}
+  .greet .hi{font-family:'Bricolage Grotesque';font-weight:600;font-size:22px;letter-spacing:-.02em}
+  .nudge{margin:14px 22px 0;background:var(--green-soft);border:1px solid #CFE3D7;
+    border-radius:16px;padding:14px 16px;display:flex;gap:11px;align-items:flex-start}
+  .nudge svg{width:20px;height:20px;stroke:var(--green-ink);flex:none;margin-top:1px}
+  .nudge p{font-size:14px;color:var(--green-ink);line-height:1.45}
+  .nudge b{font-weight:600}
+
+  /* totals */
+  .totals{margin:18px 22px 0;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+  .cal-top{display:flex;justify-content:space-between;align-items:baseline}
+  .cal-now{font-family:'Bricolage Grotesque';font-weight:700;font-size:34px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .cal-goal{font-size:13px;color:var(--ink-faint)}
+  .bar{height:9px;background:var(--bg);border-radius:99px;margin:12px 0 4px;overflow:hidden}
+  .bar > span{display:block;height:100%;width:65%;background:var(--green);border-radius:99px}
+  .macros{display:flex;gap:10px;margin-top:16px}
+  .macro{flex:1;background:var(--bg);border-radius:12px;padding:11px 12px}
+  .macro .m-k{font-size:12px;color:var(--ink-soft)}
+  .macro .m-v{font-family:'Bricolage Grotesque';font-weight:600;font-size:19px;margin-top:2px;font-variant-numeric:tabular-nums}
+  .macro.warn{background:var(--red-soft)} .macro.warn .m-k{color:var(--red-ink)} .macro.warn .m-v{color:var(--red-ink)}
+
+  /* calorie ring hero */
+  .cal-hero{display:flex;align-items:center;gap:18px;margin-bottom:4px}
+  .ring-wrap{position:relative;flex:none;width:118px;height:118px}
+  .ring{width:118px;height:118px;transform:rotate(-90deg)}
+  .ring-bg{fill:none;stroke:var(--bg);stroke-width:11}
+  .ring-fg{fill:none;stroke:var(--green);stroke-width:11;stroke-linecap:round;stroke-dasharray:326.7;stroke-dashoffset:138}
+  .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .ring-center .rc-n{font-family:'Bricolage Grotesque';font-weight:700;font-size:27px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1}
+  .ring-center .rc-l{font-size:11px;color:var(--ink-soft);margin-top:3px}
+  .cal-stats{display:flex;flex-direction:column;gap:11px;flex:1}
+  .cstat{display:flex;justify-content:space-between;align-items:baseline}
+  .cstat .cs-k{font-size:13px;color:var(--ink-soft)}
+  .cstat .cs-v{font-family:'Bricolage Grotesque';font-weight:600;font-size:16px;font-variant-numeric:tabular-nums}
+  .cstat .cs-v.dim{color:var(--green-ink);font-weight:600;font-size:14px}
+
+  /* goal setup */
+  .maint-card{background:var(--ink);border-radius:var(--r);padding:18px;color:#fff}
+  .maint-n{font-family:'Bricolage Grotesque';font-weight:700;font-size:38px;letter-spacing:-.03em;margin-top:6px;font-variant-numeric:tabular-nums}
+  .maint-sub{font-size:13px;color:#B9C8C0;margin-top:8px;line-height:1.45}
+  .field-l{font-weight:600;font-size:14px;margin:22px 0 10px}
+  .seg{display:flex;gap:7px;flex-wrap:wrap}
+  .seg button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);
+    font-family:'Inter';font-weight:500;font-size:13px;padding:11px 6px;border-radius:11px;cursor:pointer;transition:.15s;white-space:nowrap}
+  .seg button.on{background:var(--green);border-color:var(--green);color:#fff}
+  .seg button:hover:not(.on){border-color:var(--ink-faint)}
+  .target-row{display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding:15px 16px;
+    background:var(--green-soft);border-radius:13px;font-size:15px;font-weight:500}
+  .target-row b{font-family:'Bricolage Grotesque';font-weight:700;font-size:19px;color:var(--green-ink)}
+
+  /* week balance — the signature */
+  .week{margin:18px 22px 0;background:var(--ink);border-radius:var(--r);padding:18px 18px 16px;color:#fff}
+  .week-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .week-h .wt{font-family:'Bricolage Grotesque';font-weight:600;font-size:15px}
+  .week-h .wm{font-size:12px;color:#A9BAB0}
+  .dots{display:flex;justify-content:space-between}
+  .day{display:flex;flex-direction:column;align-items:center;gap:7px}
+  .day .dd{font-size:11px;color:#8FA399}
+  .dot{width:22px;height:22px;border-radius:50%;background:#33453C}
+  .dot.good{background:var(--green)} .dot.ok{background:var(--marigold)} .dot.treat{background:var(--red)}
+  .day.today .dd{color:#fff;font-weight:600}
+  .day.today .dot{box-shadow:0 0 0 2px var(--ink),0 0 0 4px #fff}
+  .week-cap{font-size:12.5px;color:#C7D4CD;margin-top:14px;line-height:1.4}
+
+  /* water */
+  .water{margin:18px 22px 0;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+  .water-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}
+  .wa-t{font-family:'Bricolage Grotesque';font-weight:600;font-size:16px}
+  .wa-c{font-size:13px;color:var(--ink-soft);margin-top:2px}
+  .wa-c b{color:#2E8AA0;font-weight:600}
+  .wa-add{border:1px solid #BFE0E8;background:#E8F4F7;color:#1F6B7E;font-family:'Inter';font-weight:600;font-size:13px;padding:9px 14px;border-radius:10px;cursor:pointer;transition:.15s}
+  .wa-add:hover{background:#D9EDF1}
+  .glasses{display:flex;gap:8px;flex-wrap:wrap}
+  .glass{width:19px;height:24px;border:2px solid #CFE3E8;border-radius:4px 4px 8px 8px;transition:.15s}
+  .glass.full{background:#54AEC2;border-color:#54AEC2}
+  .wa-rem{display:flex;align-items:center;gap:7px;margin-top:14px;font-size:12.5px;color:var(--ink-faint)}
+  .wa-rem svg{width:15px;height:15px;stroke:var(--ink-faint);flex:none}
+
+  /* logged list */
+  .sec-h{display:flex;justify-content:space-between;align-items:center;margin:24px 22px 10px}
+  .sec-h .st{font-family:'Bricolage Grotesque';font-weight:600;font-size:16px}
+  .sec-h a{font-size:13px;color:var(--green);text-decoration:none;font-weight:500;cursor:pointer}
+  .item{display:flex;align-items:center;gap:13px;margin:0 22px;padding:13px 0;border-top:1px solid var(--line)}
+  .item:first-of-type{border-top:none}
+  .v-dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .v-dot.good{background:var(--green)} .v-dot.ok{background:var(--marigold)} .v-dot.avoid{background:var(--red)}
+  .item .i-name{font-weight:500;font-size:15px}
+  .item .i-meta{font-size:12.5px;color:var(--ink-faint);margin-top:1px}
+  .item .i-cal{margin-left:auto;font-weight:600;font-size:14px;font-variant-numeric:tabular-nums}
+  .tag{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    padding:2px 7px;border-radius:6px;background:var(--bg);color:var(--ink-soft)}
+
+  /* fab actions */
+  .actions{position:absolute;left:22px;right:22px;bottom:84px;display:flex;gap:10px}
+
+  /* ===== scan ===== */
+  .cam{margin:0;background:#10211A;height:540px;position:relative;display:flex;
+    align-items:center;justify-content:center}
+  .reticle{width:230px;height:150px;border-radius:18px;position:relative}
+  .reticle::before,.reticle::after,.reticle i{content:'';position:absolute;width:34px;height:34px;border:3px solid #fff;border-radius:6px}
+  .reticle::before{top:0;left:0;border-right:none;border-bottom:none}
+  .reticle::after{top:0;right:0;border-left:none;border-bottom:none}
+  .reticle i{bottom:0;left:0;border-right:none;border-top:none}
+  .reticle b{content:'';position:absolute;bottom:0;right:0;width:34px;height:34px;border:3px solid #fff;border-left:none;border-top:none;border-radius:6px}
+  .scanline{position:absolute;left:6px;right:6px;height:2px;background:var(--marigold);top:50%;box-shadow:0 0 12px var(--marigold);animation:scan 2.2s ease-in-out infinite}
+  @keyframes scan{0%,100%{top:14%}50%{top:86%}}
+  @media (prefers-reduced-motion:reduce){.scanline{animation:none}}
+  .cam-hint{position:absolute;bottom:30px;left:0;right:0;text-align:center;color:#D9E4DE;font-size:14px}
+  .scan-top{position:absolute;top:18px;left:18px;right:18px;display:flex;justify-content:space-between;align-items:center;color:#fff}
+
+  /* ===== result ===== */
+  .res-head{display:flex;gap:13px;align-items:center;padding:6px 22px 0}
+  .thumb{width:52px;height:52px;border-radius:13px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex:none}
+  .thumb svg{width:26px;height:26px;stroke:var(--ink-faint)}
+  .verdict{margin:16px 22px 0;border-radius:var(--r);padding:16px;display:flex;align-items:center;gap:14px}
+  .verdict.avoid{background:var(--red-soft)} .verdict.ok{background:var(--amber-soft)} .verdict.good{background:var(--green-soft)}
+  .grade{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-family:'Bricolage Grotesque';font-weight:700;font-size:22px;flex:none}
+  .verdict.avoid .grade{background:#E79A93;color:var(--red-ink)}
+  .verdict.ok .grade{background:#E8C589;color:var(--amber-ink)}
+  .verdict.good .grade{background:#9FCBB4;color:var(--green-ink)}
+  .verdict .v-line{font-weight:600;font-size:15px}
+  .verdict.avoid .v-line{color:var(--red-ink)} .verdict.ok .v-line{color:var(--amber-ink)} .verdict.good .v-line{color:var(--green-ink)}
+  .verdict .v-head{font-size:13.5px;margin-top:2px}
+  .verdict.avoid .v-head{color:#9B392F} .verdict.ok .v-head{color:#8A5A1E} .verdict.good .v-head{color:#2C6A4D}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;padding:14px 22px 0}
+  .chip{font-size:12px;font-weight:500;padding:5px 11px;border-radius:9px}
+  .chip.bad{background:var(--red-soft);color:var(--red-ink)}
+  .chip.warn{background:var(--amber-soft);color:var(--amber-ink)}
+  .chip.good{background:var(--green-soft);color:var(--green-ink)}
+  .nut-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:16px 22px 0}
+  .nut{background:var(--bg);border-radius:12px;padding:11px 13px}
+  .nut.hot{background:var(--red-soft)}
+  .nut .n-k{font-size:12px;color:var(--ink-soft)} .nut.hot .n-k{color:var(--red-ink)}
+  .nut .n-v{font-family:'Bricolage Grotesque';font-weight:600;font-size:18px;margin-top:2px;font-variant-numeric:tabular-nums}
+  .nut.hot .n-v{color:var(--red-ink)}
+  .swap{margin:14px 22px 0;border:1px solid var(--line);border-radius:14px;padding:13px 15px}
+  .swap .sw-h{display:flex;align-items:center;gap:7px;color:var(--green-ink);font-weight:600;font-size:13px;margin-bottom:3px}
+  .swap svg{width:17px;height:17px;stroke:var(--green-ink)}
+  .swap p{font-size:14px}
+
+  /* ===== add food ===== */
+  .search{margin:8px 22px 0;display:flex;align-items:center;gap:10px;background:var(--card);
+    border:1px solid var(--line);border-radius:13px;padding:13px 15px}
+  .search svg{width:19px;height:19px;stroke:var(--ink-faint)}
+  .search input{border:none;outline:none;font-family:'Inter';font-size:15px;width:100%;background:none;color:var(--ink)}
+  .ai-box{margin:14px 22px 0;background:var(--ink);border-radius:14px;padding:15px}
+  .ai-box .ai-h{display:flex;align-items:center;gap:8px;color:#fff;font-weight:600;font-size:14px}
+  .ai-box svg{width:17px;height:17px;stroke:var(--marigold)}
+  .ai-box p{color:#B9C8C0;font-size:13px;margin-top:6px;line-height:1.45}
+  .ai-box .ai-eg{color:#fff;background:#2A3B33;border-radius:9px;padding:8px 11px;font-size:13px;margin-top:10px}
+  .quick-h{margin:22px 22px 11px}
+  .qchips{display:flex;flex-wrap:wrap;gap:8px;padding:0 22px}
+  .qchip{border:1px solid var(--line);background:var(--card);border-radius:11px;padding:10px 14px;
+    font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s}
+  .qchip:hover{border-color:var(--green);background:var(--green-soft)}
+  .qchip .qd{width:8px;height:8px;border-radius:50%;background:var(--green)}
+
+  /* ===== learn ===== */
+  .learn-card{margin:0 22px 12px;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--card)}
+  .learn-card .lc-top{height:88px;background:var(--green-soft);display:flex;align-items:center;justify-content:center}
+  .learn-card .lc-top.amber{background:var(--amber-soft)}
+  .learn-card .lc-top svg{width:30px;height:30px}
+  .learn-card .lc-body{padding:13px 15px}
+  .learn-card .lc-src{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
+  .learn-card .lc-t{font-weight:600;font-size:15px;margin-top:4px;line-height:1.3}
+  .soon{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    background:var(--bg);color:var(--ink-soft);padding:3px 8px;border-radius:6px;margin-left:8px;vertical-align:middle}
+
+  /* news feed */
+  .cat-row{display:flex;gap:7px;overflow-x:auto;padding:0 22px 4px;margin-bottom:8px}
+  .cat-row::-webkit-scrollbar{display:none}
+  .cat{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink-soft);font-family:'Inter';font-weight:500;font-size:13px;padding:7px 14px;border-radius:999px;cursor:pointer;transition:.15s}
+  .cat.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .ncard{margin:0 22px 11px;border:1px solid var(--line);border-radius:16px;background:var(--card);padding:15px 16px}
+  .n-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .n-src{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--green-ink);letter-spacing:.02em}
+  .n-src svg{width:13px;height:13px;stroke:var(--green)}
+  .n-time{font-size:12px;color:var(--ink-faint)}
+  .n-head{font-weight:600;font-size:15px;line-height:1.3}
+  .n-sum{font-size:13.5px;color:var(--ink-soft);margin-top:5px;line-height:1.45}
+  .n-foot{display:flex;align-items:center;gap:9px;margin-top:11px}
+  .n-tag{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:6px}
+  .n-tag.nutrition{background:var(--green-soft);color:var(--green-ink)}
+  .n-tag.fitness{background:#E4EEF6;color:#2C5573}
+  .n-tag.safety{background:var(--amber-soft);color:var(--amber-ink)}
+  .n-tag.research{background:#ECE7F5;color:#4A3B73}
+  .n-ai{font-size:11px;color:var(--ink-faint);display:flex;align-items:center;gap:4px}
+  .n-ai svg{width:12px;height:12px;stroke:var(--ink-faint)}
+
+  /* bottom nav */
+  .nav{position:absolute;left:0;right:0;bottom:0;height:72px;background:rgba(255,255,255,.94);
+    backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;padding:0 8px}
+  .nav button{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink-faint);font-size:11px;font-family:'Inter';font-weight:500;padding:6px 12px}
+  .nav button svg{width:22px;height:22px;stroke:var(--ink-faint)}
+  .nav button.active{color:var(--green)} .nav button.active svg{stroke:var(--green)}
+  .nav .scan-fab{background:var(--green);width:50px;height:50px;border-radius:16px;justify-content:center;margin-top:-18px}
+  .nav .scan-fab svg{stroke:#fff;width:24px;height:24px}
+  .nav .scan-fab span{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="preview-head">
+    <h1>FitScan — UI prototype</h1>
+    <p class="muted">Clickable. No backend wired yet — use the pills or the in-app nav.</p>
+  </div>
+  <div class="pills" id="pills"></div>
+</div>
+
+<div class="phone">
+  <div class="statusbar"><span>9:41</span><span>FitScan</span><span>100</span></div>
+
+  <!-- ONBOARDING -->
+  <section class="screen show" id="onboarding">
+    <div class="pad" style="padding-top:36px">
+      <div class="ob-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11h16M4 11a8 8 0 0 1 16 0M7 15h10l-1 5H8z"/></svg></div>
+      <div class="ob-hero">Understand<br>your food.</div>
+      <p class="ob-sub">Scan a packet or log your meals. We keep it honest — and keep you motivated, not guilty.</p>
+      <div class="eyebrow" style="margin-top:30px">Choose your language</div>
+      <div class="lang-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="langSearch" placeholder="Search 20+ languages" oninput="filterLangs()">
+      </div>
+      <div class="lang-list" id="langList">
+        <div class="lg-label">Suggested</div>
+        <div class="lang sel" data-lang="en" data-name="english" onclick="pickLang(this)"><div><div class="l-name">English</div><div class="l-sub">Default · used everywhere</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="hinglish" data-name="hinglish roman hindi english" onclick="pickLang(this)"><div><div class="l-name">Hinglish</div><div class="l-sub">Roman Hindi</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="hi" data-name="hindi" onclick="pickLang(this)"><div><div class="l-name script">हिन्दी</div><div class="l-sub">Hindi</div></div><div class="l-check"></div></div>
+
+        <div class="lg-label">Indian languages</div>
+        <div class="lang" data-lang="bn" data-name="bengali bangla" onclick="pickLang(this)"><div><div class="l-name script">বাংলা</div><div class="l-sub">Bengali</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="ta" data-name="tamil" onclick="pickLang(this)"><div><div class="l-name script">தமிழ்</div><div class="l-sub">Tamil</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="te" data-name="telugu" onclick="pickLang(this)"><div><div class="l-name script">తెలుగు</div><div class="l-sub">Telugu</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="kn" data-name="kannada" onclick="pickLang(this)"><div><div class="l-name script">ಕನ್ನಡ</div><div class="l-sub">Kannada</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="mr" data-name="marathi" onclick="pickLang(this)"><div><div class="l-name script">मराठी</div><div class="l-sub">Marathi</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="gu" data-name="gujarati" onclick="pickLang(this)"><div><div class="l-name script">ગુજરાતી</div><div class="l-sub">Gujarati</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="ml" data-name="malayalam" onclick="pickLang(this)"><div><div class="l-name script">മലയാളം</div><div class="l-sub">Malayalam</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="pa" data-name="punjabi" onclick="pickLang(this)"><div><div class="l-name script">ਪੰਜਾਬੀ</div><div class="l-sub">Punjabi</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="ur" data-name="urdu" onclick="pickLang(this)"><div><div class="l-name script">اردو</div><div class="l-sub">Urdu</div></div><div class="l-check"></div></div>
+
+        <div class="lg-label">Worldwide</div>
+        <div class="lang" data-lang="es" data-name="spanish espanol" onclick="pickLang(this)"><div><div class="l-name">Español</div><div class="l-sub">Spanish</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="pt" data-name="portuguese portugues" onclick="pickLang(this)"><div><div class="l-name">Português</div><div class="l-sub">Portuguese</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="fr" data-name="french francais" onclick="pickLang(this)"><div><div class="l-name">Français</div><div class="l-sub">French</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="de" data-name="german deutsch" onclick="pickLang(this)"><div><div class="l-name">Deutsch</div><div class="l-sub">German</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="ar" data-name="arabic" onclick="pickLang(this)"><div><div class="l-name script">العربية</div><div class="l-sub">Arabic</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="id" data-name="indonesian bahasa" onclick="pickLang(this)"><div><div class="l-name">Bahasa Indonesia</div><div class="l-sub">Indonesian</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="tr" data-name="turkish turkce" onclick="pickLang(this)"><div><div class="l-name">Türkçe</div><div class="l-sub">Turkish</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="zh" data-name="chinese mandarin zhongwen" onclick="pickLang(this)"><div><div class="l-name">中文</div><div class="l-sub">Chinese</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="ja" data-name="japanese nihongo" onclick="pickLang(this)"><div><div class="l-name">日本語</div><div class="l-sub">Japanese</div></div><div class="l-check"></div></div>
+        <div class="lang" data-lang="ko" data-name="korean hangugeo" onclick="pickLang(this)"><div><div class="l-name">한국어</div><div class="l-sub">Korean</div></div><div class="l-check"></div></div>
+        <div id="noLang" class="faint" style="display:none;text-align:center;padding:14px;font-size:13px">No match — your language is on the way.</div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:18px" onclick="enter()">Continue</button>
+    </div>
+  </section>
+
+  <!-- GOAL SETUP -->
+  <section class="screen" id="goal">
+    <div class="greet" style="padding-top:8px"><div class="eyebrow">Set up · 1 of 1</div><div class="hi" data-i18n="goalTitle">Your daily target</div></div>
+    <div class="pad" style="padding-top:16px">
+      <div class="maint-card">
+        <div class="eyebrow" style="color:#9FCBB4" data-i18n="calMaint">Maintenance calories</div>
+        <div class="maint-n"><span id="maintN">2,150</span> <span style="font-size:15px;color:#B9C8C0">kcal/day</span></div>
+        <div class="maint-sub" data-i18n="maintSub">What your body needs just to stay the same. This is your honest baseline — everything from here is your choice, not a punishment.</div>
+      </div>
+      <div class="field-l" data-i18n="actL">How active are you?</div>
+      <div class="seg" id="actSeg">
+        <button data-f="1.2" onclick="setAct(this)">Sedentary</button>
+        <button class="on" data-f="1.375" onclick="setAct(this)">Light</button>
+        <button data-f="1.55" onclick="setAct(this)">Active</button>
+        <button data-f="1.725" onclick="setAct(this)">Very</button>
+      </div>
+      <div class="field-l" data-i18n="goalL">Your goal</div>
+      <div class="seg" id="goalSeg">
+        <button data-adj="-300" onclick="setGoal(this)">Lose slowly</button>
+        <button class="on" data-adj="0" onclick="setGoal(this)">Maintain</button>
+        <button data-adj="300" onclick="setGoal(this)">Gain</button>
+      </div>
+      <div class="target-row"><span data-i18n="targetL">Daily target</span><b id="targetN">2,150 kcal</b></div>
+      <button class="btn btn-primary" style="margin-top:18px" onclick="go('home')" data-i18n="goalCont">Looks good</button>
+      <p class="faint" style="text-align:center;font-size:12px;margin-top:10px">Calculated with Mifflin–St Jeor. Editable anytime.</p>
+    </div>
+  </section>
+
+  <!-- HOME -->
+  <section class="screen" id="home">
+    <div class="greet"><div class="eyebrow">Tuesday, evening</div><div class="hi" data-i18n="greet">Good evening, Shashwat</div></div>
+    <div class="nudge">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <p data-i18n="nudge">Two home-cooked meals today — you're eating clean. One scanned drink was sugary; the rest of the day balances it out nicely.</p>
+    </div>
+
+    <div class="totals">
+      <div class="cal-hero">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 120 120" class="ring"><circle class="ring-bg" cx="60" cy="60" r="52"/><circle class="ring-fg" cx="60" cy="60" r="52"/></svg>
+          <div class="ring-center"><div class="rc-n">910</div><div class="rc-l" data-i18n="calLeft">kcal left</div></div>
+        </div>
+        <div class="cal-stats">
+          <div class="cstat"><span class="cs-k" data-i18n="calMaint">Maintenance</span><span class="cs-v">2,150</span></div>
+          <div class="cstat"><span class="cs-k" data-i18n="calEaten">Eaten</span><span class="cs-v">1,240</span></div>
+          <div class="cstat"><span class="cs-k" data-i18n="calGoal">Daily goal</span><span class="cs-v dim">Maintain</span></div>
+        </div>
+      </div>
+      <div class="macros">
+        <div class="macro"><div class="m-k">Protein</div><div class="m-v">54 g</div></div>
+        <div class="macro"><div class="m-k">Carbs</div><div class="m-v">148 g</div></div>
+        <div class="macro warn"><div class="m-k">Sugar</div><div class="m-v">38 g</div></div>
+      </div>
+    </div>
+
+    <!-- signature: week balance -->
+    <div class="week">
+      <div class="week-h"><div class="wt">This week's balance</div><div class="wm">5 of 7 clean</div></div>
+      <div class="dots">
+        <div class="day"><span class="dd">M</span><div class="dot good"></div></div>
+        <div class="day"><span class="dd">T</span><div class="dot good"></div></div>
+        <div class="day"><span class="dd">W</span><div class="dot treat"></div></div>
+        <div class="day"><span class="dd">T</span><div class="dot good"></div></div>
+        <div class="day"><span class="dd">F</span><div class="dot ok"></div></div>
+        <div class="day today"><span class="dd">S</span><div class="dot good"></div></div>
+        <div class="day"><span class="dd">S</span><div class="dot"></div></div>
+      </div>
+      <div class="week-cap">Wednesday was a treat day — totally fine. You bounced right back. That rhythm is the whole point.</div>
+    </div>
+
+    <div class="water">
+      <div class="water-h">
+        <div><div class="wa-t" data-i18n="waterT">Water</div><div class="wa-c"><b id="wcount">5</b> <span data-i18n="waterUnit">of 8 glasses</span></div></div>
+        <button class="wa-add" onclick="addGlass()" data-i18n="waterAdd">+ Glass</button>
+      </div>
+      <div class="glasses" id="glasses">
+        <div class="glass full"></div><div class="glass full"></div><div class="glass full"></div><div class="glass full"></div><div class="glass full"></div><div class="glass"></div><div class="glass"></div><div class="glass"></div>
+      </div>
+      <div class="wa-rem"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span data-i18n="waterR">Reminders every 2 hours · 9am–9pm</span></div>
+    </div>
+
+    <div class="sec-h"><div class="st">Today</div><a onclick="go('add')">+ Add food</a></div>
+    <div class="item"><span class="v-dot good"></span><div><div class="i-name">Poha</div><div class="i-meta">Home · breakfast</div></div><span class="i-cal">320</span></div>
+    <div class="item"><span class="v-dot good"></span><div><div class="i-name">Dal, rice & sabzi</div><div class="i-meta">Home · lunch</div></div><span class="i-cal">560</span></div>
+    <div class="item"><span class="v-dot avoid"></span><div><div class="i-name">Mango fruit drink 200ml <span class="tag">scanned</span></div><div class="i-meta">Grade D · high sugar</div></div><span class="i-cal">116</span></div>
+
+    <div class="actions">
+      <button class="btn btn-ghost" data-i18n="btnAdd" onclick="go('add')">Add food</button>
+      <button class="btn btn-primary" data-i18n="btnScanPacket" onclick="go('scan')">Scan packet</button>
+    </div>
+  </section>
+
+  <!-- SCAN -->
+  <section class="screen" id="scan">
+    <div class="cam">
+      <div class="scan-top">
+        <span style="cursor:pointer" onclick="go('home')">‹ Back</span><span style="font-size:13px">Point at a barcode</span>
+      </div>
+      <div class="reticle"><i></i><b></b><div class="scanline"></div></div>
+      <div class="cam-hint">No barcode? <span style="color:#fff;text-decoration:underline;cursor:pointer" onclick="go('add')">Snap the label instead</span></div>
+    </div>
+    <div class="pad" style="padding-top:18px">
+      <button class="btn btn-primary" onclick="go('result')">Simulate a scan →</button>
+      <p class="faint" style="text-align:center;font-size:12.5px;margin-top:10px">(prototype only — taps straight to a result)</p>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section class="screen" id="result">
+    <div class="statusbar" style="padding-top:4px"><span style="cursor:pointer" onclick="go('scan')">‹ Scan</span><span>Result</span><span></span></div>
+    <div class="res-head">
+      <div class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M8 2h8l-1 5v13a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V7z"/></svg></div>
+      <div><div style="font-weight:600;font-size:16px">Mango Fruit Drink 200ml</div><div class="faint" style="font-size:13px">Beverages · 18% fruit</div></div>
+    </div>
+    <div class="verdict avoid">
+      <div class="grade">D</div>
+      <div><div class="v-line" data-i18n="vline">Better to skip · 28/100</div><div class="v-head" data-i18n="vhead">Too much sugar — fine once in a while.</div></div>
+    </div>
+    <div class="chips">
+      <span class="chip bad" data-i18n="chip1">High sugar</span><span class="chip bad" data-i18n="chip2">Ultra-processed</span><span class="chip warn" data-i18n="chip3">Added colour</span>
+    </div>
+    <div class="nut-grid">
+      <div class="nut"><div class="n-k">Energy</div><div class="n-v">58 kcal</div></div>
+      <div class="nut hot"><div class="n-k">Sugar</div><div class="n-v">13 g</div></div>
+      <div class="nut"><div class="n-k">Protein</div><div class="n-v">0 g</div></div>
+      <div class="nut"><div class="n-k">Fat</div><div class="n-v">0 g</div></div>
+    </div>
+    <div class="swap">
+      <div class="sw-h"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10M7 17 17 7"/></svg>Try instead</div>
+      <p data-i18n="swap">Tender coconut water — 5g natural sugar, electrolytes. Grade A.</p>
+    </div>
+    <div class="pad" style="padding-top:18px">
+      <div class="row2">
+        <button class="btn btn-ghost" data-i18n="btnScanNext" onclick="go('scan')">Scan next</button>
+        <button class="btn btn-primary" data-i18n="btnLog" onclick="go('home')">Log this</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ADD FOOD -->
+  <section class="screen" id="add">
+    <div class="greet" style="padding-bottom:4px"><div class="hi">What did you eat?</div></div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input placeholder="Search foods — roti, dal, idli…">
+    </div>
+    <div class="ai-box">
+      <div class="ai-h"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Just tell me</div>
+      <p>Type it the way you'd say it. We'll estimate the calories — roughly, not to the gram.</p>
+      <div class="ai-eg">"2 roti, dal aur thoda rice"</div>
+    </div>
+    <div class="quick-h eyebrow">Quick add — common foods</div>
+    <div class="qchips">
+      <button class="qchip" onclick="go('home')"><span class="qd"></span>Roti</button>
+      <button class="qchip" onclick="go('home')"><span class="qd"></span>Dal</button>
+      <button class="qchip" onclick="go('home')"><span class="qd"></span>Rice</button>
+      <button class="qchip" onclick="go('home')"><span class="qd"></span>Idli</button>
+      <button class="qchip" onclick="go('home')"><span class="qd"></span>Poha</button>
+      <button class="qchip" onclick="go('home')"><span class="qd"></span>Curd</button>
+      <button class="qchip" onclick="go('home')"><span class="qd"></span>Chai</button>
+      <button class="qchip" onclick="go('home')"><span class="qd"></span>Egg</button>
+    </div>
+  </section>
+
+  <!-- NEWS -->
+  <section class="screen" id="learn">
+    <div class="greet" style="padding-bottom:8px"><div class="eyebrow">Worldwide · updated hourly</div><div class="hi">Health news</div></div>
+    <div class="cat-row" id="catRow">
+      <button class="cat on" data-c="all" onclick="filterNews(this)">All</button>
+      <button class="cat" data-c="nutrition" onclick="filterNews(this)">Nutrition</button>
+      <button class="cat" data-c="fitness" onclick="filterNews(this)">Fitness</button>
+      <button class="cat" data-c="safety" onclick="filterNews(this)">Food safety</button>
+      <button class="cat" data-c="research" onclick="filterNews(this)">Research</button>
+    </div>
+    <div id="newsList">
+      <article class="ncard" data-cat="nutrition">
+        <div class="n-top"><span class="n-src">WHO <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span><span class="n-time">2h</span></div>
+        <div class="n-head">WHO updates its daily added-sugar guidance for adults</div>
+        <div class="n-sum">The revised advice lowers the suggested ceiling and explains how to spot added sugar on a label.</div>
+        <div class="n-foot"><span class="n-tag nutrition">Nutrition</span><span class="n-ai"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1"/></svg>AI summary</span></div>
+      </article>
+      <article class="ncard" data-cat="research">
+        <div class="n-top"><span class="n-src">The Lancet <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span><span class="n-time">5h</span></div>
+        <div class="n-head">Large review links ultra-processed foods to higher heart-disease risk</div>
+        <div class="n-sum">Researchers stress this is an association, not proof — and point to added sugar and salt as the likely drivers.</div>
+        <div class="n-foot"><span class="n-tag research">Research</span><span class="n-ai"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1"/></svg>AI summary</span></div>
+      </article>
+      <article class="ncard" data-cat="safety">
+        <div class="n-top"><span class="n-src">FSSAI <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span><span class="n-time">8h</span></div>
+        <div class="n-head">FSSAI tightens front-of-pack labelling rules for packaged snacks</div>
+        <div class="n-sum">Manufacturers will need clearer sugar and salt warnings on the front of the pack within the year.</div>
+        <div class="n-foot"><span class="n-tag safety">Food safety</span><span class="n-ai"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1"/></svg>AI summary</span></div>
+      </article>
+      <article class="ncard" data-cat="fitness">
+        <div class="n-top"><span class="n-src">Harvard Health <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span><span class="n-time">12h</span></div>
+        <div class="n-head">Review: about 7,000 steps a day captures most of the benefit</div>
+        <div class="n-sum">Going higher helps a little; the big gains come from simply moving more than you do now.</div>
+        <div class="n-foot"><span class="n-tag fitness">Fitness</span><span class="n-ai"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1"/></svg>AI summary</span></div>
+      </article>
+      <article class="ncard" data-cat="nutrition">
+        <div class="n-top"><span class="n-src">BMJ <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4 10-10"/></svg></span><span class="n-time">1d</span></div>
+        <div class="n-head">Protein needs may be higher after 40, researchers suggest</div>
+        <div class="n-sum">Spreading intake across meals appears to matter about as much as the daily total.</div>
+        <div class="n-foot"><span class="n-tag nutrition">Nutrition</span><span class="n-ai"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1"/></svg>AI summary</span></div>
+      </article>
+    </div>
+    <p class="faint pad" style="font-size:12px;text-align:center;margin-top:4px">Curated from credible sources — WHO, FSSAI, peer-reviewed journals. No clickbait, no fear-mongering.</p>
+  </section>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <button id="n-home" class="active" onclick="go('home')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg><span>Home</span></button>
+    <button id="n-add" onclick="go('add')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>Log</span></button>
+    <button id="n-scan" class="scan-fab" onclick="go('scan')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg><span>Scan</span></button>
+    <button id="n-learn" onclick="go('learn')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V6a2 2 0 0 1 2-2h13v15M6 17h13"/></svg><span>News</span></button>
+    <button id="n-you" onclick="go('home')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>You</span></button>
+  </nav>
+</div>
+
+<script>
+  const screens=['onboarding','goal','home','scan','result','add','learn'];
+  const navMap={home:'n-home',add:'n-add',scan:'n-scan',learn:'n-learn'};
+  function go(id){
+    screens.forEach(s=>document.getElementById(s).classList.toggle('show',s===id));
+    Object.values(navMap).forEach(n=>document.getElementById(n).classList.remove('active'));
+    if(navMap[id])document.getElementById(navMap[id]).classList.add('active');
+    document.querySelectorAll('.pill').forEach(p=>p.classList.toggle('active',p.dataset.s===id));
+    document.querySelector('.phone').scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+  let selectedLang='en';
+  const STR={
+    greet:{en:'Good evening, Shashwat',hinglish:'Good evening, Shashwat',hi:'शुभ संध्या, Shashwat'},
+    nudge:{en:"Two home-cooked meals today — you're eating clean. One scanned drink was sugary; the rest of the day balances it out nicely.",hinglish:'Aaj do ghar ka khana — clean ja raha hai. Ek drink sugary thi, baaki din usse balance ho gaya.',hi:'आज दो घर के खाने — सब साफ़-सुथरा है। एक ड्रिंक मीठी थी, बाकी दिन ने उसे संभाल लिया।'},
+    vline:{en:'Better to skip · 28/100',hinglish:'Skip karo · 28/100',hi:'छोड़ना बेहतर · 28/100'},
+    vhead:{en:'Too much sugar — fine once in a while.',hinglish:'Isme cheeni bahut zyada — kabhi-kabhi chalega.',hi:'इसमें चीनी बहुत ज़्यादा है — कभी-कभी ठीक है।'},
+    chip1:{en:'High sugar',hinglish:'Bahut sugar',hi:'ज़्यादा चीनी'},
+    chip2:{en:'Ultra-processed',hinglish:'Ultra-processed',hi:'अति-प्रसंस्कृत'},
+    chip3:{en:'Added colour',hinglish:'Added colour',hi:'रंग मिला हुआ'},
+    swap:{en:'Tender coconut water — 5g natural sugar, electrolytes. Grade A.',hinglish:'Nariyal paani — 5g natural sugar, electrolytes. Grade A.',hi:'नारियल पानी — 5g नैचुरल शुगर, इलेक्ट्रोलाइट्स। ग्रेड A।'},
+    btnLog:{en:'Log this',hinglish:'Log karo',hi:'लॉग करें'},
+    btnScanNext:{en:'Scan next',hinglish:'Aur scan karo',hi:'अगला स्कैन'},
+    btnAdd:{en:'Add food',hinglish:'Khana add karo',hi:'खाना जोड़ें'},
+    btnScanPacket:{en:'Scan packet',hinglish:'Packet scan karo',hi:'पैकेट स्कैन करें'},
+    waterT:{en:'Water',hinglish:'Paani',hi:'पानी'},
+    waterUnit:{en:'of 8 glasses',hinglish:'of 8 glass',hi:'/ 8 गिलास'},
+    waterAdd:{en:'+ Glass',hinglish:'+ Glass',hi:'+ गिलास'},
+    waterR:{en:'Reminders every 2 hours · 9am–9pm',hinglish:'Har 2 ghante reminder · 9am–9pm',hi:'हर 2 घंटे रिमाइंडर · सुबह 9–रात 9'},
+    calLeft:{en:'kcal left',hinglish:'kcal bacha',hi:'kcal बचा'},
+    calMaint:{en:'Maintenance',hinglish:'Maintenance',hi:'मेंटेनेंस'},
+    calEaten:{en:'Eaten',hinglish:'Khaya',hi:'खाया'},
+    calGoal:{en:'Daily goal',hinglish:'Goal',hi:'लक्ष्य'},
+    goalTitle:{en:'Your daily target',hinglish:'Aapka daily target',hi:'आपका रोज़ का लक्ष्य'},
+    maintSub:{en:'What your body needs just to stay the same. This is your honest baseline — everything from here is your choice, not a punishment.',hinglish:'Jitna body ko bas same rehne ke liye chahiye. Ye aapka honest baseline hai — aage sab aapki choice hai, sazaa nahi.',hi:'सिर्फ़ वज़न बनाए रखने के लिए शरीर को इतनी ज़रूरत है। यह आपका सही बेसलाइन है — आगे सब आपकी मर्ज़ी है, सज़ा नहीं।'},
+    actL:{en:'How active are you?',hinglish:'Kitne active ho?',hi:'आप कितने active हैं?'},
+    goalL:{en:'Your goal',hinglish:'Aapka goal',hi:'आपका लक्ष्य'},
+    targetL:{en:'Daily target',hinglish:'Daily target',hi:'रोज़ का लक्ष्य'},
+    goalCont:{en:'Looks good',hinglish:'Theek hai',hi:'ठीक है'}
+  };
+  function addGlass(){
+    const g=document.querySelectorAll('#glasses .glass');
+    for(const x of g){if(!x.classList.contains('full')){x.classList.add('full');break;}}
+    document.getElementById('wcount').textContent=document.querySelectorAll('#glasses .glass.full').length;
+  }
+  function applyLang(lang){const L=STR.greet[lang]?lang:'en';document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.dataset.i18n;if(STR[k])el.textContent=STR[k][L]||STR[k].en;});}
+  function pickLang(el){document.querySelectorAll('.lang').forEach(l=>l.classList.remove('sel'));el.classList.add('sel');selectedLang=el.dataset.lang||'en';}
+  function enter(){applyLang(selectedLang);go('goal');}
+  const BMR=1564; // sample user's Mifflin–St Jeor BMR
+  let actF=1.375, goalAdj=0;
+  function recalc(){
+    const maint=Math.round(BMR*actF/10)*10;
+    document.getElementById('maintN').textContent=maint.toLocaleString();
+    document.getElementById('targetN').textContent=(maint+goalAdj).toLocaleString()+' kcal';
+  }
+  function setAct(b){document.querySelectorAll('#actSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');actF=parseFloat(b.dataset.f);recalc();}
+  function setGoal(b){document.querySelectorAll('#goalSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');goalAdj=parseInt(b.dataset.adj);recalc();}
+  function filterNews(b){
+    document.querySelectorAll('#catRow .cat').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+    const c=b.dataset.c;
+    document.querySelectorAll('#newsList .ncard').forEach(el=>{el.style.display=(c==='all'||el.dataset.cat===c)?'':'none';});
+  }
+  function filterLangs(){
+    const q=document.getElementById('langSearch').value.trim().toLowerCase();
+    let any=false;
+    document.querySelectorAll('#langList .lang').forEach(el=>{
+      const hit=!q||(el.dataset.name||'').includes(q)||el.textContent.toLowerCase().includes(q);
+      el.style.display=hit?'':'none'; if(hit)any=true;
+    });
+    document.querySelectorAll('#langList .lg-label').forEach(l=>l.style.display=q?'none':'');
+    document.getElementById('noLang').style.display=any?'none':'block';
+  }
+  // build preview pills
+  const labels={onboarding:'Onboarding',goal:'Goal setup',home:'Home',scan:'Scan',result:'Scan result',add:'Add food',learn:'Health news'};
+  const pc=document.getElementById('pills');
+  screens.forEach(s=>{const b=document.createElement('button');b.className='pill'+(s==='onboarding'?' active':'');b.textContent=labels[s];b.dataset.s=s;b.onclick=()=>go(s);pc.appendChild(b);});
+</script>
+</body>
+</html>

@@ -1,14 +1,19 @@
 {
   "expo": {
-    "name": "app",
-    "slug": "app",
+    "name": "FitScan",
+    "slug": "fitscan",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "app",
+    "scheme": "fitscan",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "FitScan uses your mic so you can just say what you ate.",
+        "NSMicrophoneUsageDescription": "FitScan uses your mic so you can just say what you ate."
+      },
+      "bundleIdentifier": "com.sr8mu.fitscan"
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +22,12 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.sr8mu.fitscan"
     },
     "web": {
       "output": "static",
@@ -26,19 +36,41 @@
     "plugins": [
       "expo-router",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "FitScan uses the camera to scan product barcodes."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
           "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+            "image": "./assets/images/splash-icon.png"
           }
+        }
+      ],
+      "expo-localization",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "FitScan uses your mic so you can just say what you ate.",
+          "speechRecognitionPermission": "FitScan uses your mic so you can just say what you ate.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a0faf6b3-fe16-418f-b2bb-574686e9b282"
+      }
     }
   }
 }

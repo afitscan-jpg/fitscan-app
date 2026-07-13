@@ -1,9 +1,10 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { C, Fonts } from '@/constants/theme';
+import { C, Fonts, Gradients } from '@/constants/theme';
 
 // Minimal type that matches what React Navigation passes to the tabBar prop.
 // navigation is typed as any to avoid fighting React Navigation's deeply
@@ -55,61 +56,75 @@ function CustomTabBar({ state, navigation }: TabBarProps) {
     .filter(({ route }) => (VISIBLE as string[]).includes(route.name));
 
   return (
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 6) }]}>
-      {tabs.map(({ route, index }) => {
-        const name = route.name as RouteName;
-        const isFocused = state.index === index;
-        const isScan = name === 'scanner';
+    <View style={[styles.dock, { paddingBottom: Math.max(insets.bottom, 12) }]} pointerEvents="box-none">
+      <View style={styles.barShadow}>
+        <LinearGradient
+          colors={['#FFFFFF', '#FCFAF6']}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={styles.bar}
+        >
+          {tabs.map(({ route, index }) => {
+            const name = route.name as RouteName;
+            const isFocused = state.index === index;
+            const isScan = name === 'scanner';
 
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name, route.params);
-          }
-        };
+            const onPress = () => {
+              const event = navigation.emit({
+                type: 'tabPress',
+                target: route.key,
+                canPreventDefault: true,
+              });
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(route.name, route.params);
+              }
+            };
 
-        if (isScan) {
-          return (
-            <Pressable
-              key={route.key}
-              style={styles.fabWrap}
-              onPress={onPress}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isFocused }}
-              accessibilityLabel="Scan"
-            >
-              <View style={styles.fab}>
-                <TabIcon d={ICON_PATH.scanner} color="#fff" size={24} />
-              </View>
-            </Pressable>
-          );
-        }
+            if (isScan) {
+              return (
+                <Pressable
+                  key={route.key}
+                  style={styles.fabWrap}
+                  onPress={onPress}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isFocused }}
+                  accessibilityLabel="Scan"
+                >
+                  <LinearGradient
+                    colors={Gradients.greenTeal}
+                    start={{ x: 0.1, y: 0 }}
+                    end={{ x: 0.9, y: 1 }}
+                    style={styles.fab}
+                  >
+                    <TabIcon d={ICON_PATH.scanner} color="#fff" size={24} />
+                  </LinearGradient>
+                </Pressable>
+              );
+            }
 
-        const iconColor = isFocused ? C.green : C.inkFaint;
+            const iconColor = isFocused ? C.mint : C.inkDim;
 
-        return (
-          <Pressable
-            key={route.key}
-            style={styles.tabItem}
-            onPress={onPress}
-            hitSlop={6}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isFocused }}
-            accessibilityLabel={LABEL[name]}
-          >
-            <View style={styles.tabIcon}>
-              <TabIcon d={ICON_PATH[name]} color={iconColor} size={22} />
-            </View>
-            <Text style={[styles.label, isFocused && styles.labelActive]}>
-              {LABEL[name]}
-            </Text>
-          </Pressable>
-        );
-      })}
+            return (
+              <Pressable
+                key={route.key}
+                style={styles.tabItem}
+                onPress={onPress}
+                hitSlop={6}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isFocused }}
+                accessibilityLabel={LABEL[name]}
+              >
+                <View style={[styles.tabInner, isFocused && styles.tabInnerActive]}>
+                  <TabIcon d={ICON_PATH[name]} color={iconColor} size={22} />
+                  <Text style={[styles.label, isFocused && styles.labelActive]}>
+                    {LABEL[name]}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </LinearGradient>
+      </View>
     </View>
   );
 }
@@ -129,60 +144,85 @@ export default function AppTabs() {
 }
 
 const styles = StyleSheet.create({
+  // Dock that holds the glass bar clear of the screen edge. Kept in layout flow
+  // (not absolute) so the tab navigator reserves its height and screen content
+  // never slides under the floating bar.
+  dock: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    backgroundColor: 'transparent',
+  },
+  barShadow: {
+    borderRadius: 26,
+    ...Platform.select({
+      ios: { shadowColor: '#4A3A22', shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.22, shadowRadius: 30 },
+      android: { elevation: 14 },
+    }),
+  },
   bar: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.97)',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: C.line,
+    alignItems: 'center',
+    height: 66,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: 'rgba(74,58,34,0.06)',
     paddingHorizontal: 8,
-    paddingTop: 8,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 4,
-    paddingTop: 2,
-    minHeight: 44,
+    justifyContent: 'center',
+    height: '100%',
   },
-  tabIcon: {
-    height: 24,
+  tabInner: {
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  // Accent-tint "pill" behind the active tab.
+  tabInnerActive: {
+    backgroundColor: C.greenSoft,
+    borderColor: 'rgba(76,124,99,0.22)',
   },
   label: {
-    fontFamily: Fonts?.body ?? 'system',
-    fontSize: 11,
-    lineHeight: 14,
-    color: C.inkFaint,
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 9.5,
+    lineHeight: 12,
+    letterSpacing: 0.2,
+    fontWeight: '600',
+    color: C.inkDim,
     textAlign: 'center',
   },
   labelActive: {
-    fontFamily: Fonts?.bodyMed ?? 'system',
-    color: C.green,
+    color: C.greenInk,
   },
   fabWrap: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
   },
   fab: {
-    width: 50,
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: C.green,
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -18,
+    marginTop: -26,
     ...Platform.select({
       ios: {
         shadowColor: C.green,
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.45,
-        shadowRadius: 8,
+        shadowRadius: 18,
       },
-      android: { elevation: 8 },
+      android: { elevation: 14 },
     }),
   },
 });

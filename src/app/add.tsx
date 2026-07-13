@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
@@ -479,6 +480,7 @@ export default function AddFoodScreen() {
 
   return (
     <View style={s.root}>
+      <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         <ScrollView
           style={s.flex}
@@ -503,7 +505,7 @@ export default function AddFoodScreen() {
             <TextInput
               style={[s.aiInput, aiLoading && s.aiInputDim]}
               placeholder="2 roti, dal aur thoda rice"
-              placeholderTextColor="#6A8076"
+              placeholderTextColor={C.inkFaint}
               value={aiText}
               onChangeText={(t) => { setAiText(t); setAiInlineMsg(null); }}
               multiline
@@ -523,7 +525,7 @@ export default function AddFoodScreen() {
                     onPress={handleMicPress}
                     hitSlop={8}
                   >
-                    <Icon name="mic" color={micListening ? '#fff' : '#B9C8C0'} size={18} strokeWidth={1.5} />
+                    <Icon name="mic" color={micListening ? '#fff' : C.inkFaint} size={18} strokeWidth={1.5} />
                   </Pressable>
                 </Animated.View>
                 <Pressable
@@ -532,7 +534,7 @@ export default function AddFoodScreen() {
                   hitSlop={8}
                   disabled={aiLoading}
                 >
-                  <Icon name="camera" color="#B9C8C0" size={18} strokeWidth={1.5} />
+                  <Icon name="camera" color={C.inkFaint} size={18} strokeWidth={1.5} />
                 </Pressable>
               </View>
               <AnimatedPressable
@@ -965,34 +967,38 @@ const s = StyleSheet.create({
 
   // ── AI box ─────────────────────────────────────────────────────────────────
   aiBox: {
-    backgroundColor: C.ink,
-    borderRadius: Radius.md,
-    padding: 15,
+    backgroundColor: '#FCF7EF',
+    borderWidth: 1,
+    borderColor: 'rgba(185,132,56,0.2)',
+    borderRadius: Radius.lg,
+    padding: 16,
     marginTop: Spacing.two,
     gap: 0,
-    ...Shadow.dark,
+    ...Shadow.md,
   },
   aiHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   aiTitle: {
     fontFamily: Fonts?.bodySemi ?? 'system',
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: C.inkStrong,
   },
   aiInput: {
-    backgroundColor: '#2A3B33',
-    borderRadius: 9,
-    padding: 11,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(74,58,34,0.12)',
+    borderRadius: 12,
+    padding: 12,
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 14,
-    color: '#fff',
+    color: C.ink,
     minHeight: 50,
     textAlignVertical: 'top',
   },
   aiNote: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12.5,
-    color: '#B9C8C0',
+    color: C.inkFaint,
     marginTop: 8,
     lineHeight: 18,
   },
@@ -1006,7 +1012,7 @@ const s = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#2A3B33',
+    backgroundColor: '#F0ECE3',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1048,9 +1054,11 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: C.card,
-    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    borderRadius: Radius.md,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 11,
     minWidth: 80,
     ...Shadow.sm,
   },
@@ -1282,8 +1290,10 @@ const s = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   aiItemCard: {
-    backgroundColor: C.bg,
-    borderRadius: Radius.md,
+    backgroundColor: '#F7F4EE',
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    borderRadius: Radius.lg,
     padding: 13,
     marginBottom: 12,
     gap: 10,
@@ -1351,16 +1361,16 @@ const s = StyleSheet.create({
   numInput: {
     minWidth: 50,
     textAlign: 'center',
-    backgroundColor: C.card,
+    backgroundColor: 'rgba(76,124,99,0.08)',
     borderWidth: 1,
-    borderColor: C.line,
+    borderColor: 'rgba(76,124,99,0.32)',
     borderRadius: Radius.sm,
     paddingVertical: 7,
     paddingHorizontal: 8,
     fontFamily: Fonts?.bodySemi ?? 'system',
     fontSize: 15,
     fontWeight: '600',
-    color: C.ink,
+    color: C.greenInk,
     fontVariant: ['tabular-nums'],
   },
   unitLabel: {
@@ -1391,7 +1401,7 @@ const s = StyleSheet.create({
   aiStageText: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12.5,
-    color: '#B9C8C0',
+    color: C.inkFaint,
     marginTop: 10,
   },
   aiItemStepRow: {
@@ -1445,7 +1455,7 @@ const s = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#2A3B33',
+    backgroundColor: '#F0ECE3',
     alignItems: 'center',
     justifyContent: 'center',
   },

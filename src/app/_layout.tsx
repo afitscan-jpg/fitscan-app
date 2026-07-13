@@ -11,6 +11,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, DeviceEventEmitter, StyleSheet, View } from 'react-native';
 
@@ -72,16 +73,27 @@ export default function RootLayout() {
   if (!fontsLoaded || appState === 'loading') {
     return (
       <View style={styles.splash}>
+        <StatusBar style="dark" />
         <ActivityIndicator color={C.green} size="large" />
       </View>
     );
   }
 
   if (appState === 'onboarding') {
-    return <OnboardingFlow onComplete={() => setAppState('ready')} />;
+    return (
+      <>
+        <StatusBar style="dark" />
+        <OnboardingFlow onComplete={() => setAppState('ready')} />
+      </>
+    );
   }
 
-  return <AppTabs />;
+  return (
+    <>
+      <StatusBar style="dark" />
+      <AppTabs />
+    </>
+  );
 }
 
 const styles = StyleSheet.create({

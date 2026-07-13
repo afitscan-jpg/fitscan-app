@@ -14,22 +14,26 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Defs, LinearGradient, Stop, Svg } from 'react-native-svg';
+import { LinearGradient as SvgLinearGradient, Defs, Stop, Svg } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Reanimated, {
   Easing as REasing,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
+import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
+import { GlassCard } from '@/components/glass-card';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { useCountUp } from '@/hooks/use-count-up';
 import { Icon } from '@/components/Icon';
-import { C, Fonts, Radius, RingGradient, Shadow, Spacing } from '@/constants/theme';
+import { C, Fonts, Gradients, Radius, RingGradient, Shadow, Spacing } from '@/constants/theme';
 import {
   addWater,
   deleteFoodLog,
@@ -128,10 +132,11 @@ function CalorieRing({ eaten, target }: { eaten: number; target: number }) {
       <View style={rs.glow} />
       <Svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
         <Defs>
-          <LinearGradient id={GRADIENT_ID} x1="0" y1="0" x2="1" y2="1">
+          <SvgLinearGradient id={GRADIENT_ID} x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor={RingGradient.from} />
+            <Stop offset="0.55" stopColor={RingGradient.mid} />
             <Stop offset="1" stopColor={RingGradient.to} />
-          </LinearGradient>
+          </SvgLinearGradient>
         </Defs>
         {/* Track */}
         <AnimatedCircleWrapper
@@ -139,7 +144,7 @@ function CalorieRing({ eaten, target }: { eaten: number; target: number }) {
           cy={RING_SIZE / 2}
           r={RING_R}
           fill="none"
-          stroke={C.bg}
+          stroke="rgba(74,58,34,0.06)"
           strokeWidth={RING_STROKE}
         />
         {/* Animated progress */}
@@ -178,7 +183,7 @@ const rs = StyleSheet.create({
     left: 10,
     right: 10,
     borderRadius: RING_SIZE / 2,
-    backgroundColor: 'rgba(47,125,91,0.13)',
+    backgroundColor: 'rgba(76,124,99,0.08)',
   },
   center: {
     position: 'absolute',
@@ -252,7 +257,7 @@ function WeekStrip({ days, target }: { days: DayTotal[]; target: number }) {
           const hasData  = day.items > 0;
           const ratio    = target > 0 && hasData ? day.kcal / target : 0;
           const dotColor = !hasData
-            ? 'rgba(255,255,255,0.12)'
+            ? 'rgba(74,58,34,0.1)'
             : ratio <= 1.1
               ? C.green
               : ratio <= 1.25
@@ -274,23 +279,25 @@ function WeekStrip({ days, target }: { days: DayTotal[]; target: number }) {
 
 const wk = StyleSheet.create({
   card: {
-    // Dark gradient card
-    backgroundColor: '#1C3027',
+    // White v3 card
+    backgroundColor: C.card,
     borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
     paddingHorizontal: 19,
     paddingTop: 18,
     paddingBottom: 16,
-    ...Shadow.dark,
+    ...Shadow.md,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  title:  { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 15, color: '#fff' },
-  meta:   { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: '#9FB4AB' },
+  title:  { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 15, color: C.ink },
+  meta:   { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint },
   dots:   { flexDirection: 'row', justifyContent: 'space-between' },
   day:    { alignItems: 'center', gap: 8 },
-  dayLabel:      { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, color: '#8FA399' },
-  dayLabelToday: { color: '#fff', fontWeight: '600' },
+  dayLabel:      { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, color: C.inkFaint },
+  dayLabelToday: { color: C.ink, fontWeight: '600' },
   dot: { width: 23, height: 23, borderRadius: 12 },
-  dotToday: { shadowColor: '#fff', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.18, shadowRadius: 5, elevation: 4 },
+  dotToday: { borderWidth: 2, borderColor: C.accent },
 });
 
 // ─── Week AI insight card ─────────────────────────────────────────────────────
@@ -327,9 +334,16 @@ function WeekInsightCard({
   if (!data) return null;
 
   return (
-    <View style={wi.card}>
+    <GlassCard
+      contentStyle={wi.card}
+      colors={Gradients.coach}
+      borderColor="rgba(76,124,99,0.16)"
+    >
       <View style={wi.header}>
         <View style={wi.headerLeft}>
+          <View style={wi.aiIcon}>
+            <Icon name="spark" color="#fff" size={16} strokeWidth={2} />
+          </View>
           <Text style={wi.title}>Your week</Text>
           <View style={wi.badge}>
             <Text style={wi.badgeText}>{data.days_logged} of 7 logged</Text>
@@ -354,24 +368,25 @@ function WeekInsightCard({
           <Text style={wi.planLinkText}>See full plan →</Text>
         </AnimatedPressable>
       </View>
-    </View>
+    </GlassCard>
   );
 }
 
 const wi = StyleSheet.create({
   card: {
-    backgroundColor: C.card,
-    borderRadius: Radius.xl,
-    padding: 19,
+    padding: 18,
     gap: 10,
-    ...Shadow.md,
   },
-  header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 },
+  aiIcon: {
+    width: 30, height: 30, borderRadius: 10, backgroundColor: C.accent,
+    alignItems: 'center', justifyContent: 'center',
+  },
   title: {
     fontFamily: Fonts?.displaySemi ?? 'system',
     fontSize: 15,
-    color: C.ink,
+    color: C.inkStrong,
   },
   badge: {
     backgroundColor: C.greenSoft,
@@ -425,18 +440,34 @@ const wi = StyleSheet.create({
 
 // ─── Water card ──────────────────────────────────────────────────────────────
 
-const GLASS_INNER_H = 21;
+const BOTTLE_INNER_H = 70;
 
-// A single glass whose water level eases in/out when it fills or empties.
-function WaterGlass({ full }: { full: boolean }) {
-  const fill = useSharedValue(full ? 1 : 0);
+// The centerpiece bottle: fills with a cyan gradient to `pct`, with a gentle
+// looping wave shimmer on the surface.
+function WaterBottle({ pct }: { pct: number }) {
+  const fill = useSharedValue(Math.max(0, Math.min(1, pct)));
+  const wave = useSharedValue(0);
   useEffect(() => {
-    fill.value = withTiming(full ? 1 : 0, { duration: 350, easing: REasing.out(REasing.cubic) });
-  }, [full, fill]);
-  const fillStyle = useAnimatedStyle(() => ({ height: fill.value * GLASS_INNER_H }));
+    fill.value = withTiming(Math.max(0, Math.min(1, pct)), { duration: 900, easing: REasing.out(REasing.cubic) });
+  }, [pct, fill]);
+  useEffect(() => {
+    wave.value = withRepeat(withTiming(1, { duration: 2200, easing: REasing.linear }), -1, false);
+  }, [wave]);
+  const fillStyle = useAnimatedStyle(() => ({ height: fill.value * BOTTLE_INNER_H }));
+  const waveStyle = useAnimatedStyle(() => ({ transform: [{ translateX: -30 * wave.value }] }));
   return (
-    <View style={wa.glass}>
-      <Reanimated.View style={[wa.glassFillInner, fillStyle]} />
+    <View style={wa.bottle}>
+      <Reanimated.View style={[wa.bottleFill, fillStyle]}>
+        <LinearGradient colors={Gradients.water} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} />
+        <Reanimated.View style={[wa.wave, waveStyle]}>
+          <LinearGradient
+            colors={['rgba(191,234,243,0)', 'rgba(191,234,243,0.65)', 'rgba(191,234,243,0)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Reanimated.View>
+      </Reanimated.View>
     </View>
   );
 }
@@ -445,69 +476,69 @@ function WaterCard({ glasses, goal, onAdd, adding }: {
   glasses: number; goal: number; onAdd: () => void; adding: boolean;
 }) {
   const shownGlasses = Math.round(useCountUp(glasses, 350));
+  const pct = goal > 0 ? glasses / goal : 0;
   const dropScale = useSharedValue(1);
   const dropStyle = useAnimatedStyle(() => ({ transform: [{ scale: dropScale.value }] }));
 
   function handlePress() {
     if (adding) return;
     dropScale.value = withSequence(
-      withTiming(1.25, { duration: 100, easing: REasing.out(REasing.quad) }),
-      withTiming(1, { duration: 100, easing: REasing.out(REasing.quad) }),
+      withTiming(1.18, { duration: 110, easing: REasing.out(REasing.quad) }),
+      withTiming(1, { duration: 130, easing: REasing.out(REasing.quad) }),
     );
     onAdd();
   }
 
   return (
-    <View style={wa.card}>
-      <View style={wa.header}>
+    <GlassCard
+      contentStyle={wa.card}
+      colors={['#F2F7FA', '#FFFFFF']}
+      borderColor="rgba(92,134,166,0.18)"
+    >
+      <View style={wa.left}>
+        <WaterBottle pct={pct} />
         <View>
-          <Text style={wa.title}>Water</Text>
+          <Text style={wa.eyebrow}>Hydration</Text>
           <Text style={wa.count}>
             <Text style={wa.countBold}>{shownGlasses}</Text>
-            {` of ${goal} glasses`}
+            <Text style={wa.countSub}>{` / ${goal} glasses`}</Text>
           </Text>
         </View>
-        <AnimatedPressable style={wa.addBtn} onPress={handlePress} disabled={adding} pressedScale={0.96}>
+      </View>
+      <AnimatedPressable onPress={handlePress} disabled={adding} pressedScale={0.92} style={wa.addBtnWrap}>
+        <LinearGradient colors={Gradients.water} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={wa.addBtn}>
           <Reanimated.View style={dropStyle}>
-            <Icon name="droplet" color={C.waterBlueInk} size={15} strokeWidth={2.2} />
+            <Text style={wa.addPlus}>+</Text>
           </Reanimated.View>
-          <Text style={wa.addText}>{adding ? '…' : 'Glass'}</Text>
-        </AnimatedPressable>
-      </View>
-      <View style={wa.glasses}>
-        {Array.from({ length: goal }).map((_, i) => (
-          <WaterGlass key={i} full={i < glasses} />
-        ))}
-      </View>
-    </View>
+          <Text style={wa.addSub}>{adding ? '…' : '250ml'}</Text>
+        </LinearGradient>
+      </AnimatedPressable>
+    </GlassCard>
   );
 }
 
 const wa = StyleSheet.create({
-  card: {
-    backgroundColor: C.card,
-    borderRadius: Radius.xl,
-    paddingHorizontal: 19,
-    paddingVertical: 17,
-    ...Shadow.md,
+  card: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 18 },
+  left: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  eyebrow: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase', color: C.waterBlueInk },
+  count: { marginTop: 4 },
+  countBold: { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 23, fontWeight: '600', color: C.inkStrong, letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
+  countSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 13, color: C.inkSoft },
+  bottle: {
+    width: 46, height: 74,
+    borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottomLeftRadius: 13, borderBottomRightRadius: 13,
+    borderWidth: 1.5, borderColor: 'rgba(92,134,166,0.22)',
+    backgroundColor: '#EDF2F5', overflow: 'hidden', justifyContent: 'flex-end',
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  title:  { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 16, color: C.ink },
-  count:  { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, marginTop: 2 },
-  countBold: { color: C.waterBlue, fontFamily: Fonts?.bodySemi ?? 'system', fontWeight: '600' },
+  bottleFill: { position: 'absolute', left: 0, right: 0, bottom: 0, overflow: 'hidden' },
+  wave: { position: 'absolute', top: -3, left: 0, width: '220%', height: 8 },
+  addBtnWrap: { borderRadius: 20, ...Shadow.md },
   addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#EAF4F7',
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-    borderRadius: 11,
+    width: 60, height: 60, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  addText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13, fontWeight: '600', color: C.waterBlueInk },
-  glasses: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  glass:     { width: 19, height: 25, borderWidth: 2, borderColor: '#CFE3E8', borderRadius: 4, borderBottomLeftRadius: 9, borderBottomRightRadius: 9, overflow: 'hidden', justifyContent: 'flex-end' },
-  glassFillInner: { backgroundColor: C.waterBlue, borderBottomLeftRadius: 7, borderBottomRightRadius: 7 },
+  addPlus: { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 22, color: '#fff', lineHeight: 24 },
+  addSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 10, color: 'rgba(255,255,255,0.9)', marginTop: 1 },
 });
 
 // ─── Today list ──────────────────────────────────────────────────────────────
@@ -518,30 +549,46 @@ function formatQtyUnit(quantity: number | null | undefined, unit: string | null 
   return `${quantity} ${unit}`;
 }
 
+const MEAL_TINT: Record<string, { bg: string; border: string; fg: string }> = {
+  breakfast: { bg: '#F4EDE0', border: 'rgba(185,132,56,0.22)', fg: '#B98438' },
+  lunch:     { bg: '#E9ECE6', border: 'rgba(76,124,99,0.22)',  fg: '#4C7C63' },
+  snack:     { bg: '#E9EFF3', border: 'rgba(92,134,166,0.22)', fg: '#5C86A6' },
+  dinner:    { bg: '#ECEAF2', border: 'rgba(107,94,140,0.22)', fg: '#6B5E8C' },
+};
+
 function TodayItem({ item, onEdit, onDelete }: { item: TodayEntry; onEdit: () => void; onDelete: () => void }) {
-  const mealLabel   = item.meal_type ? item.meal_type.charAt(0).toUpperCase() + item.meal_type.slice(1) : 'Snack';
+  const mealType    = (item.meal_type as string) ?? 'snack';
+  const mealLabel   = mealType.charAt(0).toUpperCase() + mealType.slice(1);
   const sourceLabel = item.source === 'scan' ? 'Scanned' : item.source === 'quick_add' ? 'Quick add' : '';
   const qtyUnit     = formatQtyUnit(item.quantity, item.unit);
   const metaText    = qtyUnit ? `${mealLabel} · ${qtyUnit}` : mealLabel;
+  const tint        = MEAL_TINT[mealType] ?? MEAL_TINT.snack;
   return (
     <Reanimated.View
-      style={ti.row}
+      style={ti.card}
       entering={FadeInDown.duration(300)
         .easing(REasing.out(REasing.cubic))
         .withInitialValues({ transform: [{ translateY: 12 }] })}
     >
       <Pressable style={ti.rowMain} onPress={onEdit} accessibilityLabel={`Edit ${item.name}`}>
-        <VerdictDot verdict={item.verdict ?? null} />
-        <View style={ti.info}>
-          <Text style={ti.name} numberOfLines={1}>
-            {item.name}
-            {sourceLabel ? <Text style={ti.tag}>{' · '}{sourceLabel}</Text> : null}
-          </Text>
-          <Text style={ti.meta}>{metaText}</Text>
+        <View style={[ti.tile, { backgroundColor: tint.bg, borderColor: tint.border }]}>
+          <Text style={[ti.tileLetter, { color: tint.fg }]}>{mealLabel.charAt(0)}</Text>
         </View>
-        <Text style={ti.kcal}>
-          {item.kcal}<Text style={ti.kcalUnit}> kcal</Text>
-        </Text>
+        <View style={ti.info}>
+          <View style={ti.topRow}>
+            <Text style={ti.name} numberOfLines={1}>
+              {item.name}
+              {sourceLabel ? <Text style={ti.tag}>{'  ·  '}{sourceLabel}</Text> : null}
+            </Text>
+            <Text style={ti.kcal}>
+              {item.kcal}<Text style={ti.kcalUnit}> kcal</Text>
+            </Text>
+          </View>
+          <View style={ti.metaRow}>
+            <VerdictDot verdict={item.verdict ?? null} />
+            <Text style={ti.meta} numberOfLines={1}>{metaText}</Text>
+          </View>
+        </View>
       </Pressable>
       <Pressable onPress={onDelete} hitSlop={10} style={ti.delBtn}>
         <Text style={ti.delBtnText}>×</Text>
@@ -551,16 +598,31 @@ function TodayItem({ item, onEdit, onDelete }: { item: TodayEntry; onEdit: () =>
 }
 
 const ti = StyleSheet.create({
-  row:       { flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line },
-  rowMain:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 13, paddingVertical: 13 },
-  info:      { flex: 1, gap: 1 },
-  name:      { fontFamily: Fonts?.bodyMed ?? 'system', fontSize: 14.5, color: C.ink, fontWeight: '500' },
-  tag:       { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint },
-  meta:      { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint, marginTop: 1 },
-  kcal:      { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 14.5, fontWeight: '600', color: C.ink, fontVariant: ['tabular-nums'] },
-  kcalUnit:  { fontFamily: Fonts?.body ?? 'system', fontSize: 11, fontWeight: '400', color: C.inkFaint },
-  delBtn:    { paddingLeft: 4, paddingRight: 2, paddingVertical: 13 },
-  delBtnText:{ fontSize: 20, lineHeight: 24, color: C.inkFaint },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 20,
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    paddingRight: 6,
+    marginBottom: 11,
+    ...Shadow.sm,
+  },
+  rowMain:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 13, padding: 11 },
+  tile:      { width: 52, height: 52, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  tileLetter:{ fontFamily: Fonts?.display ?? 'system', fontSize: 22, fontWeight: '600' },
+  info:      { flex: 1, gap: 5 },
+  topRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  name:      { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, color: C.inkStrong, fontWeight: '600', flex: 1 },
+  tag:       { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint, fontWeight: '400' },
+  metaRow:   { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  meta:      { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint, flex: 1 },
+  kcal:      { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.inkStrong, fontVariant: ['tabular-nums'], flexShrink: 0 },
+  kcalUnit:  { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, fontWeight: '400', color: C.inkFaint },
+  delBtn:    { paddingHorizontal: 6, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
+  delBtnText:{ fontSize: 20, lineHeight: 24, color: C.inkDim },
 });
 
 // ─── Edit-a-logged-entry sheet ───────────────────────────────────────────────
@@ -902,6 +964,7 @@ export default function HomeScreen() {
 
   return (
     <View style={hs.root}>
+      <AmbientBackground />
       <SafeAreaView style={hs.flex} edges={['top']}>
         <ScrollView style={hs.flex} contentContainerStyle={hs.scroll} showsVerticalScrollIndicator={false}>
 
@@ -923,14 +986,15 @@ export default function HomeScreen() {
 
           {loading ? (
             <View style={{ alignItems: 'center', marginTop: 40 }}>
-              <View style={[hs.calCard, { alignItems: 'center', paddingVertical: 40 }]}>
+              <View style={[hs.loadingCard, { alignItems: 'center', paddingVertical: 40 }]}>
                 <Text style={hs.loadingText}>Loading…</Text>
               </View>
             </View>
           ) : (
             <>
               {/* ── Calorie card ── */}
-              <Reanimated.View style={hs.calCard} entering={enter(0)}>
+              <Reanimated.View entering={enter(0)}>
+               <GlassCard contentStyle={hs.calCard}>
                 {/* Ring — centered hero */}
                 <CalorieRing eaten={eaten} target={target} />
 
@@ -957,6 +1021,7 @@ export default function HomeScreen() {
                   <MacroChip label="Fat"     value={totals?.fat_g      ?? 0} unit="g" target={targets?.fat_g      ?? null} />
                 </View>
                 <Text style={hs.disclaimer}>Estimates for general guidance, not medical advice. Consult a doctor if you have a health condition.</Text>
+               </GlassCard>
               </Reanimated.View>
 
               {/* Week balance */}
@@ -1043,11 +1108,11 @@ function MacroChip({ label, value, unit, warn = false, target }: {
 }
 
 const mc = StyleSheet.create({
-  chip:     { flex: 1, backgroundColor: C.bg, borderRadius: 14, paddingHorizontal: 13, paddingVertical: 11 },
-  chipWarn: { backgroundColor: C.redSoft },
+  chip:     { flex: 1, backgroundColor: '#FBF9F4', borderWidth: 1, borderColor: C.cardBorder, borderRadius: 16, paddingHorizontal: 13, paddingVertical: 12 },
+  chipWarn: { backgroundColor: C.redSoft, borderColor: 'rgba(196,85,61,0.25)' },
   key:      { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkSoft },
   keyWarn:  { color: C.red },
-  val:      { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 19, fontWeight: '600', color: C.ink, marginTop: 3, fontVariant: ['tabular-nums'] },
+  val:      { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 19, fontWeight: '600', color: C.inkStrong, marginTop: 3, fontVariant: ['tabular-nums'] },
   valWarn:  { color: C.red },
   unit:     { fontSize: 13, fontWeight: '400', color: C.inkFaint },
 });
@@ -1066,11 +1131,16 @@ const hs = StyleSheet.create({
   greetTitle: { fontFamily: Fonts?.display ?? 'system', fontSize: 25, color: C.ink, marginTop: 3, letterSpacing: -0.3 },
 
   calCard: {
+    padding: 22,
+    paddingBottom: 18,
+  },
+  loadingCard: {
     backgroundColor: C.card,
     borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
     padding: 20,
-    paddingBottom: 18,
-    ...Shadow.md,
+    ...Shadow.sm,
   },
   loadingText: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint },
 

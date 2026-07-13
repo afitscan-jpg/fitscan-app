@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AmbientBackground } from '@/components/ambient-background';
 import { Icon } from '@/components/Icon';
 import { REONBOARD_EVENT } from '@/app/_layout';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
@@ -138,6 +139,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={s.root}>
+      <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         <View style={s.header}>
           <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  body{background:radial-gradient(130% 110% at 50% 0%,#F3EEE4,#E4DBC9);font-family:'Manrope',sans-serif;padding:56px 48px;}
+  a{color:#4C7C63;} a:hover{color:#3A6149;}
+</style>
+</helmet>
+
+<div style="max-width:1120px;margin:0 auto;">
+
+  <!-- header -->
+  <div style="margin-bottom:40px;">
+    <div style="font-size:12px;letter-spacing:2px;font-weight:700;color:#A79F91;text-transform:uppercase;">Brand mark</div>
+    <div style="font-size:34px;font-weight:700;color:#2B2822;letter-spacing:-.9px;margin-top:8px;">FitScan — Logo</div>
+    <div style="font-size:15px;color:#79726A;font-weight:500;margin-top:8px;max-width:560px;line-height:1.5;">A leaf held inside scan brackets: nutrition, read instantly. Warm sage-emerald, soft geometry, quiet confidence.</div>
+  </div>
+
+  <!-- primary lockup card -->
+  <div style="background:#FFFFFF;border:1px solid rgba(74,58,34,.07);border-radius:28px;padding:64px;box-shadow:0 1px 2px rgba(74,58,34,.05),0 30px 60px -40px rgba(74,58,34,.3);display:flex;align-items:center;justify-content:center;gap:28px;">
+    <div style="position:relative;width:132px;height:132px;border-radius:34px;background:linear-gradient(155deg,#5C8C70,#3D6B53);box-shadow:0 18px 36px -16px rgba(61,107,83,.6),inset 0 1px 0 rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;color:#fff;">
+      <svg width="80" height="80" viewBox="0 0 72 72" fill="none">
+        <path d="M14 31 L14 14 L31 14" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".5"></path>
+        <path d="M58 41 L58 58 L41 58" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".5"></path>
+        <g transform="translate(19,16.5) scale(1.5)">
+          <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a7 7 0 0 1-7 7c-2 0-3.5-.5-5-2z" fill="currentColor"></path>
+          <path d="M2 22c0-3 4-8 10-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></path>
+        </g>
+      </svg>
+    </div>
+    <div style="font-size:64px;font-weight:700;letter-spacing:-2.4px;line-height:1;"><span style="color:#2B2822;">Fit</span><span style="color:#4C7C63;">Scan</span></div>
+  </div>
+
+  <!-- variants row -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:20px;">
+
+    <!-- app icon -->
+    <div style="background:#FFFFFF;border:1px solid rgba(74,58,34,.07);border-radius:24px;padding:40px 32px 28px;box-shadow:0 1px 2px rgba(74,58,34,.05),0 22px 44px -34px rgba(74,58,34,.28);display:flex;flex-direction:column;align-items:center;">
+      <div style="position:relative;width:150px;height:150px;border-radius:38px;background:linear-gradient(155deg,#5C8C70,#3D6B53);box-shadow:0 18px 36px -16px rgba(61,107,83,.6),inset 0 1px 0 rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;color:#fff;">
+        <svg width="92" height="92" viewBox="0 0 72 72" fill="none">
+          <path d="M14 31 L14 14 L31 14" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".5"></path>
+          <path d="M58 41 L58 58 L41 58" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".5"></path>
+          <g transform="translate(19,16.5) scale(1.5)">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a7 7 0 0 1-7 7c-2 0-3.5-.5-5-2z" fill="currentColor"></path>
+            <path d="M2 22c0-3 4-8 10-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></path>
+          </g>
+        </svg>
+      </div>
+      <div style="font-size:12px;letter-spacing:1.2px;color:#A79F91;font-weight:700;text-transform:uppercase;margin-top:26px;">App icon</div>
+    </div>
+
+    <!-- reversed -->
+    <div style="background:linear-gradient(155deg,#456F58,#2F5643);border-radius:24px;padding:40px 32px 28px;box-shadow:0 1px 2px rgba(74,58,34,.05),0 22px 44px -34px rgba(74,58,34,.28);display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <div style="display:flex;align-items:center;gap:13px;padding:22px 0;color:#fff;">
+        <svg width="42" height="42" viewBox="0 0 72 72" fill="none">
+          <path d="M14 31 L14 14 L31 14" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".65"></path>
+          <path d="M58 41 L58 58 L41 58" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".65"></path>
+          <g transform="translate(19,16.5) scale(1.5)">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a7 7 0 0 1-7 7c-2 0-3.5-.5-5-2z" fill="currentColor"></path>
+            <path d="M2 22c0-3 4-8 10-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></path>
+          </g>
+        </svg>
+        <div style="font-size:32px;font-weight:700;letter-spacing:-1.2px;">Fit<span style="color:#C7DFCB;">Scan</span></div>
+      </div>
+      <div style="font-size:12px;letter-spacing:1.2px;color:rgba(255,255,255,.65);font-weight:700;text-transform:uppercase;margin-top:26px;">Reversed</div>
+    </div>
+
+    <!-- monochrome -->
+    <div style="background:#FFFFFF;border:1px solid rgba(74,58,34,.07);border-radius:24px;padding:40px 32px 28px;box-shadow:0 1px 2px rgba(74,58,34,.05),0 22px 44px -34px rgba(74,58,34,.28);display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <div style="display:flex;align-items:center;gap:13px;padding:22px 0;color:#2B2822;">
+        <svg width="42" height="42" viewBox="0 0 72 72" fill="none">
+          <path d="M14 31 L14 14 L31 14" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".38"></path>
+          <path d="M58 41 L58 58 L41 58" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".38"></path>
+          <g transform="translate(19,16.5) scale(1.5)">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a7 7 0 0 1-7 7c-2 0-3.5-.5-5-2z" fill="currentColor"></path>
+            <path d="M2 22c0-3 4-8 10-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></path>
+          </g>
+        </svg>
+        <div style="font-size:32px;font-weight:700;letter-spacing:-1.2px;">FitScan</div>
+      </div>
+      <div style="font-size:12px;letter-spacing:1.2px;color:#A79F91;font-weight:700;text-transform:uppercase;margin-top:26px;">Monochrome</div>
+    </div>
+  </div>
+
+  <!-- scale + palette row -->
+  <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px;margin-top:20px;">
+    <!-- scale -->
+    <div style="background:#FFFFFF;border:1px solid rgba(74,58,34,.07);border-radius:24px;padding:32px 36px;box-shadow:0 1px 2px rgba(74,58,34,.05),0 22px 44px -34px rgba(74,58,34,.28);">
+      <div style="font-size:12px;letter-spacing:1.2px;color:#A79F91;font-weight:700;text-transform:uppercase;">Scales cleanly</div>
+      <div style="display:flex;align-items:flex-end;gap:26px;margin-top:26px;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+          <div style="width:84px;height:84px;border-radius:22px;background:linear-gradient(155deg,#5C8C70,#3D6B53);box-shadow:0 10px 22px -12px rgba(61,107,83,.55);display:flex;align-items:center;justify-content:center;color:#fff;">
+            <svg width="50" height="50" viewBox="0 0 72 72" fill="none"><path d="M14 31 L14 14 L31 14" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".5"></path><path d="M58 41 L58 58 L41 58" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" opacity=".5"></path><g transform="translate(19,16.5) scale(1.5)"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a7 7 0 0 1-7 7c-2 0-3.5-.5-5-2z" fill="currentColor"></path><path d="M2 22c0-3 4-8 10-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></path></g></svg>
+          </div>
+          <div style="font-size:11px;color:#A79F91;font-weight:600;">84</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+          <div style="width:56px;height:56px;border-radius:15px;background:linear-gradient(155deg,#5C8C70,#3D6B53);box-shadow:0 10px 22px -12px rgba(61,107,83,.55);display:flex;align-items:center;justify-content:center;color:#fff;">
+            <svg width="34" height="34" viewBox="0 0 72 72" fill="none"><path d="M14 31 L14 14 L31 14" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" opacity=".5"></path><path d="M58 41 L58 58 L41 58" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" opacity=".5"></path><g transform="translate(19,16.5) scale(1.5)"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a7 7 0 0 1-7 7c-2 0-3.5-.5-5-2z" fill="currentColor"></path><path d="M2 22c0-3 4-8 10-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></path></g></svg>
+          </div>
+          <div style="font-size:11px;color:#A79F91;font-weight:600;">56</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+          <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(155deg,#5C8C70,#3D6B53);box-shadow:0 10px 22px -12px rgba(61,107,83,.55);display:flex;align-items:center;justify-content:center;color:#fff;">
+            <svg width="23" height="23" viewBox="0 0 72 72" fill="none"><g transform="translate(19,16.5) scale(1.5)"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a7 7 0 0 1-7 7c-2 0-3.5-.5-5-2z" fill="currentColor"></path><path d="M2 22c0-3 4-8 10-9" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"></path></g></svg>
+          </div>
+          <div style="font-size:11px;color:#A79F91;font-weight:600;">36</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+          <div style="width:22px;height:22px;border-radius:6px;background:linear-gradient(155deg,#5C8C70,#3D6B53);box-shadow:0 8px 16px -10px rgba(61,107,83,.55);display:flex;align-items:center;justify-content:center;color:#fff;">
+            <svg width="15" height="15" viewBox="0 0 72 72" fill="none"><g transform="translate(19,16.5) scale(1.5)"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a7 7 0 0 1-7 7c-2 0-3.5-.5-5-2z" fill="currentColor"></path></g></svg>
+          </div>
+          <div style="font-size:11px;color:#A79F91;font-weight:600;">20</div>
+        </div>
+      </div>
+    </div>
+    <!-- palette -->
+    <div style="background:#FFFFFF;border:1px solid rgba(74,58,34,.07);border-radius:24px;padding:32px 36px;box-shadow:0 1px 2px rgba(74,58,34,.05),0 22px 44px -34px rgba(74,58,34,.28);">
+      <div style="font-size:12px;letter-spacing:1.2px;color:#A79F91;font-weight:700;text-transform:uppercase;">Palette</div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:22px;">
+        <sc-for list="{{ swatches }}" as="w" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:34px;height:34px;border-radius:10px;background:{{ w.hex }};border:1px solid rgba(74,58,34,.08);"></div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:#2B2822;">{{ w.name }}</div>
+              <div style="font-size:12px;color:#A79F91;font-weight:500;font-family:ui-monospace,monospace;">{{ w.hex }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1216,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      swatches: [
+        { name: 'Sage Emerald', hex: '#4C7C63' },
+        { name: 'Deep Pine', hex: '#3A6149' },
+        { name: 'Ink', hex: '#2B2822' },
+        { name: 'Warm Cream', hex: '#FAF8F4' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

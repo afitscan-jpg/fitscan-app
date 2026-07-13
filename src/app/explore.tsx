@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { Icon } from '@/components/Icon';
@@ -43,11 +44,11 @@ const CATEGORIES: Array<{ key: CategoryKey; label: string }> = [
 ];
 
 const TAG_STYLE: Record<Exclude<CategoryKey, 'all'>, { bg: string; color: string }> = {
-  nutrition: { bg: C.greenSoft, color: C.greenInk },
-  fitness:   { bg: '#E4EEF6',   color: '#2C5573' },
-  safety:    { bg: C.amberSoft, color: C.amberInk },
-  research:  { bg: '#ECE7F5',   color: '#4A3B73' },
-  general:   { bg: C.line,      color: C.inkSoft },
+  nutrition: { bg: C.greenSoft,               color: C.greenInk },
+  fitness:   { bg: '#E9EFF3',                 color: '#3C6B8C' },
+  safety:    { bg: C.amberSoft,               color: C.amberInk },
+  research:  { bg: '#ECEAF2',                 color: '#5B4B86' },
+  general:   { bg: 'rgba(74,58,34,0.06)',     color: C.inkSoft },
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -244,6 +245,7 @@ export default function NewsScreen() {
 
   return (
     <View style={s.root}>
+      <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         <View style={s.header}>
           <Text style={s.eyebrow}>Worldwide · updated hourly</Text>
@@ -348,19 +350,21 @@ const s = StyleSheet.create({
   },
   catPill: {
     backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 999,
     ...Shadow.sm,
   },
-  catPillOn: { backgroundColor: C.ink },
+  catPillOn: { backgroundColor: C.accent, borderColor: C.accent },
   catLabel: {
     fontFamily: Fonts?.bodyMed ?? 'system',
     fontSize: 13,
     fontWeight: '500',
     color: C.inkSoft,
   },
-  catLabelOn: { color: '#fff' },
+  catLabelOn: { color: '#FFFFFF', fontWeight: '600' },
 
   articles: {
     paddingHorizontal: 22,

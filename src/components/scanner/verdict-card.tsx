@@ -4,16 +4,16 @@ import { Icon } from '@/components/Icon';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import type { ScanResult } from '@/types/scan';
 
-// Map the verdict_color key to gradient-friendly bg colors matching premium.html
+// Map the verdict_color key to solid bg colors matching the v3 accent palette.
 const VERDICT_BG: Record<string, string> = {
-  green: '#2A6E49',
-  amber: '#C9852F',
-  red:   '#B83B33',
+  green: '#4C7C63',
+  amber: '#B98438',
+  red:   '#C4553D',
 };
 const VERDICT_SHADOW_COLOR: Record<string, string> = {
-  green: 'rgba(47,125,91,0.28)',
-  amber: 'rgba(176,116,31,0.28)',
-  red:   'rgba(176,59,51,0.28)',
+  green: 'rgba(76,124,99,0.30)',
+  amber: 'rgba(185,132,56,0.30)',
+  red:   'rgba(196,85,61,0.30)',
 };
 
 interface Props { result: ScanResult }

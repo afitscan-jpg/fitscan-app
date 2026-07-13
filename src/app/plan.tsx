@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { Icon } from '@/components/Icon';
@@ -332,6 +333,7 @@ export default function PlanScreen() {
 
   return (
     <View style={s.root}>
+      <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         {/* ── Header ── */}
         <View style={s.header}>

@@ -48,7 +48,7 @@ import {
   type Goal,
   type Profile,
 } from '@/lib/db';
-import { supabase } from '@/lib/supabase';
+import { authFetch } from '@/lib/api';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -892,15 +892,10 @@ export default function HomeScreen() {
   const loadInsight = useCallback(async (force = false) => {
     setInsightLoading(true);
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData.user?.id;
-      if (!userId) return;
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-      if (!apiUrl) throw new Error('No API URL');
-      const res = await fetch(`${apiUrl}/insights/weekly`, {
+      const res = await authFetch('/insights/weekly', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, ...(force ? { force: true } : {}) }),
+        body: JSON.stringify(force ? { force: true } : {}),
       });
       if (!res.ok) throw new Error(`Status ${res.status}`);
       const json: { insight: WeekInsight } = await res.json();

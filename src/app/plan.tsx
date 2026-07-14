@@ -17,7 +17,7 @@ import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { logFood, type MealType } from '@/lib/db';
-import { supabase } from '@/lib/supabase';
+import { authFetch } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -255,16 +255,10 @@ export default function PlanScreen() {
       setError(false);
     }
     try {
-      const { data: authData } = await supabase.auth.getUser();
-      const userId = authData.user?.id;
-      if (!userId) throw new Error('No user');
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-      if (!apiUrl) throw new Error('No API URL');
-      const res = await fetch(`${apiUrl}/insights/plan`, {
+      const res = await authFetch('/insights/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: userId,
           ...(force ? { force: true } : {}),
           ...(override ? { diet_override: override } : {}),
         }),

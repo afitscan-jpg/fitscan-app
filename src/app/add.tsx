@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { Icon } from '@/components/Icon';
+import { authFetch } from '@/lib/api';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { getProfile, logFood, mealTypeForNow, type MealType, type Profile } from '@/lib/db';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -277,9 +278,7 @@ export default function AddFoodScreen() {
     setAiInlineMsg(null);
     startStages();
     try {
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-      if (!apiUrl) throw new Error('No API URL configured');
-      const res = await fetch(`${apiUrl}/ai/parse`, {
+      const res = await authFetch('/ai/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -410,9 +409,7 @@ export default function AddFoodScreen() {
       setAiLoading(true);
       setAiInlineMsg(null);
       startStages();
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-      if (!apiUrl) throw new Error('No API URL configured');
-      const res = await fetch(`${apiUrl}/ai/parse`, {
+      const res = await authFetch('/ai/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

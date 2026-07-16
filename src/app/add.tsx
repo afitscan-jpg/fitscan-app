@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -150,9 +150,25 @@ export default function AddFoodScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
+  const params = useLocalSearchParams<{ prefill?: string }>();
+  const prefillDone = useRef<string | null>(null);
+
   useEffect(() => {
     getProfile().then(setProfile).catch(() => {});
   }, []);
+
+  // The assistant hands food text here (`/add?prefill=...`) instead of logging it
+  // itself, so it flows through the normal parse → editable confirm sheet → log
+  // pipeline. Guarded by a ref so it fires once per distinct handoff.
+  useEffect(() => {
+    const text = typeof params.prefill === 'string' ? params.prefill.trim() : '';
+    if (!text || prefillDone.current === text) return;
+    prefillDone.current = text;
+    setAiText(text);
+    handleAiSubmit(text);
+    // handleAiSubmit is a stable in-component function; the ref guard prevents re-runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.prefill]);
 
   useSpeechRecognitionEvent('start', () => setMicListening(true));
   useSpeechRecognitionEvent('end',   () => setMicListening(false));
@@ -271,8 +287,8 @@ export default function AddFoodScreen() {
     }
   }
 
-  async function handleAiSubmit() {
-    const text = aiText.trim();
+  async function handleAiSubmit(textOverride?: string) {
+    const text = (textOverride ?? aiText).trim();
     if (!text || aiLoading) return;
     setAiLoading(true);
     setAiInlineMsg(null);
@@ -507,7 +523,7 @@ export default function AddFoodScreen() {
               onChangeText={(t) => { setAiText(t); setAiInlineMsg(null); }}
               multiline
               returnKeyType="send"
-              onSubmitEditing={handleAiSubmit}
+              onSubmitEditing={() => handleAiSubmit()}
               submitBehavior="blurAndSubmit"
               editable={!aiLoading}
             />
@@ -536,7 +552,7 @@ export default function AddFoodScreen() {
               </View>
               <AnimatedPressable
                 style={[s.aiSend, (aiLoading || !aiText.trim()) && s.aiSendDim]}
-                onPress={handleAiSubmit}
+                onPress={() => handleAiSubmit()}
                 disabled={aiLoading || !aiText.trim()}
               >
                 {aiLoading ? (
@@ -563,6 +579,29 @@ export default function AddFoodScreen() {
               />
             ))}
           </View>
+
+          {/* Workout entry point */}
+          <Text style={s.sectionLabel}>Movement</Text>
+          <AnimatedPressable style={s.workoutCard} onPress={() => router.push('/exercises' as never)}>
+            <View style={s.workoutIcon}>
+              <Icon name="dumbbell" color={C.greenInk} size={22} strokeWidth={1.9} />
+            </View>
+            <View style={s.workoutBody}>
+              <Text style={s.workoutTitle}>Log a workout</Text>
+              <Text style={s.workoutSub}>Browse exercises with demos & log sets</Text>
+            </View>
+            <Icon name="arrow" color={C.green} size={18} strokeWidth={2} />
+          </AnimatedPressable>
+
+          {/* Assistant entry point */}
+          <Text style={s.sectionLabel}>Assistant</Text>
+          <AnimatedPressable style={s.assistCard} onPress={() => router.push('/assistant' as never)}>
+            <View style={s.assistIcon}>
+              <Icon name="spark" color={C.marigold} size={18} strokeWidth={1.9} />
+            </View>
+            <Text style={s.assistText}>Ask FitScan</Text>
+            <Icon name="arrow" color={C.marigold} size={17} strokeWidth={2} />
+          </AnimatedPressable>
         </ScrollView>
       </SafeAreaView>
 
@@ -1075,6 +1114,69 @@ const s = StyleSheet.create({
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
     color: C.inkFaint,
+  },
+
+  // ── Workout entry point ──────────────────────────────────────────────────────
+  workoutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    borderRadius: Radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    ...Shadow.sm,
+  },
+  workoutIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: C.greenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  workoutBody: { flex: 1, gap: 2 },
+  workoutTitle: {
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.ink,
+  },
+  workoutSub: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 12.5,
+    color: C.inkFaint,
+  },
+
+  // ── Assistant entry point (slim) ─────────────────────────────────────────────
+  assistCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    backgroundColor: '#FCF7EF',
+    borderWidth: 1,
+    borderColor: 'rgba(185,132,56,0.2)',
+    borderRadius: Radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    ...Shadow.sm,
+  },
+  assistIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: C.amberSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assistText: {
+    flex: 1,
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 14.5,
+    fontWeight: '600',
+    color: C.ink,
   },
 
   // ── Shared sheet chrome ────────────────────────────────────────────────────

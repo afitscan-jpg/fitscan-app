@@ -20,7 +20,8 @@ export type IconName =
   | 'camera'
   | 'gear'
   | 'pencil'
-  | 'refresh';
+  | 'refresh'
+  | 'dumbbell';
 
 interface IconProps {
   name: IconName;
@@ -166,6 +167,14 @@ export function Icon({ name, color = '#16241D', size = 22, strokeWidth = 1.75 }:
         <Svg width={size} height={size} viewBox="0 0 24 24">
           <Path d="M1 4v6h6" {...p} />
           <Path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" {...p} />
+        </Svg>
+      );
+    case 'dumbbell':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24">
+          <Path d="M6.5 6.5l11 11" {...p} />
+          <Path d="M21 21l-1.5-1.5M4.5 4.5L3 3" {...p} />
+          <Path d="M18.5 15.5l3-3-3-3-3 3M8.5 5.5l-3 3 3 3 3-3" {...p} />
         </Svg>
       );
     default:

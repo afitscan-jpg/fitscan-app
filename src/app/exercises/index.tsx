@@ -25,8 +25,9 @@ const CARD_H = 92;
 const CARD_GAP = 11;
 const ROW_H = CARD_H + CARD_GAP;
 
+// Title-case labels ("lower back" → "Lower Back", "olympic weightlifting" → …).
 function cap(s: string): string {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  return s ? s.replace(/\b\w/g, (c) => c.toUpperCase()) : s;
 }
 
 // ─── Card ────────────────────────────────────────────────────────────────────
@@ -72,7 +73,9 @@ function ExerciseCard({ item }: { item: Exercise }) {
             ) : null}
           </View>
         </View>
-        <Icon name="chevL" color={C.inkDim} size={18} strokeWidth={2} />
+        <View style={ec.chev}>
+          <Icon name="chevL" color={C.inkDim} size={18} strokeWidth={2} />
+        </View>
       </AnimatedPressable>
     </Reanimated.View>
   );
@@ -99,6 +102,7 @@ const ec = StyleSheet.create({
   },
   thumb: { width: '100%', height: '100%' },
   thumbFallback: { alignItems: 'center', justifyContent: 'center' },
+  chev: { transform: [{ scaleX: -1 }] },
   body: { flex: 1, gap: 5 },
   name: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.ink, lineHeight: 19 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -244,7 +248,7 @@ export default function ExerciseBrowserScreen() {
                   style={[s.chip, on && s.chipOn]}
                   onPress={() => setActiveMuscle(value)}
                 >
-                  <Text style={[s.chipText, on && s.chipTextOn]}>{cap(m)}</Text>
+                  <Text style={[s.chipText, on && s.chipTextOn]} numberOfLines={1}>{cap(m)}</Text>
                 </AnimatedPressable>
               );
             }}
@@ -317,10 +321,13 @@ const s = StyleSheet.create({
   searchInput: { flex: 1, fontFamily: Fonts?.body ?? 'system', fontSize: 15, color: C.ink },
 
   chipScroll: { flexGrow: 0, marginTop: 12 },
-  chipRow: { paddingHorizontal: 22, gap: 8, flexDirection: 'row' },
+  // Vertical padding gives the chip shadows + active border room so the row
+  // never clips them; alignItems centres chips of any label length.
+  chipRow: { paddingHorizontal: 22, paddingVertical: 6, gap: 8, flexDirection: 'row', alignItems: 'center' },
   chip: {
     backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder,
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, ...Shadow.sm,
+    paddingHorizontal: 14, minHeight: 34, borderRadius: 999,
+    alignItems: 'center', justifyContent: 'center', ...Shadow.sm,
   },
   chipOn: { backgroundColor: C.accent, borderColor: C.accent },
   chipText: { fontFamily: Fonts?.bodyMed ?? 'system', fontSize: 13, fontWeight: '500', color: C.inkSoft },

@@ -17,7 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { Icon } from '@/components/Icon';
-import { authFetch } from '@/lib/api';
+import { authFetch, PaywallError } from '@/lib/api';
+import { PaywallSheet } from '@/components/paywall-sheet';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { getProfile, logFood, mealTypeForNow, type MealType, type Profile } from '@/lib/db';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -144,6 +145,7 @@ export default function AddFoodScreen() {
   const [aiLogging,    setAiLogging]    = useState(false);
   const [aiSuccess,    setAiSuccess]    = useState(false);
   const [micListening,  setMicListening]  = useState(false);
+  const [paywall,       setPaywall]       = useState<PaywallError | null>(null);
   const [showCamera,    setShowCamera]    = useState(false);
   const [cameraReady,   setCameraReady]   = useState(false);
   const micPulse  = useRef(new Animated.Value(1)).current;
@@ -305,8 +307,9 @@ export default function AddFoodScreen() {
       });
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       applyAiParseResponse(await res.json());
-    } catch {
-      setAiInlineMsg("Couldn't reach the server — is the backend running?");
+    } catch (e) {
+      if (e instanceof PaywallError) setPaywall(e);
+      else setAiInlineMsg("Couldn't reach the server — is the backend running?");
     } finally {
       stopStages();
       setAiLoading(false);
@@ -439,9 +442,10 @@ export default function AddFoodScreen() {
         throw new Error(`Server error ${res.status}`);
       }
       applyAiParseResponse(await res.json());
-    } catch {
+    } catch (e) {
       setShowCamera(false);
-      setAiInlineMsg("Couldn't reach the server — is the backend running?");
+      if (e instanceof PaywallError) setPaywall(e);
+      else setAiInlineMsg("Couldn't reach the server — is the backend running?");
     } finally {
       stopStages();
       setAiLoading(false);
@@ -826,6 +830,8 @@ export default function AddFoodScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <PaywallSheet error={paywall} onClose={() => setPaywall(null)} />
     </View>
   );
 }

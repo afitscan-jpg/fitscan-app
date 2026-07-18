@@ -17,6 +17,7 @@ import { Icon } from '@/components/Icon';
 import { REONBOARD_EVENT } from '@/app/_layout';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { getProfile, updateProfile, type Goal, type Profile } from '@/lib/db';
+import { getEntitlement, trialDaysLeft, type Entitlement } from '@/lib/entitlement';
 import { ensureSession, supabase } from '@/lib/supabase';
 
 // ─── Display helpers ────────────────────────────────────────────────────────────
@@ -52,6 +53,16 @@ function proteinTarget(weight_kg: number | null | undefined, goal: Goal | undefi
   return Math.round((weight_kg * factor) / 5) * 5;
 }
 
+function planLabel(ent: Entitlement | null): string {
+  if (!ent) return '—';
+  if (ent.status === 'premium' || ent.is_premium) return 'Premium';
+  if (ent.status === 'trial') {
+    const days = trialDaysLeft(ent.trial_ends);
+    return `Trial · ${days} ${days === 1 ? 'day' : 'days'} left`;
+  }
+  return 'Free';
+}
+
 function dietLabel(pref?: string): string | null {
   if (!pref) return null;
   const map: Record<string, string> = {
@@ -76,6 +87,7 @@ function Row({ label, value, first }: { label: string; value: string; first?: bo
 
 export default function SettingsScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [ent, setEnt]         = useState<Entitlement | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy]       = useState(false);
 
@@ -84,6 +96,7 @@ export default function SettingsScreen() {
       .then(setProfile)
       .catch(() => {})
       .finally(() => setLoading(false));
+    getEntitlement().then(setEnt).catch(() => {});
   }, []);
 
   function handleRestartSetup() {
@@ -176,6 +189,38 @@ export default function SettingsScreen() {
                 />
                 {protein != null ? <Row label="Protein target" value={`${protein} g`} /> : null}
               </View>
+
+              <Text style={s.eyebrow}>Plan</Text>
+              <Pressable
+                style={({ pressed }) => [s.actionBtn, s.linkRow, pressed && s.pressed]}
+                onPress={() => router.push('/premium' as never)}
+              >
+                <View style={s.linkText}>
+                  <Text style={s.actionText}>{planLabel(ent)}</Text>
+                  <Text style={s.actionSub}>
+                    {ent && (ent.status === 'premium' || ent.is_premium)
+                      ? 'Unlimited AI logging, insights & planner'
+                      : 'Go Premium for unlimited AI, insights & planner'}
+                  </Text>
+                </View>
+                <Icon name="arrow" color={C.inkDim} size={18} strokeWidth={2} />
+              </Pressable>
+
+              <Text style={s.eyebrow}>Tracking</Text>
+              <Pressable
+                style={({ pressed }) => [s.actionBtn, s.linkRow, pressed && s.pressed]}
+                onPress={() => router.push('/weight' as never)}
+              >
+                <View style={s.linkText}>
+                  <Text style={s.actionText}>Weight tracker</Text>
+                  <Text style={s.actionSub}>
+                    {profile?.weight_kg != null
+                      ? `Current ${(Math.round(profile.weight_kg * 10) / 10).toFixed(1)} kg · view trend`
+                      : 'Log your weight and see your trend'}
+                  </Text>
+                </View>
+                <Icon name="arrow" color={C.inkDim} size={18} strokeWidth={2} />
+              </Pressable>
 
               <Text style={s.eyebrow}>Setup</Text>
               <Pressable
@@ -283,6 +328,8 @@ const s = StyleSheet.create({
     ...Shadow.sm,
   },
   pressed:    { opacity: 0.85 },
+  linkRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  linkText:   { flex: 1, gap: 2 },
   actionText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.ink },
   actionSub:  { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint },
   danger:     { color: C.red },

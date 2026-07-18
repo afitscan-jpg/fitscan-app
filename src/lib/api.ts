@@ -9,6 +9,58 @@ export class ApiError extends Error {
   }
 }
 
+export type PaywallKind = 'limit' | 'premium';
+
+export interface PaywallInfo {
+  feature?: string;
+  used?: number;
+  limit?: number;
+  status?: string;
+}
+
+/**
+ * Thrown by authFetch on an HTTP 402 from the metered AI endpoints, so callers
+ * can tell "you hit the paywall" apart from a real network/server failure and
+ * show the upgrade sheet instead of a generic "couldn't reach server" error.
+ *   kind 'limit'   → free user used their daily AI allotment (limit_reached)
+ *   kind 'premium' → free user opened a premium-only feature (premium_only)
+ */
+export class PaywallError extends Error {
+  constructor(
+    public readonly kind: PaywallKind,
+    public readonly info: PaywallInfo = {},
+  ) {
+    super(kind === 'limit' ? 'Daily free AI limit reached' : 'Premium feature');
+    this.name = 'PaywallError';
+  }
+}
+
+// Build a PaywallError from a 402 response body. FastAPI serializes
+// HTTPException(detail=…) as {"detail": {...}}, so unwrap that first.
+async function paywallFromResponse(res: Response): Promise<PaywallError> {
+  let detail: Record<string, unknown> = {};
+  try {
+    const body: unknown = await res.json();
+    const d =
+      body && typeof body === 'object' && 'detail' in body
+        ? (body as { detail: unknown }).detail
+        : body;
+    if (d && typeof d === 'object') detail = d as Record<string, unknown>;
+  } catch {
+    // non-JSON body — fall through to a generic limit paywall
+  }
+  const feature = typeof detail.feature === 'string' ? detail.feature : undefined;
+  if (detail.error === 'premium_only') {
+    return new PaywallError('premium', { feature });
+  }
+  return new PaywallError('limit', {
+    feature,
+    used: typeof detail.used === 'number' ? detail.used : undefined,
+    limit: typeof detail.limit === 'number' ? detail.limit : undefined,
+    status: typeof detail.status === 'string' ? detail.status : undefined,
+  });
+}
+
 export async function apiFetch<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}${path}`);
   if (!res.ok) {
@@ -56,6 +108,12 @@ export async function authFetch(path: string, options: RequestInit = {}): Promis
     const { data } = await supabase.auth.refreshSession();
     const refreshed = data.session?.access_token;
     if (refreshed) res = await run(refreshed);
+  }
+
+  // Metering paywall — surface a typed error so callers show the upgrade sheet
+  // rather than treating it as a network failure.
+  if (res.status === 402) {
+    throw await paywallFromResponse(res);
   }
 
   return res;

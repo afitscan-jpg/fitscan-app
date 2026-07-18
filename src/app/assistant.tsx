@@ -25,6 +25,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
+import { PaywallSheet } from '@/components/paywall-sheet';
+import { PaywallError } from '@/lib/api';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import {
@@ -227,6 +229,7 @@ export default function AssistantScreen() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState<Record<string, boolean>>({});
+  const [paywall, setPaywall] = useState<PaywallError | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -256,13 +259,17 @@ export default function AssistantScreen() {
         content: res.reply || "I didn't catch that — could you rephrase?",
         action: res.action,
       }]);
-    } catch {
-      setMessages((prev) => [...prev, {
-        id: nextId(),
-        role: 'assistant',
-        content: "Couldn't reach the assistant — try again.",
-        error: true,
-      }]);
+    } catch (e) {
+      if (e instanceof PaywallError) {
+        setPaywall(e);
+      } else {
+        setMessages((prev) => [...prev, {
+          id: nextId(),
+          role: 'assistant',
+          content: "Couldn't reach the assistant — try again.",
+          error: true,
+        }]);
+      }
     } finally {
       setLoading(false);
     }
@@ -409,6 +416,8 @@ export default function AssistantScreen() {
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      <PaywallSheet error={paywall} onClose={() => setPaywall(null)} />
     </View>
   );
 }

@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -22,9 +21,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
+import { ExerciseDemo } from '@/components/exercise-demo';
+import { GlassCard } from '@/components/glass-card';
 import { Icon } from '@/components/Icon';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
-import { C, Fonts, Radius, Shadow } from '@/constants/theme';
+import { C, Fonts, Gradients, Radius, Shadow } from '@/constants/theme';
+import { getScienceNote } from '@/data/exercise-science';
 import { logExercise, type Exercise } from '@/lib/exercises';
 
 function cap(s: string): string {
@@ -88,37 +90,28 @@ function DemoVideo({ url, onFail }: { url: string; onFail: () => void }) {
   );
 }
 
+// Media priority: a real video (MP4) keeps the expo-video player; otherwise the
+// image-based catalog (free-exercise-db) uses the looping start/end-frame demo,
+// which also handles the single-image and no-image (placeholder) cases itself.
 function MediaArea({ exercise }: { exercise: Exercise }) {
   const [videoFailed, setVideoFailed] = useState(false);
-  const [imgReady, setImgReady] = useState(false);
   const hasVideo = !!exercise.video_url && !videoFailed;
 
-  return (
-    <View style={media.card}>
-      {hasVideo ? (
+  if (hasVideo) {
+    return (
+      <View style={media.card}>
         <DemoVideo url={exercise.video_url as string} onFail={() => setVideoFailed(true)} />
-      ) : exercise.thumbnail_url ? (
-        <>
-          <Image
-            source={{ uri: exercise.thumbnail_url }}
-            style={media.fill}
-            contentFit="cover"
-            transition={220}
-            cachePolicy="memory-disk"
-            onLoadEnd={() => setImgReady(true)}
-          />
-          {!imgReady ? (
-            <SkeletonPulse style={[StyleSheet.absoluteFill, media.skeleton]}>
-              <View />
-            </SkeletonPulse>
-          ) : null}
-        </>
-      ) : (
-        <View style={[media.fill, media.placeholder]}>
-          <Icon name="dumbbell" color={C.inkFaint} size={40} strokeWidth={1.6} />
-        </View>
-      )}
-    </View>
+      </View>
+    );
+  }
+
+  return (
+    <ExerciseDemo
+      frames={exercise.image_urls}
+      thumbnail={exercise.thumbnail_url}
+      height={240}
+      radius={Radius.xl}
+    />
   );
 }
 
@@ -226,6 +219,77 @@ const nf = StyleSheet.create({
   },
 });
 
+// ─── Science notes (evidence-based) ───────────────────────────────────────────
+
+function ScienceNotes({ name }: { name: string }) {
+  const note = getScienceNote(name);
+  if (!note) return null;
+
+  return (
+    <GlassCard
+      style={sci.wrap}
+      contentStyle={sci.card}
+      colors={Gradients.coach}
+      borderColor="rgba(76,124,99,0.16)"
+    >
+      <View style={sci.head}>
+        <Icon name="spark" color={C.greenInk} size={15} strokeWidth={2} />
+        <Text style={sci.eyebrow}>Evidence-based</Text>
+      </View>
+      <Text style={sci.title}>Science notes</Text>
+
+      <View style={sci.row}>
+        <Text style={sci.label}>Primary activation</Text>
+        <Text style={sci.body}>{note.primaryActivation}</Text>
+      </View>
+
+      <View style={sci.row}>
+        <Text style={sci.label}>Biomechanics</Text>
+        <Text style={sci.body}>{note.biomechanicsNote}</Text>
+      </View>
+
+      {note.metValue != null ? (
+        <View style={sci.row}>
+          <Text style={sci.label}>Intensity</Text>
+          <Text style={sci.body}>{note.metValue} METs</Text>
+        </View>
+      ) : null}
+
+      {note.tip ? (
+        <View style={sci.tipRow}>
+          <Icon name="spark" color={C.marigold} size={14} strokeWidth={2} />
+          <Text style={sci.tip}>{note.tip}</Text>
+        </View>
+      ) : null}
+    </GlassCard>
+  );
+}
+
+const sci = StyleSheet.create({
+  wrap: { marginTop: 26 },
+  card: { padding: 18, gap: 12 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  eyebrow: {
+    fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600',
+    letterSpacing: 0.6, textTransform: 'uppercase', color: C.greenInk,
+  },
+  title: {
+    fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 17, color: C.ink,
+    letterSpacing: -0.2, marginTop: -4,
+  },
+  row: { gap: 3 },
+  label: {
+    fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600',
+    letterSpacing: 0.5, textTransform: 'uppercase', color: C.inkFaint,
+  },
+  body: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft, lineHeight: 21 },
+  tipRow: {
+    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
+    borderTopWidth: 1, borderTopColor: C.hairline, paddingTop: 12,
+  },
+  tip: { flex: 1, fontFamily: Fonts?.body ?? 'system', fontSize: 13.5, color: C.ink, lineHeight: 20 },
+});
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function ExerciseDetailScreen() {
@@ -320,6 +384,9 @@ export default function ExerciseDetailScreen() {
               ))}
             </View>
           ) : null}
+
+          {/* Evidence-based science notes — only for movements the research doc covers */}
+          <ScienceNotes name={exercise.name} />
         </ScrollView>
 
         {/* Log CTA */}

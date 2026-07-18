@@ -31,6 +31,7 @@ import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { GlassCard } from '@/components/glass-card';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
+import { WeightCard } from '@/components/weight-card';
 import { useCountUp } from '@/hooks/use-count-up';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Gradients, Radius, RingGradient, Shadow, Spacing } from '@/constants/theme';
@@ -48,7 +49,9 @@ import {
   type Goal,
   type Profile,
 } from '@/lib/db';
-import { authFetch } from '@/lib/api';
+import { authFetch, PaywallError } from '@/lib/api';
+import { getEntitlement, trialDaysLeft, type Entitlement } from '@/lib/entitlement';
+import { PaywallSheet } from '@/components/paywall-sheet';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -862,6 +865,91 @@ function goalLabel(g?: Profile['goal']): string {
   return 'Maintain';
 }
 
+// ─── Entitlement strip (trial banner / free usage chip / premium badge) ──────
+
+function EntitlementStrip({ ent, onUpgrade }: { ent: Entitlement; onUpgrade: () => void }) {
+  if (ent.is_premium && ent.status === 'premium') {
+    return (
+      <View style={ent$.premiumBadge}>
+        <Icon name="spark" color={C.greenInk} size={13} strokeWidth={2} />
+        <Text style={ent$.premiumText}>Premium</Text>
+      </View>
+    );
+  }
+
+  if (ent.status === 'trial') {
+    const days = trialDaysLeft(ent.trial_ends);
+    return (
+      <AnimatedPressable style={ent$.trialBanner} onPress={onUpgrade}>
+        <Text style={ent$.trialText}>
+          ✨ {days} {days === 1 ? 'day' : 'days'} left in your free trial
+        </Text>
+        <Icon name="arrow" color={C.greenInk} size={15} strokeWidth={2} />
+      </AnimatedPressable>
+    );
+  }
+
+  // free
+  const used = Math.min(ent.ai_used_today, ent.ai_limit);
+  return (
+    <AnimatedPressable style={ent$.freeChip} onPress={onUpgrade}>
+      <Text style={ent$.freeText}>
+        {used} of {ent.ai_limit} free AI logs used today
+      </Text>
+      <Text style={ent$.freeCta}>Upgrade</Text>
+    </AnimatedPressable>
+  );
+}
+
+function InsightUpsellCard({ onPress }: { onPress: () => void }) {
+  return (
+    <AnimatedPressable onPress={onPress}>
+      <GlassCard contentStyle={ent$.upsell} colors={Gradients.coach} borderColor="rgba(76,124,99,0.16)">
+        <View style={ent$.upsellIcon}>
+          <Icon name="spark" color="#fff" size={16} strokeWidth={2} />
+        </View>
+        <View style={ent$.upsellText}>
+          <Text style={ent$.upsellTitle}>Unlock weekly insights</Text>
+          <Text style={ent$.upsellSub}>An honest readout of your week — part of Premium.</Text>
+        </View>
+        <Icon name="arrow" color={C.green} size={17} strokeWidth={2} />
+      </GlassCard>
+    </AnimatedPressable>
+  );
+}
+
+const ent$ = StyleSheet.create({
+  trialBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+    backgroundColor: C.greenSoft, borderWidth: 1, borderColor: 'rgba(76,124,99,0.22)',
+    borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 10,
+  },
+  trialText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13, fontWeight: '600', color: C.greenInk, flexShrink: 1 },
+  freeChip: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+    backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder,
+    borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 10, ...Shadow.sm,
+  },
+  freeText: { fontFamily: Fonts?.body ?? 'system', fontSize: 13, color: C.inkSoft, flexShrink: 1 },
+  freeCta: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13, fontWeight: '600', color: C.green },
+  premiumBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    backgroundColor: C.greenSoft, borderRadius: Radius.pill, paddingHorizontal: 11, paddingVertical: 5,
+  },
+  premiumText: {
+    fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11.5, fontWeight: '600',
+    letterSpacing: 0.3, color: C.greenInk,
+  },
+  upsell: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+  upsellIcon: {
+    width: 34, height: 34, borderRadius: 11, backgroundColor: C.accent,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  upsellText: { flex: 1, gap: 2 },
+  upsellTitle: { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 15, color: C.inkStrong },
+  upsellSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, lineHeight: 17 },
+});
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
@@ -874,7 +962,10 @@ export default function HomeScreen() {
   const [addingWater,    setAddingWater]    = useState(false);
   const [insightData,    setInsightData]    = useState<WeekInsight | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
+  const [insightLocked,  setInsightLocked]  = useState(false);
   const [editing,        setEditing]        = useState<TodayEntry | null>(null);
+  const [ent,            setEnt]            = useState<Entitlement | null>(null);
+  const [paywall,        setPaywall]        = useState<PaywallError | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -900,18 +991,31 @@ export default function HomeScreen() {
       if (!res.ok) throw new Error(`Status ${res.status}`);
       const json: { insight: WeekInsight } = await res.json();
       setInsightData(json.insight);
-    } catch {
-      // on failure keep existing data if any; hide card if none
+      setInsightLocked(false);
+    } catch (e) {
+      if (e instanceof PaywallError) {
+        // Insights are premium-only (limit_reached shouldn't occur, but treat it
+        // the same). Show the upsell card instead of silently vanishing.
+        setInsightLocked(true);
+        setInsightData(null);
+      }
+      // other failures: keep existing data if any; hide card if none
     } finally {
       setInsightLoading(false);
     }
+  }, []);
+
+  const loadEnt = useCallback(async () => {
+    const e = await getEntitlement();
+    if (e) setEnt(e);
   }, []);
 
   useFocusEffect(useCallback(() => {
     setLoading(true);
     load();
     loadInsight();
-  }, [load, loadInsight]));
+    loadEnt();
+  }, [load, loadInsight, loadEnt]));
 
   function handleDelete(id: string, name: string) {
     Alert.alert('Remove this entry?', name, [
@@ -979,6 +1083,11 @@ export default function HomeScreen() {
             </AnimatedPressable>
           </View>
 
+          {/* Plan status: trial banner / free usage chip / premium badge */}
+          {ent ? (
+            <EntitlementStrip ent={ent} onUpgrade={() => router.push('/premium' as never)} />
+          ) : null}
+
           {loading ? (
             <View style={{ alignItems: 'center', marginTop: 40 }}>
               <View style={[hs.loadingCard, { alignItems: 'center', paddingVertical: 40 }]}>
@@ -1024,18 +1133,29 @@ export default function HomeScreen() {
                 <WeekStrip days={weekData} target={target} />
               </Reanimated.View>
 
-              {/* AI weekly insight */}
+              {/* AI weekly insight (or a Premium upsell when it's locked) */}
               <Reanimated.View entering={enter(2)}>
-                <WeekInsightCard
-                  data={insightData}
-                  loading={insightLoading}
-                  onRefresh={() => loadInsight(true)}
-                />
+                {insightLocked ? (
+                  <InsightUpsellCard
+                    onPress={() => setPaywall(new PaywallError('premium', { feature: 'insights' }))}
+                  />
+                ) : (
+                  <WeekInsightCard
+                    data={insightData}
+                    loading={insightLoading}
+                    onRefresh={() => loadInsight(true)}
+                  />
+                )}
               </Reanimated.View>
 
               {/* Water */}
               <Reanimated.View entering={enter(3)}>
                 <WaterCard glasses={water.glasses} goal={waterGoal} onAdd={handleAddWater} adding={addingWater} />
+              </Reanimated.View>
+
+              {/* Weight */}
+              <Reanimated.View entering={enter(4)}>
+                <WeightCard />
               </Reanimated.View>
 
               {/* Today list */}
@@ -1081,6 +1201,8 @@ export default function HomeScreen() {
           />
         ) : null}
       </Modal>
+
+      <PaywallSheet error={paywall} onClose={() => setPaywall(null)} />
     </View>
   );
 }

@@ -17,7 +17,8 @@ import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { logFood, type MealType } from '@/lib/db';
-import { authFetch } from '@/lib/api';
+import { authFetch, PaywallError } from '@/lib/api';
+import { PaywallSheet } from '@/components/paywall-sheet';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -241,6 +242,7 @@ export default function PlanScreen() {
   const [error, setError]             = useState(false);
   const [loggedMeals, setLoggedMeals] = useState<Set<number>>(new Set());
   const [dietOverride, setDietOverride] = useState<DietValue | null>(null);
+  const [paywall, setPaywall] = useState<PaywallError | null>(null);
 
   const fetchPlan = useCallback(async (
     force = false,
@@ -267,9 +269,14 @@ export default function PlanScreen() {
       const json: { plan: Plan; plan_date: string } = await res.json();
       setPlan(json.plan);
       AsyncStorage.setItem(planCacheKey(), JSON.stringify(json.plan)).catch(() => {});
-    } catch {
-      // A failed background refresh keeps the cached plan visible.
-      if (!silent) setError(true);
+    } catch (e) {
+      if (e instanceof PaywallError) {
+        // Premium-only feature — show the upgrade sheet, not a network error.
+        setPaywall(e);
+      } else if (!silent) {
+        // A failed background refresh keeps the cached plan visible.
+        setError(true);
+      }
     } finally {
       if (!silent) setLoading(false);
     }
@@ -441,6 +448,8 @@ export default function PlanScreen() {
           ) : null}
         </ScrollView>
       </SafeAreaView>
+
+      <PaywallSheet error={paywall} onClose={() => setPaywall(null)} />
     </View>
   );
 }

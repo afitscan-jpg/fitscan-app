@@ -28,6 +28,7 @@ export interface Profile {
   onboarded: boolean;
   country?: string;
   diet_preference?: string;
+  target_weight_kg?: number | null;
 }
 
 export interface FoodEntry {

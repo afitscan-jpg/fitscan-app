@@ -19,6 +19,8 @@ export interface Exercise {
   exercise_type: ExerciseType;
   video_url: string | null;
   thumbnail_url: string | null;
+  /** All demo frames (free-exercise-db ships ~2: start/end position). */
+  image_urls: string[] | null;
   instructions: string[] | null;
 }
 

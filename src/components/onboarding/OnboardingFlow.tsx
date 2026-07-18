@@ -431,6 +431,7 @@ function GoalStep({
   const [age, setAge] = useState('');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
+  const [goalWeight, setGoalWeight] = useState('');
   const [activityFactor, setActivityFactor] = useState(1.375);
   const [goal, setGoal] = useState<Goal>('maintain');
   const [dietPrefs, setDietPrefs] = useState<string[]>(['vegetarian']);
@@ -473,6 +474,14 @@ function GoalStep({
     try {
       const birthYear = new Date().getFullYear() - ageNum;
       const bmi = weightNum / Math.pow(heightNum / 100, 2);
+      // Goal weight is optional and only relevant for directional goals; include
+      // it only when the user typed a sane value.
+      const goalWeightNum = parseFloat(goalWeight);
+      const wantsTarget = goal === 'lose' || goal === 'gain' || goal === 'build_muscle';
+      const targetPatch =
+        wantsTarget && !Number.isNaN(goalWeightNum) && goalWeightNum >= 20 && goalWeightNum <= 300
+          ? { target_weight_kg: Math.round(goalWeightNum * 10) / 10 }
+          : {};
       const updated = await updateProfile({
         language,
         sex,
@@ -482,6 +491,7 @@ function GoalStep({
         activity_factor: activityFactor,
         goal,
         diet_preference: dietPrefs.length > 0 ? dietPrefs.join(',') : 'vegetarian',
+        ...targetPatch,
       });
       setResult({
         maintenanceKcal: updated.maintenance_kcal ?? 0,
@@ -623,6 +633,21 @@ function GoalStep({
 
               <Text style={s.fieldLabel}>Your goal</Text>
               <GoalCards goal={goal} onSelect={setGoal} />
+
+              {goal === 'lose' || goal === 'gain' || goal === 'build_muscle' ? (
+                <>
+                  <Text style={s.fieldLabel}>Goal weight (kg) — optional</Text>
+                  <TextInput
+                    style={s.input}
+                    keyboardType="decimal-pad"
+                    placeholder="e.g. 65"
+                    placeholderTextColor={C.inkFaint}
+                    value={goalWeight}
+                    onChangeText={setGoalWeight}
+                    maxLength={5}
+                  />
+                </>
+              ) : null}
 
               <Text style={s.fieldLabel}>What do you eat?</Text>
               <DietMultiSelect selected={dietPrefs} onToggle={toggleDiet} />

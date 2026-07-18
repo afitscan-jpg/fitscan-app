@@ -32,6 +32,7 @@ import {
   deleteWeight,
   getWeightLogs,
   logWeight,
+  setTargetWeight,
   type WeightLog,
   type WeightPeriod,
 } from '@/lib/weight';
@@ -264,6 +265,7 @@ export default function WeightScreen() {
   const [target, setTarget] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [targetSheetOpen, setTargetSheetOpen] = useState(false);
 
   const load = useCallback(async (p: WeightPeriod, showSkeleton = false) => {
     if (showSkeleton) setLoading(true);
@@ -334,39 +336,47 @@ export default function WeightScreen() {
             <>
               {/* Current + Target cards */}
               <View style={s.cardsRow}>
-                <GlassCard contentStyle={s.statCard}>
-                  <Text style={s.statLabel}>Current</Text>
-                  {current != null ? (
-                    <Text style={s.statValue}>{fmt1(current)}<Text style={s.statUnit}> kg</Text></Text>
-                  ) : (
-                    <Text style={s.statDash}>—</Text>
-                  )}
-                  {hasData && Math.abs(delta) >= 0.1 ? (
-                    <Text style={s.statTrend}>
-                      {delta < 0 ? '↓' : '↑'} {fmt1(Math.abs(delta))} kg this {period === 'all' ? 'range' : period}
-                    </Text>
-                  ) : (
-                    <Text style={s.statTrendMuted}>No change yet</Text>
-                  )}
-                </GlassCard>
+                <View style={s.statCardWrap}>
+                  <GlassCard contentStyle={s.statCard}>
+                    <Text style={s.statLabel}>Current</Text>
+                    {current != null ? (
+                      <Text style={s.statValue}>{fmt1(current)}<Text style={s.statUnit}> kg</Text></Text>
+                    ) : (
+                      <Text style={s.statDash}>—</Text>
+                    )}
+                    {hasData && Math.abs(delta) >= 0.1 ? (
+                      <Text style={s.statTrend}>
+                        {delta < 0 ? '↓' : '↑'} {fmt1(Math.abs(delta))} kg this {period === 'all' ? 'range' : period}
+                      </Text>
+                    ) : (
+                      <Text style={s.statTrendMuted}>No change yet</Text>
+                    )}
+                  </GlassCard>
+                </View>
 
-                <GlassCard contentStyle={s.statCard}>
-                  <Text style={s.statLabel}>Target</Text>
-                  {target != null ? (
-                    <Text style={s.statValue}>{fmt1(target)}<Text style={s.statUnit}> kg</Text></Text>
-                  ) : (
-                    <Text style={s.statDash}>—</Text>
-                  )}
-                  {target != null && current != null ? (
-                    <Text style={s.statTrendMuted}>
-                      {Math.abs(current - target) < 0.1
-                        ? 'At your goal'
-                        : `${fmt1(Math.abs(current - target))} kg to go`}
-                    </Text>
-                  ) : (
-                    <Text style={s.statTrendMuted}>{target == null ? 'Not set' : ' '}</Text>
-                  )}
-                </GlassCard>
+                <AnimatedPressable
+                  style={s.statCardWrap}
+                  onPress={() => setTargetSheetOpen(true)}
+                  accessibilityLabel="Set goal weight"
+                >
+                  <GlassCard contentStyle={s.statCard}>
+                    <Text style={s.statLabel}>Target</Text>
+                    {target != null ? (
+                      <Text style={s.statValue}>{fmt1(target)}<Text style={s.statUnit}> kg</Text></Text>
+                    ) : (
+                      <Text style={s.statDash}>—</Text>
+                    )}
+                    {target != null && current != null ? (
+                      <Text style={s.statTrendMuted}>
+                        {Math.abs(current - target) < 0.1
+                          ? 'At your goal'
+                          : `${fmt1(Math.abs(current - target))} kg to go`}
+                      </Text>
+                    ) : (
+                      <Text style={s.statLink}>{target == null ? 'Tap to set' : 'Tap to edit'}</Text>
+                    )}
+                  </GlassCard>
+                </AnimatedPressable>
               </View>
 
               {/* Period tabs */}
@@ -438,7 +448,78 @@ export default function WeightScreen() {
           onSaved={() => { setSheetOpen(false); load(period); }}
         />
       </Modal>
+
+      <Modal visible={targetSheetOpen} transparent animationType="slide" onRequestClose={() => setTargetSheetOpen(false)}>
+        <TargetWeightSheet
+          current={target}
+          onClose={() => setTargetSheetOpen(false)}
+          onSaved={(v) => { setTarget(v); setTargetSheetOpen(false); }}
+        />
+      </Modal>
     </View>
+  );
+}
+
+// ─── Set-goal-weight sheet ────────────────────────────────────────────────────
+
+function TargetWeightSheet({ current, onClose, onSaved }: {
+  current: number | null; onClose: () => void; onSaved: (v: number) => void;
+}) {
+  const [draft, setDraft] = useState(current != null ? fmt1(current) : '');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (saving) return;
+    const parsed = parseFloat(draft);
+    if (Number.isNaN(parsed) || parsed <= 0 || parsed > 500) {
+      Alert.alert('Enter a valid goal weight in kilograms.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const rounded = Math.round(parsed * 10) / 10;
+      await setTargetWeight(rounded);
+      onSaved(rounded);
+    } catch {
+      setSaving(false);
+      Alert.alert('Could not save your goal weight. Please try again.');
+    }
+  }
+
+  return (
+    <Pressable style={sh.overlay} onPress={onClose}>
+      <Pressable style={sh.sheet} onPress={() => undefined}>
+        <View style={sh.handle} />
+        <View style={sh.headerRow}>
+          <Text style={sh.title}>Goal weight</Text>
+          <Pressable onPress={onClose} hitSlop={12} style={sh.closeBtn}>
+            <Text style={sh.closeTxt}>×</Text>
+          </Pressable>
+        </View>
+
+        <Text style={sh.hint}>Your target — the chart marks it with a dashed line.</Text>
+
+        <View style={sh.weightRow}>
+          <TextInput
+            style={sh.weightInput}
+            value={draft}
+            onChangeText={(t) => setDraft(t.replace(/[^0-9.]/g, ''))}
+            keyboardType="decimal-pad"
+            placeholder="0.0"
+            placeholderTextColor={C.inkDim}
+            returnKeyType="done"
+            maxLength={6}
+            selectTextOnFocus
+            autoFocus
+          />
+          <Text style={sh.unit}>kg</Text>
+        </View>
+
+        <Pressable style={[sh.saveBtn, saving && sh.saveDim]} onPress={handleSave} disabled={saving}>
+          {saving ? <ActivityIndicator color="#fff" /> : <Text style={sh.saveTxt}>Save goal</Text>}
+        </Pressable>
+      </Pressable>
+    </Pressable>
   );
 }
 
@@ -486,6 +567,7 @@ const s = StyleSheet.create({
 
   // Stat cards
   cardsRow: { flexDirection: 'row', gap: 12 },
+  statCardWrap: { flex: 1 },
   statCard: { flex: 1, paddingHorizontal: 16, paddingVertical: 16, minHeight: 104, justifyContent: 'center' },
   statLabel: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase', color: C.inkFaint },
   statValue: { marginTop: 6, fontFamily: Fonts?.display ?? 'system', fontSize: 30, color: C.inkStrong, letterSpacing: -0.8, fontVariant: ['tabular-nums'] },
@@ -493,6 +575,7 @@ const s = StyleSheet.create({
   statDash: { marginTop: 6, fontFamily: Fonts?.display ?? 'system', fontSize: 30, color: C.inkDim },
   statTrend: { marginTop: 5, fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 12.5, fontWeight: '600', color: C.greenInk },
   statTrendMuted: { marginTop: 5, fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint },
+  statLink: { marginTop: 5, fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 12.5, fontWeight: '600', color: C.green },
 
   // Period tabs
   tabs: {

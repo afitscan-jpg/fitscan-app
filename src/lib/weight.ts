@@ -5,6 +5,7 @@
 // weight_router.py.
 
 import { authFetch, ApiError } from './api';
+import { updateProfile } from './db';
 
 export type WeightPeriod = 'week' | 'month' | 'year' | 'all';
 
@@ -63,6 +64,17 @@ export async function getWeightLogs(period: WeightPeriod = 'month'): Promise<Wei
     period: json.period ?? period,
     target_weight_kg: json.target_weight_kg == null ? null : toNum(json.target_weight_kg),
   };
+}
+
+/**
+ * Set the goal weight (profiles.target_weight_kg). Written through the Supabase
+ * client (updateProfile), the same owner-scoped, RLS-protected path used for
+ * every other profile field — the /weight backend has no set-target route and
+ * doesn't need one. Returns the saved value.
+ */
+export async function setTargetWeight(kg: number): Promise<number | null> {
+  const updated = await updateProfile({ target_weight_kg: kg });
+  return updated.target_weight_kg ?? null;
 }
 
 /** Delete one of the caller's own entries. */

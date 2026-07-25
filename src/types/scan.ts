@@ -1,6 +1,6 @@
-export type VerdictColor = 'green' | 'amber' | 'red';
+export type VerdictColor = 'green' | 'amber' | 'red' | 'grey';
 export type Grade = 'A' | 'B' | 'C' | 'D' | 'E';
-export type Verdict = 'Good' | 'OK' | 'Avoid';
+export type Verdict = 'Good' | 'OK' | 'Avoid' | 'Unknown';
 
 export interface ScanNutrients {
   energy_kcal: number | null;
@@ -14,8 +14,8 @@ export interface ScanNutrients {
 }
 
 export interface ScanResult {
-  score: number;
-  grade: Grade;
+  score: number | null;   // null when the food couldn't be graded (unknown)
+  grade: Grade | null;    // null when the food couldn't be graded (unknown)
   verdict: Verdict;
   verdict_color: VerdictColor;
   headline_hinglish: string;

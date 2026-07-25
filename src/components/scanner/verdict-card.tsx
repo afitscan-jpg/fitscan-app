@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/Icon';
-import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { C, Fonts, Radius, Spacing } from '@/constants/theme';
 import type { ScanResult } from '@/types/scan';
 
 // Map the verdict_color key to solid bg colors matching the v3 accent palette.
@@ -19,6 +19,24 @@ const VERDICT_SHADOW_COLOR: Record<string, string> = {
 interface Props { result: ScanResult }
 
 export function VerdictCard({ result }: Props) {
+  // Insufficient label data — render a clean "unknown" state with no grade,
+  // score, or numbers, instead of a broken "Unknown · null/100" card.
+  if (result.verdict === 'Unknown' || result.grade == null) {
+    return (
+      <View style={styles.unknownCard}>
+        <View style={styles.unknownBadge}>
+          <Icon name="search" color={C.inkSoft} size={22} strokeWidth={1.9} />
+        </View>
+        <View style={styles.unknownBody}>
+          <Text style={styles.unknownTitle}>Couldn&apos;t identify this</Text>
+          <Text style={styles.unknownSub}>
+            Try describing it in text instead — that&apos;s usually more accurate
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   const bg     = VERDICT_BG[result.verdict_color]     ?? VERDICT_BG.amber;
   const shadow = VERDICT_SHADOW_COLOR[result.verdict_color] ?? VERDICT_SHADOW_COLOR.amber;
 
@@ -39,6 +57,40 @@ export function VerdictCard({ result }: Props) {
 }
 
 const styles = StyleSheet.create({
+  // Neutral "couldn't identify" state (no verdict colour, no numbers).
+  unknownCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    borderRadius: Radius.xl,
+    padding: Spacing.three,
+  },
+  unknownBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: C.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  unknownBody: { flex: 1, gap: 4 },
+  unknownTitle: {
+    fontFamily: Fonts?.displaySemi ?? 'system',
+    fontSize: 17,
+    fontWeight: '700',
+    color: C.ink,
+    letterSpacing: -0.3,
+  },
+  unknownSub: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 13.5,
+    color: C.inkSoft,
+    lineHeight: 19,
+  },
   card: {
     borderRadius: Radius.xl,
     padding: Spacing.three,

@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,16 +18,10 @@ import { REONBOARD_EVENT } from '@/app/_layout';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { getProfile, updateProfile, type Goal, type Profile } from '@/lib/db';
 import { getEntitlement, trialDaysLeft, type Entitlement } from '@/lib/entitlement';
+import { getAuthState, type AuthState } from '@/lib/auth';
 import { ensureSession, supabase } from '@/lib/supabase';
 
 // ─── Display helpers ────────────────────────────────────────────────────────────
-
-const LANG_NAMES: Record<string, string> = {
-  en: 'English', hinglish: 'Hinglish', hi: 'हिन्दी', bn: 'বাংলা', ta: 'தமிழ்',
-  te: 'తెలుగు', kn: 'ಕನ್ನಡ', mr: 'मराठी', gu: 'ગુજરાતી', ml: 'മലയാളം',
-  pa: 'ਪੰਜਾਬੀ', es: 'Español', pt: 'Português', fr: 'Français', de: 'Deutsch',
-  ar: 'العربية', id: 'Bahasa Indonesia', zh: '中文', ja: '日本語', ko: '한국어',
-};
 
 const COUNTRY_NAMES: Record<string, string> = {
   IN: 'India', US: 'United States', GB: 'United Kingdom', AU: 'Australia',
@@ -88,6 +82,7 @@ function Row({ label, value, first }: { label: string; value: string; first?: bo
 export default function SettingsScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [ent, setEnt]         = useState<Entitlement | null>(null);
+  const [auth, setAuth]       = useState<AuthState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy]       = useState(false);
 
@@ -99,10 +94,16 @@ export default function SettingsScreen() {
     getEntitlement().then(setEnt).catch(() => {});
   }, []);
 
+  // Auth state on focus, so the account card reflects a create/sign-in that
+  // happened on the /account screen we just returned from.
+  useFocusEffect(useCallback(() => {
+    getAuthState().then(setAuth).catch(() => {});
+  }, []));
+
   function handleRestartSetup() {
     Alert.alert(
       'Restart setup?',
-      "We'll walk you through language, country and your goal again. Your logged food and history stay exactly as they are.",
+      "We'll walk you through country and your goal again. Your logged food and history stay exactly as they are.",
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -173,10 +174,40 @@ export default function SettingsScreen() {
             </View>
           ) : (
             <>
+              {/* Account (auth-defer): a save-progress card while anonymous, a
+                  compact signed-in row once a permanent account exists. */}
+              {auth?.isAnonymous === false ? (
+                <Pressable
+                  style={({ pressed }) => [s.actionBtn, s.linkRow, pressed && s.pressed]}
+                  onPress={() => router.push('/account' as never)}
+                >
+                  <View style={s.linkText}>
+                    <Text style={s.actionText}>Account</Text>
+                    <Text style={s.actionSub}>{auth.email ?? 'Signed in'}</Text>
+                  </View>
+                  <Icon name="arrow" color={C.inkDim} size={18} strokeWidth={2} />
+                </Pressable>
+              ) : auth ? (
+                <Pressable
+                  style={({ pressed }) => [s.accountCard, pressed && s.pressed]}
+                  onPress={() => router.push('/account' as never)}
+                >
+                  <View style={s.accountIcon}>
+                    <Icon name="spark" color={C.greenInk} size={18} strokeWidth={2} />
+                  </View>
+                  <View style={s.accountText}>
+                    <Text style={s.accountTitle}>Save your progress</Text>
+                    <Text style={s.accountSub}>
+                      Create a free account so your history is safe on any device.
+                    </Text>
+                  </View>
+                  <Icon name="arrow" color={C.green} size={18} strokeWidth={2} />
+                </Pressable>
+              ) : null}
+
               <Text style={s.eyebrow}>Your profile</Text>
               <View style={s.card}>
-                <Row first label="Language" value={profile?.language ? (LANG_NAMES[profile.language] ?? profile.language) : '—'} />
-                <Row label="Country" value={profile?.country ? (COUNTRY_NAMES[profile.country] ?? profile.country) : '—'} />
+                <Row first label="Country" value={profile?.country ? (COUNTRY_NAMES[profile.country] ?? profile.country) : '—'} />
                 <Row label="Goal" value={goalLabel(profile?.goal)} />
                 {diet ? <Row label="Diet" value={diet} /> : null}
                 <Row
@@ -189,6 +220,7 @@ export default function SettingsScreen() {
                 />
                 {protein != null ? <Row label="Protein target" value={`${protein} g`} /> : null}
               </View>
+              <Text style={s.langLine}>English — the AI understands Hindi and Hinglish input.</Text>
 
               <Text style={s.eyebrow}>Plan</Text>
               <Pressable
@@ -222,6 +254,17 @@ export default function SettingsScreen() {
                 <Icon name="arrow" color={C.inkDim} size={18} strokeWidth={2} />
               </Pressable>
 
+              <Pressable
+                style={({ pressed }) => [s.actionBtn, s.linkRow, pressed && s.pressed]}
+                onPress={() => router.push('/progress-photos' as never)}
+              >
+                <View style={s.linkText}>
+                  <Text style={s.actionText}>Progress Photos</Text>
+                  <Text style={s.actionSub}>Private photo gallery — stays on your device</Text>
+                </View>
+                <Icon name="arrow" color={C.inkDim} size={18} strokeWidth={2} />
+              </Pressable>
+
               <Text style={s.eyebrow}>Setup</Text>
               <Pressable
                 style={({ pressed }) => [s.actionBtn, pressed && s.pressed]}
@@ -229,7 +272,7 @@ export default function SettingsScreen() {
                 disabled={busy}
               >
                 <Text style={s.actionText}>Restart setup</Text>
-                <Text style={s.actionSub}>Re-run language, country and goal</Text>
+                <Text style={s.actionSub}>Re-run country and goal</Text>
               </Pressable>
 
               <Pressable
@@ -334,6 +377,26 @@ const s = StyleSheet.create({
   actionSub:  { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint },
   danger:     { color: C.red },
 
+  accountCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    backgroundColor: C.greenSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(76,124,99,0.22)',
+    borderRadius: Radius.lg,
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    ...Shadow.sm,
+  },
+  accountIcon: {
+    width: 40, height: 40, borderRadius: 13, backgroundColor: C.card,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  accountText: { flex: 1, gap: 2 },
+  accountTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.greenInk },
+  accountSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, lineHeight: 17 },
+
   busyRow: { alignItems: 'center', paddingVertical: 4 },
 
   footnote: {
@@ -343,5 +406,13 @@ const s = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
     marginTop: 6,
+  },
+  langLine: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 12.5,
+    color: C.inkFaint,
+    lineHeight: 18,
+    marginTop: 8,
+    marginLeft: 2,
   },
 });

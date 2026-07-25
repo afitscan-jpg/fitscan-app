@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Animated,
   ActivityIndicator,
   Alert,
   Modal,
@@ -19,10 +18,10 @@ import { AnimatedPressable } from '@/components/animated-pressable';
 import { Icon } from '@/components/Icon';
 import { authFetch, PaywallError } from '@/lib/api';
 import { PaywallSheet } from '@/components/paywall-sheet';
+import { TextLogCard } from '@/components/text-log-card';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { getProfile, logFood, mealTypeForNow, type MealType, type Profile } from '@/lib/db';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 
 // ─── Food definitions ────────────────────────────────────────────────────────
 
@@ -120,11 +119,13 @@ interface AiSheet {
 
 function computeAiNutr(item: AiItem) {
   const factor = item.unit === 'piece' ? item.amount : item.amount / 100;
+  // /ai/parse items are unvalidated — a missing macro/kcal would otherwise
+  // render "NaN" via .toFixed(1). Coerce each field to a safe number.
   return {
-    kcal:      item.per.kcal      * factor,
-    protein_g: item.per.protein_g * factor,
-    carbs_g:   item.per.carbs_g   * factor,
-    fat_g:     item.per.fat_g     * factor,
+    kcal:      Number(item.per.kcal      * factor) || 0,
+    protein_g: Number(item.per.protein_g * factor) || 0,
+    carbs_g:   Number(item.per.carbs_g   * factor) || 0,
+    fat_g:     Number(item.per.fat_g     * factor) || 0,
   };
 }
 
@@ -136,7 +137,6 @@ export default function AddFoodScreen() {
   const [amount,      setAmount]      = useState(1);
   const [logging,     setLogging]     = useState(false);
 
-  const [aiText,      setAiText]      = useState('');
   const [aiLoading,   setAiLoading]   = useState(false);
   const [aiStage,     setAiStage]     = useState<string | null>(null);
   const [aiInlineMsg, setAiInlineMsg] = useState<string | null>(null);
@@ -144,52 +144,19 @@ export default function AddFoodScreen() {
   const [aiSheet,     setAiSheet]     = useState<AiSheet | null>(null);
   const [aiLogging,    setAiLogging]    = useState(false);
   const [aiSuccess,    setAiSuccess]    = useState(false);
-  const [micListening,  setMicListening]  = useState(false);
   const [paywall,       setPaywall]       = useState<PaywallError | null>(null);
   const [showCamera,    setShowCamera]    = useState(false);
   const [cameraReady,   setCameraReady]   = useState(false);
-  const micPulse  = useRef(new Animated.Value(1)).current;
   const cameraRef = useRef<CameraView>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
+  // The assistant can hand food text here (`/add?prefill=...`); it now flows into
+  // the single text-logging path (TextLogCard → /log/text), which auto-submits it.
   const params = useLocalSearchParams<{ prefill?: string }>();
-  const prefillDone = useRef<string | null>(null);
+  const prefill = typeof params.prefill === 'string' ? params.prefill.trim() : '';
 
   useEffect(() => {
     getProfile().then(setProfile).catch(() => {});
-  }, []);
-
-  // The assistant hands food text here (`/add?prefill=...`) instead of logging it
-  // itself, so it flows through the normal parse → editable confirm sheet → log
-  // pipeline. Guarded by a ref so it fires once per distinct handoff.
-  useEffect(() => {
-    const text = typeof params.prefill === 'string' ? params.prefill.trim() : '';
-    if (!text || prefillDone.current === text) return;
-    prefillDone.current = text;
-    setAiText(text);
-    handleAiSubmit(text);
-    // handleAiSubmit is a stable in-component function; the ref guard prevents re-runs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.prefill]);
-
-  useSpeechRecognitionEvent('start', () => setMicListening(true));
-  useSpeechRecognitionEvent('end',   () => setMicListening(false));
-  useSpeechRecognitionEvent('result', (event) => {
-    const transcript = event.results[0]?.transcript;
-    if (transcript) {
-      setAiText(transcript);
-      setAiInlineMsg(null);
-    }
-  });
-  useSpeechRecognitionEvent('error', (event) => {
-    setMicListening(false);
-    if (event.error !== 'aborted') {
-      setAiInlineMsg("Couldn't hear that — try again.");
-    }
-  });
-
-  useEffect(() => {
-    return () => { ExpoSpeechRecognitionModule.abort(); };
   }, []);
 
   // Staged "the server is waking up" copy so a slow first response feels handled.
@@ -206,21 +173,6 @@ export default function AddFoodScreen() {
     setAiStage(null);
   }
   useEffect(() => () => { stageTimers.current.forEach(clearTimeout); }, []);
-
-  useEffect(() => {
-    if (micListening) {
-      const anim = Animated.loop(
-        Animated.sequence([
-          Animated.timing(micPulse, { toValue: 0.4, duration: 600, useNativeDriver: true }),
-          Animated.timing(micPulse, { toValue: 1,   duration: 600, useNativeDriver: true }),
-        ])
-      );
-      anim.start();
-      return () => anim.stop();
-    } else {
-      micPulse.setValue(1);
-    }
-  }, [micListening, micPulse]);
 
   const foods = getFoods(profile);
 
@@ -289,32 +241,6 @@ export default function AddFoodScreen() {
     }
   }
 
-  async function handleAiSubmit(textOverride?: string) {
-    const text = (textOverride ?? aiText).trim();
-    if (!text || aiLoading) return;
-    setAiLoading(true);
-    setAiInlineMsg(null);
-    startStages();
-    try {
-      const res = await authFetch('/ai/parse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text,
-          country: profile?.country ?? null,
-          diet: profile?.diet_preference ?? null,
-        }),
-      });
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
-      applyAiParseResponse(await res.json());
-    } catch (e) {
-      if (e instanceof PaywallError) setPaywall(e);
-      else setAiInlineMsg("Couldn't reach the server — is the backend running?");
-    } finally {
-      stopStages();
-      setAiLoading(false);
-    }
-  }
 
   function updateAiAmount(id: string, newAmount: number) {
     setAiSheet((prev) => {
@@ -382,7 +308,7 @@ export default function AddFoodScreen() {
             fat_g:     parseFloat(nutr.fat_g.toFixed(1)),
             source:    'ai_estimate',
             meal_type: mealTypeForNow(),
-            ai_raw_input: aiText.trim(),
+            ai_raw_input: null,
           });
         })
       );
@@ -390,7 +316,6 @@ export default function AddFoodScreen() {
       setAiSuccess(true);
       await new Promise((resolve) => setTimeout(resolve, 400));
       setAiSheet(null);
-      setAiText('');
       router.back();
     } catch {
       Alert.alert('Could not log food. Please try again.');
@@ -452,23 +377,6 @@ export default function AddFoodScreen() {
     }
   }
 
-  // ── Voice ─────────────────────────────────────────────────────────────────
-
-  async function handleMicPress() {
-    if (micListening) {
-      ExpoSpeechRecognitionModule.stop();
-      return;
-    }
-    const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-    if (!perm.granted) {
-      setAiInlineMsg('Mic permission needed for voice.');
-      return;
-    }
-    setAiInlineMsg(null);
-    const lang = profile?.country === 'IN' ? 'en-IN' : 'en-US';
-    ExpoSpeechRecognitionModule.start({ lang, interimResults: true, continuous: false });
-  }
-
   // ── Derived ────────────────────────────────────────────────────────────────
 
   const liveNutr = selected ? computeNutrition(selected, amount) : null;
@@ -513,59 +421,31 @@ export default function AddFoodScreen() {
             <Text style={s.title}>What did you eat?</Text>
           </View>
 
-          {/* AI logger */}
+          {/* Log with sources — the single text-logging path (→ /log/text) */}
+          <Text style={s.sectionLabel}>Log with sources</Text>
+          <TextLogCard onPaywall={setPaywall} onLogged={() => router.back()} initialText={prefill || undefined} country={profile?.country} />
+
+          {/* Photo logger (scan/photo flow, unchanged — /ai/parse vision) */}
           <View style={s.aiBox}>
             <View style={s.aiHeader}>
-              <Icon name="spark" color={C.marigold} size={16} strokeWidth={1.5} />
-              <Text style={s.aiTitle}>Just tell me</Text>
+              <Icon name="camera" color={C.marigold} size={16} strokeWidth={1.5} />
+              <Text style={s.aiTitle}>Snap your meal</Text>
             </View>
-            <TextInput
-              style={[s.aiInput, aiLoading && s.aiInputDim]}
-              placeholder="2 roti, dal aur thoda rice"
-              placeholderTextColor={C.inkFaint}
-              value={aiText}
-              onChangeText={(t) => { setAiText(t); setAiInlineMsg(null); }}
-              multiline
-              returnKeyType="send"
-              onSubmitEditing={() => handleAiSubmit()}
-              submitBehavior="blurAndSubmit"
-              editable={!aiLoading}
-            />
+            <Text style={s.aiNote}>Take a photo and we&apos;ll estimate it — you can adjust before logging.</Text>
             {aiInlineMsg != null ? (
               <Text style={s.aiNote}>{aiInlineMsg}</Text>
             ) : null}
-            <View style={s.aiActions}>
-              <View style={s.aiLeftBtns}>
-                <Animated.View style={{ opacity: micListening ? micPulse : 1 }}>
-                  <Pressable
-                    style={[s.aiMicBtn, micListening && s.aiMicBtnOn]}
-                    onPress={handleMicPress}
-                    hitSlop={8}
-                  >
-                    <Icon name="mic" color={micListening ? '#fff' : C.inkFaint} size={18} strokeWidth={1.5} />
-                  </Pressable>
-                </Animated.View>
-                <Pressable
-                  style={s.aiCamBtn}
-                  onPress={handleCameraPress}
-                  hitSlop={8}
-                  disabled={aiLoading}
-                >
-                  <Icon name="camera" color={C.inkFaint} size={18} strokeWidth={1.5} />
-                </Pressable>
-              </View>
-              <AnimatedPressable
-                style={[s.aiSend, (aiLoading || !aiText.trim()) && s.aiSendDim]}
-                onPress={() => handleAiSubmit()}
-                disabled={aiLoading || !aiText.trim()}
-              >
-                {aiLoading ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <Text style={s.aiSendText}>Analyse →</Text>
-                )}
-              </AnimatedPressable>
-            </View>
+            <AnimatedPressable
+              style={[s.aiSend, s.aiSendFull, aiLoading && s.aiSendDim]}
+              onPress={handleCameraPress}
+              disabled={aiLoading}
+            >
+              {aiLoading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={s.aiSendText}>Take a photo →</Text>
+              )}
+            </AnimatedPressable>
             {aiLoading && aiStage != null ? (
               <Text style={s.aiStageText}>{aiStage}</Text>
             ) : null}
@@ -1069,6 +949,7 @@ const s = StyleSheet.create({
     minWidth: 110,
   },
   aiSendDim: { opacity: 0.4 },
+  aiSendFull: { width: '100%', marginTop: 12, paddingVertical: 13 },
   aiSendText: {
     fontFamily: Fonts?.bodySemi ?? 'system',
     fontSize: 14,

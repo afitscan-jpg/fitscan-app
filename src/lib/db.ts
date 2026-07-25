@@ -242,4 +242,17 @@ export async function getWaterToday(): Promise<{ ml: number; glasses: number }> 
   return { ml, glasses: Math.round(ml / 250) };
 }
 
+// ---------------------------------------------------------------- data footprint
+/**
+ * Row counts for the current user (RLS-scoped), used to decide whether there's
+ * enough logged data to gently suggest creating an account. Read-only.
+ */
+export async function getDataFootprint(): Promise<{ foodLogs: number; weightLogs: number }> {
+  const [food, weight] = await Promise.all([
+    supabase.from('food_logs').select('*', { count: 'exact', head: true }),
+    supabase.from('weight_logs').select('*', { count: 'exact', head: true }),
+  ]);
+  return { foodLogs: food.count ?? 0, weightLogs: weight.count ?? 0 };
+}
+
 // notifications deferred — re-add with Firebase config when the reminders feature is built

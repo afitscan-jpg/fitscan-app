@@ -176,6 +176,9 @@ function OkResultView({ data }: { data: ScanResponse }) {
   const [logging, setLogging] = useState(false);
   const [grams, setGrams] = useState(100);
 
+  // Couldn't be graded (insufficient label data) → clean state, no numbers.
+  const isUnknown = result.verdict === 'Unknown' || result.grade == null;
+
   const factor = grams / 100; // scan nutrients are per 100 g/ml
   const scaledKcal = Math.round((result.nutrients.energy_kcal ?? 0) * factor);
 
@@ -264,7 +267,7 @@ function OkResultView({ data }: { data: ScanResponse }) {
         )}
 
         {/* Nutrients */}
-        {visibleNutrients.length > 0 && (
+        {!isUnknown && visibleNutrients.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Nutrients</Text>
             <View style={styles.nutrientGrid}>
@@ -285,29 +288,37 @@ function OkResultView({ data }: { data: ScanResponse }) {
         )}
 
         {/* Portion to log */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Portion to log</Text>
-          <View style={styles.portionCard}>
-            <GramsStepper grams={grams} onChange={setGrams} />
-            <View style={styles.portionKcalWrap}>
-              <Text style={styles.portionKcal}>{scaledKcal}</Text>
-              <Text style={styles.portionKcalUnit}>kcal</Text>
+        {!isUnknown && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Portion to log</Text>
+            <View style={styles.portionCard}>
+              <GramsStepper grams={grams} onChange={setGrams} />
+              <View style={styles.portionKcalWrap}>
+                <Text style={styles.portionKcal}>{scaledKcal}</Text>
+                <Text style={styles.portionKcalUnit}>kcal</Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
         <View style={styles.buttonSpacer} />
       </ScrollView>
 
       {/* Fixed bottom buttons */}
       <SafeAreaView edges={['bottom']} style={styles.buttonRow}>
-        <Pressable style={styles.primaryBtn} onPress={handleLog} disabled={logging}>
-          {logging ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.primaryBtnText}>Log this</Text>
-          )}
-        </Pressable>
+        {isUnknown ? (
+          <Pressable style={styles.primaryBtn} onPress={() => router.replace('/add')}>
+            <Text style={styles.primaryBtnText}>Describe in text</Text>
+          </Pressable>
+        ) : (
+          <Pressable style={styles.primaryBtn} onPress={handleLog} disabled={logging}>
+            {logging ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.primaryBtnText}>Log this</Text>
+            )}
+          </Pressable>
+        )}
         <Pressable style={styles.ghostBtn} onPress={() => router.back()}>
           <Text style={styles.ghostBtnText}>Scan next</Text>
         </Pressable>

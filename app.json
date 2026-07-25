@@ -61,7 +61,14 @@
           ]
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FitScan uses your photos so you can add progress pictures. They stay on your device and are never uploaded.",
+          "cameraPermission": "FitScan uses the camera so you can take progress photos. They stay on your device and are never uploaded."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

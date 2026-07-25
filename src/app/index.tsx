@@ -39,6 +39,7 @@ import {
   addWater,
   deleteFoodLog,
   getDailyTotals,
+  getDataFootprint,
   getProfile,
   getTodayLog,
   getWaterToday,
@@ -51,7 +52,12 @@ import {
 } from '@/lib/db';
 import { authFetch, PaywallError } from '@/lib/api';
 import { getEntitlement, trialDaysLeft, type Entitlement } from '@/lib/entitlement';
+import { getAuthState } from '@/lib/auth';
 import { PaywallSheet } from '@/components/paywall-sheet';
+
+// Session-scoped dismiss flag for the account nudge — once dismissed it won't
+// reappear until the app is relaunched (kept in memory on purpose).
+let accountNudgeDismissed = false;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -901,6 +907,23 @@ function EntitlementStrip({ ent, onUpgrade }: { ent: Entitlement; onUpgrade: () 
   );
 }
 
+function AccountNudge({ onPress, onDismiss }: { onPress: () => void; onDismiss: () => void }) {
+  return (
+    <View style={ent$.nudge}>
+      <AnimatedPressable style={ent$.nudgeMain} onPress={onPress}>
+        <Icon name="spark" color={C.greenInk} size={15} strokeWidth={2} />
+        <Text style={ent$.nudgeText} numberOfLines={2}>
+          Create an account to keep your progress safe
+        </Text>
+        <Icon name="arrow" color={C.greenInk} size={15} strokeWidth={2} />
+      </AnimatedPressable>
+      <Pressable onPress={onDismiss} hitSlop={10} style={ent$.nudgeClose} accessibilityLabel="Dismiss">
+        <Text style={ent$.nudgeCloseTxt}>×</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function InsightUpsellCard({ onPress }: { onPress: () => void }) {
   return (
     <AnimatedPressable onPress={onPress}>
@@ -948,6 +971,15 @@ const ent$ = StyleSheet.create({
   upsellText: { flex: 1, gap: 2 },
   upsellTitle: { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 15, color: C.inkStrong },
   upsellSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, lineHeight: 17 },
+  nudge: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.greenSoft, borderWidth: 1, borderColor: 'rgba(76,124,99,0.22)',
+    borderRadius: Radius.md, paddingLeft: 14, paddingRight: 6,
+  },
+  nudgeMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 11 },
+  nudgeText: { flex: 1, fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13, fontWeight: '600', color: C.greenInk },
+  nudgeClose: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  nudgeCloseTxt: { fontSize: 18, lineHeight: 20, color: C.greenInk, opacity: 0.7 },
 });
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
@@ -966,6 +998,7 @@ export default function HomeScreen() {
   const [editing,        setEditing]        = useState<TodayEntry | null>(null);
   const [ent,            setEnt]            = useState<Entitlement | null>(null);
   const [paywall,        setPaywall]        = useState<PaywallError | null>(null);
+  const [nudgeVisible,   setNudgeVisible]   = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -1010,12 +1043,29 @@ export default function HomeScreen() {
     if (e) setEnt(e);
   }, []);
 
+  // Gentle account nudge: only for an anonymous user who has meaningful data
+  // (>= 5 food logs OR any weight logs), and only until dismissed this session.
+  const loadNudge = useCallback(async () => {
+    if (accountNudgeDismissed) return;
+    try {
+      const st = await getAuthState();
+      if (!st.isAnonymous) { setNudgeVisible(false); return; }
+      const fp = await getDataFootprint();
+      if (!accountNudgeDismissed && (fp.foodLogs >= 5 || fp.weightLogs > 0)) {
+        setNudgeVisible(true);
+      }
+    } catch {
+      // A failed footprint/auth check simply means no nudge — never block Home.
+    }
+  }, []);
+
   useFocusEffect(useCallback(() => {
     setLoading(true);
     load();
     loadInsight();
     loadEnt();
-  }, [load, loadInsight, loadEnt]));
+    loadNudge();
+  }, [load, loadInsight, loadEnt, loadNudge]));
 
   function handleDelete(id: string, name: string) {
     Alert.alert('Remove this entry?', name, [
@@ -1086,6 +1136,14 @@ export default function HomeScreen() {
           {/* Plan status: trial banner / free usage chip / premium badge */}
           {ent ? (
             <EntitlementStrip ent={ent} onUpgrade={() => router.push('/premium' as never)} />
+          ) : null}
+
+          {/* Gentle, dismissible account nudge (never blocks anything) */}
+          {nudgeVisible ? (
+            <AccountNudge
+              onPress={() => router.push('/account' as never)}
+              onDismiss={() => { accountNudgeDismissed = true; setNudgeVisible(false); }}
+            />
           ) : null}
 
           {loading ? (

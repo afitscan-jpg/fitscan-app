@@ -415,6 +415,18 @@ export default function WeightScreen() {
                 </GlassCard>
               )}
 
+              {/* Progress photos — natural pairing with weight */}
+              <AnimatedPressable style={s.photoCard} onPress={() => router.push('/progress-photos' as never)}>
+                <View style={s.photoIcon}>
+                  <Icon name="camera" color={C.greenInk} size={20} strokeWidth={1.9} />
+                </View>
+                <View style={s.photoText}>
+                  <Text style={s.photoTitle}>Progress Photos</Text>
+                  <Text style={s.photoSub}>See your change in the mirror — private, on-device.</Text>
+                </View>
+                <Icon name="arrow" color={C.green} size={18} strokeWidth={2} />
+              </AnimatedPressable>
+
               {/* Entries */}
               {hasData ? (
                 <View style={s.listSection}>
@@ -600,6 +612,20 @@ const s = StyleSheet.create({
   emptyBody: { fontFamily: Fonts?.body ?? 'system', fontSize: 13.5, color: C.inkFaint, textAlign: 'center', lineHeight: 20 },
   emptyBtn: { marginTop: 8, backgroundColor: C.accent, borderRadius: Radius.md, paddingHorizontal: 22, paddingVertical: 12, ...Shadow.sm },
   emptyBtnText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: '#fff' },
+
+  // Progress photos entry card
+  photoCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 13,
+    backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder,
+    borderRadius: Radius.lg, paddingHorizontal: 14, paddingVertical: 14, ...Shadow.sm,
+  },
+  photoIcon: {
+    width: 44, height: 44, borderRadius: 14, backgroundColor: C.greenSoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  photoText: { flex: 1, gap: 2 },
+  photoTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.ink },
+  photoSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint },
 
   // Entries list
   listSection: { gap: 11 },

@@ -20,29 +20,6 @@ import { updateProfile, type Goal, type Sex } from '@/lib/db';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const LANGUAGES = [
-  { code: 'en', name: 'English', sub: 'Default · used everywhere', group: 'Suggested' },
-  { code: 'hinglish', name: 'Hinglish', sub: 'Roman Hindi', group: 'Suggested' },
-  { code: 'hi', name: 'हिन्दी', sub: 'Hindi', group: 'Indian languages' },
-  { code: 'bn', name: 'বাংলা', sub: 'Bengali', group: 'Indian languages' },
-  { code: 'ta', name: 'தமிழ்', sub: 'Tamil', group: 'Indian languages' },
-  { code: 'te', name: 'తెలుగు', sub: 'Telugu', group: 'Indian languages' },
-  { code: 'kn', name: 'ಕನ್ನಡ', sub: 'Kannada', group: 'Indian languages' },
-  { code: 'mr', name: 'मराठी', sub: 'Marathi', group: 'Indian languages' },
-  { code: 'gu', name: 'ગુજરાતી', sub: 'Gujarati', group: 'Indian languages' },
-  { code: 'ml', name: 'മലയാളം', sub: 'Malayalam', group: 'Indian languages' },
-  { code: 'pa', name: 'ਪੰਜਾਬੀ', sub: 'Punjabi', group: 'Indian languages' },
-  { code: 'es', name: 'Español', sub: 'Spanish', group: 'Worldwide' },
-  { code: 'pt', name: 'Português', sub: 'Portuguese', group: 'Worldwide' },
-  { code: 'fr', name: 'Français', sub: 'French', group: 'Worldwide' },
-  { code: 'de', name: 'Deutsch', sub: 'German', group: 'Worldwide' },
-  { code: 'ar', name: 'العربية', sub: 'Arabic', group: 'Worldwide' },
-  { code: 'id', name: 'Bahasa Indonesia', sub: 'Indonesian', group: 'Worldwide' },
-  { code: 'zh', name: '中文', sub: 'Chinese', group: 'Worldwide' },
-  { code: 'ja', name: '日本語', sub: 'Japanese', group: 'Worldwide' },
-  { code: 'ko', name: '한국어', sub: 'Korean', group: 'Worldwide' },
-];
-
 const COUNTRIES: Array<{ code: string; name: string; group: string }> = [
   // Popular
   { code: 'IN', name: 'India',          group: 'Popular' },
@@ -103,7 +80,6 @@ const COUNTRIES: Array<{ code: string; name: string; group: string }> = [
   { code: 'ZW', name: 'Zimbabwe',       group: 'A–Z' },
 ];
 
-const LANG_DEFAULT_CODES = ['en', 'hinglish', 'hi', 'bn', 'ta'];
 const COUNTRY_DEFAULT_CODES = ['IN', 'US', 'GB', 'AU', 'CA', 'SG'];
 
 const ACTIVITY_OPTIONS: Array<{ label: string; factor: number }> = [
@@ -163,105 +139,15 @@ function SelectRow({
   );
 }
 
-// ─── Step 1: Language ────────────────────────────────────────────────────────
-
-function LanguageStep({
-  selected,
-  onSelect,
-  onContinue,
-}: {
-  selected: string;
-  onSelect: (code: string) => void;
-  onContinue: () => void;
-}) {
-  const [query, setQuery] = useState('');
-  const searching = query.trim().length > 0;
-
-  const visibleItems = searching
-    ? LANGUAGES.filter(
-        (l) =>
-          l.name.toLowerCase().includes(query.toLowerCase()) ||
-          l.sub.toLowerCase().includes(query.toLowerCase()),
-      )
-    : (() => {
-        const defaults = LANG_DEFAULT_CODES
-          .map((c) => LANGUAGES.find((l) => l.code === c))
-          .filter((l): l is (typeof LANGUAGES)[0] => Boolean(l));
-        if (!LANG_DEFAULT_CODES.includes(selected)) {
-          const sel = LANGUAGES.find((l) => l.code === selected);
-          if (sel) return [sel, ...defaults];
-        }
-        return defaults;
-      })();
-
-  return (
-    <SafeAreaView style={s.flex} edges={['top', 'bottom']}>
-      <ScrollView
-        style={s.flex}
-        contentContainerStyle={s.langScroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={s.obMark}>
-          <Icon name="leaf" color="#fff" size={26} strokeWidth={1.8} />
-        </View>
-        <Text style={s.obHero}>{'Understand\nyour food.'}</Text>
-        <Text style={s.obSub}>
-          Scan a packet or log your meals. We keep it honest — and keep you motivated, not guilty.
-        </Text>
-
-        <Text style={s.eyebrow}>Step 1 of 3 · Language</Text>
-
-        <View style={s.searchBox}>
-          <Icon name="search" color={C.inkFaint} size={16} strokeWidth={1.8} />
-          <TextInput
-            style={s.searchInput}
-            placeholder="Search 20+ languages"
-            placeholderTextColor={C.inkFaint}
-            value={query}
-            onChangeText={setQuery}
-            autoCorrect={false}
-          />
-        </View>
-
-        {!searching && <Text style={s.searchHint}>Suggested · search for more</Text>}
-
-        <View style={s.list}>
-          {visibleItems.map((l) => (
-            <SelectRow
-              key={l.code}
-              code={l.code}
-              name={l.name}
-              sub={l.sub}
-              selected={selected === l.code}
-              onSelect={onSelect}
-            />
-          ))}
-        </View>
-
-        {searching && visibleItems.length === 0 && (
-          <Text style={s.noMatch}>No match — your language is on the way.</Text>
-        )}
-
-        <Pressable style={s.primaryBtn} onPress={onContinue}>
-          <Text style={s.primaryBtnText}>Continue</Text>
-        </Pressable>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-// ─── Step 2: Country ─────────────────────────────────────────────────────────
+// ─── Step 1: Country ─────────────────────────────────────────────────────────
 
 function CountryStep({
   selected,
   onSelect,
-  onBack,
   onContinue,
 }: {
   selected: string;
   onSelect: (code: string) => void;
-  onBack: () => void;
   onContinue: () => void;
 }) {
   const [query, setQuery] = useState('');
@@ -298,18 +184,16 @@ function CountryStep({
 
   return (
     <SafeAreaView style={s.flex} edges={['top', 'bottom']}>
-      <View style={s.backHeader}>
-        <Pressable onPress={onBack} hitSlop={8} style={s.backBtn}>
-          <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
-        </Pressable>
-      </View>
       <ScrollView
         style={s.flex}
         contentContainerStyle={s.langScroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={s.eyebrow}>Step 2 of 3 · Country</Text>
+        <View style={s.obMark}>
+          <Icon name="leaf" color="#fff" size={26} strokeWidth={1.8} />
+        </View>
+        <Text style={s.eyebrow}>Step 1 of 2 · Country</Text>
         <Text style={s.obHero}>Where are you based?</Text>
         <Text style={s.obSub}>
           We use this to show you locally relevant foods and portion references.
@@ -419,11 +303,9 @@ function GoalCards({ goal, onSelect }: { goal: Goal; onSelect: (g: Goal) => void
 // ─── Step 3: Stats + Goal ────────────────────────────────────────────────────
 
 function GoalStep({
-  language,
   onBack,
   onComplete,
 }: {
-  language: string;
   onBack: () => void;
   onComplete: () => void;
 }) {
@@ -483,7 +365,6 @@ function GoalStep({
           ? { target_weight_kg: Math.round(goalWeightNum * 10) / 10 }
           : {};
       const updated = await updateProfile({
-        language,
         sex,
         birth_year: birthYear,
         height_cm: heightNum,
@@ -534,7 +415,7 @@ function GoalStep({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={s.eyebrow}>Step 3 of 3 · Your stats</Text>
+          <Text style={s.eyebrow}>Step 2 of 2 · Your stats</Text>
           <Text style={s.goalTitle}>Your daily target</Text>
 
           {result ? (
@@ -694,35 +575,23 @@ function Segmented({
 // ─── Main Flow ───────────────────────────────────────────────────────────────
 
 export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
-  const [step, setStep] = useState<'language' | 'country' | 'goal'>('language');
-  const [language, setLanguage] = useState('en');
+  const [step, setStep] = useState<'country' | 'goal'>('country');
   const [country, setCountry] = useState<string>(() => {
     const locales = Localization.getLocales();
     return locales[0]?.regionCode ?? 'IN';
   });
-
-  if (step === 'language') {
-    return (
-      <LanguageStep
-        selected={language}
-        onSelect={setLanguage}
-        onContinue={() => setStep('country')}
-      />
-    );
-  }
 
   if (step === 'country') {
     return (
       <CountryStep
         selected={country}
         onSelect={setCountry}
-        onBack={() => setStep('language')}
         onContinue={() => setStep('goal')}
       />
     );
   }
 
-  return <GoalStep language={language} onBack={() => setStep('country')} onComplete={onComplete} />;
+  return <GoalStep onBack={() => setStep('country')} onComplete={onComplete} />;
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────

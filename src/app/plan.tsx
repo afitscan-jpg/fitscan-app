@@ -95,6 +95,19 @@ function planCacheKey(): string {
   return `plan:${y}-${m}-${da}`;
 }
 
+// Runtime shape guard: the plan is consumed (plan.totals.kcal, plan.meals.map)
+// without null-safety, and one source is stale AsyncStorage JSON. Confirm the
+// pieces we render are actually present/numeric before trusting them.
+function validatePlan(x: unknown): Plan | null {
+  if (!x || typeof x !== 'object') return null;
+  const p = x as { meals?: unknown; totals?: unknown };
+  if (!Array.isArray(p.meals)) return null;
+  const t = p.totals as Record<string, unknown> | null | undefined;
+  const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+  if (!t || !num(t.kcal) || !num(t.protein_g) || !num(t.carbs_g) || !num(t.fat_g)) return null;
+  return x as Plan;
+}
+
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 function SkeletonMealCard() {
@@ -266,9 +279,11 @@ export default function PlanScreen() {
         }),
       });
       if (!res.ok) throw new Error(`Status ${res.status}`);
-      const json: { plan: Plan; plan_date: string } = await res.json();
-      setPlan(json.plan);
-      AsyncStorage.setItem(planCacheKey(), JSON.stringify(json.plan)).catch(() => {});
+      const json = (await res.json()) as { plan?: unknown; plan_date?: string };
+      const valid = validatePlan(json?.plan);
+      if (!valid) throw new Error('Malformed plan response');
+      setPlan(valid);
+      AsyncStorage.setItem(planCacheKey(), JSON.stringify(valid)).catch(() => {});
     } catch (e) {
       if (e instanceof PaywallError) {
         // Premium-only feature — show the upgrade sheet, not a network error.
@@ -291,9 +306,14 @@ export default function PlanScreen() {
       try {
         const cached = await AsyncStorage.getItem(planCacheKey());
         if (cached && alive) {
-          setPlan(JSON.parse(cached) as Plan);
-          setLoading(false);
-          hadCache = true;
+          const valid = validatePlan(JSON.parse(cached));
+          if (valid) {
+            setPlan(valid);
+            setLoading(false);
+            hadCache = true;
+          } else {
+            AsyncStorage.removeItem(planCacheKey()).catch(() => {});
+          }
         }
       } catch {
         // ignore malformed cache — fall through to a normal load

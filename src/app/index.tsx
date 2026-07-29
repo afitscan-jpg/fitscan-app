@@ -53,6 +53,7 @@ import {
 import { authFetch, PaywallError } from '@/lib/api';
 import { getEntitlement, trialDaysLeft, type Entitlement } from '@/lib/entitlement';
 import { getAuthState } from '@/lib/auth';
+import { getExerciseLogs, type ExerciseLog } from '@/lib/exercises';
 import { PaywallSheet } from '@/components/paywall-sheet';
 
 // Session-scoped dismiss flag for the account nudge — once dismissed it won't
@@ -982,6 +983,58 @@ const ent$ = StyleSheet.create({
   nudgeCloseTxt: { fontSize: 18, lineHeight: 20, color: C.greenInk, opacity: 0.7 },
 });
 
+// ─── Workouts-today row ──────────────────────────────────────────────────────
+
+// "sets/reps or duration" (+ weight/distance when present), from the log fields.
+function workoutDetail(w: ExerciseLog): string {
+  const parts: string[] = [];
+  if (w.sets != null && w.reps != null) parts.push(`${w.sets} × ${w.reps}`);
+  else if (w.sets != null) parts.push(`${w.sets} sets`);
+  else if (w.reps != null) parts.push(`${w.reps} reps`);
+  if (w.weight_kg != null) parts.push(`${w.weight_kg} kg`);
+  if (w.duration_min != null) parts.push(`${w.duration_min} min`);
+  if (w.distance_km != null) parts.push(`${w.distance_km} km`);
+  return parts.join(' · ');
+}
+
+function WorkoutItem({ workout }: { workout: ExerciseLog }) {
+  const detail = workoutDetail(workout);
+  return (
+    <View style={wo.card}>
+      <View style={wo.tile}>
+        <Icon name="dumbbell" color={C.greenInk} size={20} strokeWidth={1.9} />
+      </View>
+      <View style={wo.info}>
+        <Text style={wo.name} numberOfLines={1}>{workout.exercise_name}</Text>
+        {detail ? <Text style={wo.detail} numberOfLines={1}>{detail}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+const wo = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    borderRadius: 20,
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    padding: 11,
+    marginBottom: 11,
+    ...Shadow.sm,
+  },
+  tile: {
+    width: 52, height: 52, borderRadius: 15,
+    backgroundColor: C.greenSoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  info: { flex: 1, gap: 4 },
+  name: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.inkStrong },
+  detail: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint, fontVariant: ['tabular-nums'] },
+});
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
@@ -999,6 +1052,7 @@ export default function HomeScreen() {
   const [ent,            setEnt]            = useState<Entitlement | null>(null);
   const [paywall,        setPaywall]        = useState<PaywallError | null>(null);
   const [nudgeVisible,   setNudgeVisible]   = useState(false);
+  const [workouts,       setWorkouts]       = useState<ExerciseLog[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -1043,6 +1097,16 @@ export default function HomeScreen() {
     if (e) setEnt(e);
   }, []);
 
+  // Today's logged workouts. Kept separate/resilient like loadEnt/loadNudge so a
+  // backend hiccup never blanks the core (Supabase) Home data in load().
+  const loadWorkouts = useCallback(async () => {
+    try {
+      setWorkouts(await getExerciseLogs(todayStr()));
+    } catch {
+      // backend optional — leave any existing list in place
+    }
+  }, []);
+
   // Gentle account nudge: only for an anonymous user who has meaningful data
   // (>= 5 food logs OR any weight logs), and only until dismissed this session.
   const loadNudge = useCallback(async () => {
@@ -1065,7 +1129,8 @@ export default function HomeScreen() {
     loadInsight();
     loadEnt();
     loadNudge();
-  }, [load, loadInsight, loadEnt, loadNudge]));
+    loadWorkouts();
+  }, [load, loadInsight, loadEnt, loadNudge, loadWorkouts]));
 
   function handleDelete(id: string, name: string) {
     Alert.alert('Remove this entry?', name, [
@@ -1238,6 +1303,18 @@ export default function HomeScreen() {
                   ))
                 )}
               </View>
+
+              {/* Workouts logged today (nothing rendered when empty) */}
+              {workouts.length > 0 ? (
+                <View>
+                  <View style={hs.secHeader}>
+                    <Text style={hs.secTitle}>Workouts today</Text>
+                  </View>
+                  {workouts.map((w) => (
+                    <WorkoutItem key={w.id} workout={w} />
+                  ))}
+                </View>
+              ) : null}
             </>
           )}
         </ScrollView>

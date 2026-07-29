@@ -20,8 +20,10 @@ export interface ScanResult {
   verdict_color: VerdictColor;
   headline_hinglish: string;
   flags: string[];
-  nutrients: ScanNutrients;
+  nutrients: ScanNutrients;       // always per 100 g/ml
   is_beverage: boolean;
+  serving_g?: number | null;      // OFF serving size (g/ml); null/absent if unknown
+  scored_basis?: 'serving' | 'per_100g';
 }
 
 export interface ScanResponse {

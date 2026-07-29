@@ -174,7 +174,11 @@ function GramsStepper({ grams, onChange }: { grams: number; onChange: (g: number
 function OkResultView({ data }: { data: ScanResponse }) {
   const result = data.result!;
   const [logging, setLogging] = useState(false);
-  const [grams, setGrams] = useState(100);
+  // Open the portion stepper on the product's real serving so the shown
+  // kcal/protein match the label; fall back to 100 g when OFF has no serving.
+  const [grams, setGrams] = useState(
+    result.serving_g && result.serving_g > 0 ? clampGrams(result.serving_g) : 100,
+  );
 
   // Couldn't be graded (insufficient label data) → clean state, no numbers.
   const isUnknown = result.verdict === 'Unknown' || result.grade == null;
@@ -275,7 +279,7 @@ function OkResultView({ data }: { data: ScanResponse }) {
                 <NutrientCard
                   key={key}
                   label={label}
-                  value={result.nutrients[key] as number}
+                  value={Number(((result.nutrients[key] as number) * factor).toFixed(unit === 'kcal' ? 0 : 1))}
                   unit={unit}
                   highlight={
                     key === 'sugars_g' &&

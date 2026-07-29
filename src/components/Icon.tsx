@@ -15,6 +15,7 @@ export type IconName =
   | 'chevL'
   | 'box'
   | 'alert'
+  | 'info'
   | 'verified'
   | 'mic'
   | 'camera'
@@ -122,6 +123,14 @@ export function Icon({ name, color = '#16241D', size = 22, strokeWidth = 1.75 }:
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24">
           <Path d="M12 9v4M12 17h.01M10.3 4l-7 12a2 2 0 0 0 1.7 3h14a2 2 0 0 0 1.7-3l-7-12a2 2 0 0 0-3.4 0z" {...p} />
+        </Svg>
+      );
+    case 'info':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24">
+          <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M12 16v-4" {...p} />
+          <Path d="M12 8h.01" {...p} />
         </Svg>
       );
     case 'verified':

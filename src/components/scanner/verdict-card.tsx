@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Icon } from '@/components/Icon';
+import { Icon, type IconName } from '@/components/Icon';
 import { C, Fonts, Radius, Spacing } from '@/constants/theme';
 import type { ScanResult } from '@/types/scan';
 
@@ -14,6 +14,13 @@ const VERDICT_SHADOW_COLOR: Record<string, string> = {
   green: 'rgba(76,124,99,0.30)',
   amber: 'rgba(185,132,56,0.30)',
   red:   'rgba(196,85,61,0.30)',
+};
+// Icon matches the grade/verdict, not a hardcoded warning: good→check, ok→info,
+// avoid→alert-triangle. Keyed off verdict_color so it always agrees with the card.
+const VERDICT_ICON: Record<string, IconName> = {
+  green: 'check',
+  amber: 'info',
+  red:   'alert',
 };
 
 interface Props { result: ScanResult }
@@ -44,7 +51,7 @@ export function VerdictCard({ result }: Props) {
     <View style={[styles.card, { backgroundColor: bg, shadowColor: shadow }]}>
       <View style={styles.topRow}>
         <View style={styles.badge}>
-          <Icon name="alert" color="#fff" size={24} strokeWidth={2} />
+          <Icon name={VERDICT_ICON[result.verdict_color] ?? 'info'} color="#fff" size={24} strokeWidth={2} />
         </View>
         <View style={styles.body}>
           <Text style={styles.grade}>{result.grade} · {result.verdict}</Text>

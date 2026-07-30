@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, DeviceEventEmitter, StyleSheet, View } from 'react-native';
 
 import AppTabs from '@/components/app-tabs';
+import { AssistantFab } from '@/components/assistant-fab';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { C } from '@/constants/theme';
 import { getProfile } from '@/lib/db';
@@ -89,14 +90,17 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <View style={styles.appRoot}>
       <StatusBar style="dark" />
       <AppTabs />
-    </>
+      {/* Single global instance — persists across all tabs (never per-screen). */}
+      <AssistantFab />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  appRoot: { flex: 1 },
   splash: {
     flex: 1,
     backgroundColor: C.bg,

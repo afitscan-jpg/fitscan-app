@@ -163,15 +163,20 @@ export function logScannedFood(entry: Omit<FoodEntry, 'source'>): Promise<void> 
   return logFood({ ...entry, source: 'scan' });
 }
 
-/** The "Today" list on Home. */
-export async function getTodayLog() {
+/** Food-log items for a given local date (YYYY-MM-DD), oldest-first. */
+export async function getLogForDate(date: string) {
   const { data, error } = await supabase
     .from('food_logs')
     .select('id, name, meal_type, source, kcal, quantity, unit, protein_g, carbs_g, fat_g, verdict, logged_at')
-    .eq('log_date', localDate())
+    .eq('log_date', date)
     .order('logged_at', { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+/** The "Today" list on Home. */
+export function getTodayLog() {
+  return getLogForDate(localDate());
 }
 
 export interface DayTotal {

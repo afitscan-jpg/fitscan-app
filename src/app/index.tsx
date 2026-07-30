@@ -273,13 +273,27 @@ function WeekStrip({ days, target }: { days: DayTotal[]; target: number }) {
               : ratio <= 1.25
                 ? C.amber
                 : C.red;
+          // Past days open a read-only detail view; today's dot behaves as before
+          // (the live diary already lives on Home), so it stays inert.
+          const Cell = isToday ? View : Pressable;
           return (
-            <View key={day.log_date} style={wk.day}>
+            <Cell
+              key={day.log_date}
+              style={wk.day}
+              {...(isToday
+                ? {}
+                : {
+                    onPress: () => router.push(`/day?date=${day.log_date}` as never),
+                    accessibilityRole: 'button' as const,
+                    accessibilityLabel: `View ${dayLabel(day.log_date)}`,
+                    hitSlop: 8,
+                  })}
+            >
               <Text style={[wk.dayLabel, isToday && wk.dayLabelToday]}>
                 {dayLabel(day.log_date)}
               </Text>
               <View style={[wk.dot, { backgroundColor: dotColor }, isToday && wk.dotToday]} />
-            </View>
+            </Cell>
           );
         })}
       </View>

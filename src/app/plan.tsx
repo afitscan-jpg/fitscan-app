@@ -28,10 +28,14 @@ interface PlanItem {
   name: string;
   amount: number;
   unit: ItemUnit;
-  kcal: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
+  // Resolved items carry verified numbers; "idea" items (resolved === false) have
+  // null nutrition and are shown as a suggestion, never with fabricated numbers.
+  resolved?: boolean;
+  badge?: string | null;
+  kcal: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
 }
 
 interface PlanMeal {
@@ -52,7 +56,16 @@ interface Plan {
   totals: PlanTotals;
   note: string | null;
   adjusted: boolean;
+  disclaimer?: string | null;
+  target_basis?: 'adaptive' | 'static' | 'static_anchored' | 'unknown' | null;
 }
+
+// Small caption explaining where the calorie target came from.
+const TARGET_BASIS_CAPTION: Record<string, string> = {
+  adaptive:        'Target adjusts to your recent weight trend',
+  static:          'Target from your body stats',
+  static_anchored: 'Target from your body stats',
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -163,15 +176,39 @@ function MealCard({
       <Text style={mc.title}>{meal.title}</Text>
 
       <View style={mc.itemList}>
-        {meal.items.map((item, i) => (
-          <View key={i} style={mc.itemRow}>
-            <Text style={mc.itemName} numberOfLines={2}>{item.name}</Text>
-            <Text style={mc.itemMeta}>
-              {formatAmount(item.amount, item.unit)}
-              <Text style={mc.itemKcal}> · {item.kcal} kcal</Text>
-            </Text>
-          </View>
-        ))}
+        {meal.items.map((item, i) => {
+          // "Idea" items came back unresolved (no verified numbers). Show the food
+          // and portion, but never a fabricated calorie/macro figure.
+          const isIdea = item.resolved === false || item.kcal == null;
+          if (isIdea) {
+            return (
+              <View key={i} style={mc.itemRow}>
+                <View style={mc.itemNameCol}>
+                  <Text style={mc.itemName} numberOfLines={2}>{item.name}</Text>
+                  <View style={mc.ideaBadge}>
+                    <Text style={mc.ideaBadgeText} numberOfLines={1}>
+                      {item.badge ?? 'Idea — not in our food database'}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={mc.itemMeta}>
+                  {formatAmount(item.amount, item.unit)}
+                  {'\n'}
+                  <Text style={mc.ideaLabel}>Idea to try — not counted</Text>
+                </Text>
+              </View>
+            );
+          }
+          return (
+            <View key={i} style={mc.itemRow}>
+              <Text style={mc.itemName} numberOfLines={2}>{item.name}</Text>
+              <Text style={mc.itemMeta}>
+                {formatAmount(item.amount, item.unit)}
+                <Text style={mc.itemKcal}> · {item.kcal} kcal</Text>
+              </Text>
+            </View>
+          );
+        })}
       </View>
 
       <AnimatedPressable
@@ -223,6 +260,27 @@ const mc = StyleSheet.create({
     color: C.inkSoft,
     flex: 1,
     lineHeight: 19,
+  },
+  // Idea (unresolved) item: name column + small amber badge under it.
+  itemNameCol: { flex: 1, gap: 4 },
+  ideaBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: C.amberSoft,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  ideaBadgeText: {
+    fontFamily: Fonts?.bodyMed ?? 'system',
+    fontSize: 10.5,
+    fontWeight: '500',
+    color: C.amberInk,
+  },
+  ideaLabel: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 11.5,
+    color: C.amber,
+    fontStyle: 'italic',
   },
   itemMeta: {
     fontFamily: Fonts?.body ?? 'system',
@@ -334,14 +392,19 @@ export default function PlanScreen() {
   async function handleLogMeal(mealIndex: number): Promise<void> {
     const meal = plan?.meals[mealIndex];
     if (!meal) return;
+    // Only log resolved items — "idea" items have no verified numbers, so we
+    // never write them to the diary.
+    const resolved = meal.items.filter(
+      (it): it is PlanItem & { kcal: number } => it.resolved !== false && it.kcal != null,
+    );
     await Promise.all(
-      meal.items.map((item) =>
+      resolved.map((item) =>
         logFood({
           name:      item.name,
           kcal:      item.kcal,
-          protein_g: item.protein_g,
-          carbs_g:   item.carbs_g,
-          fat_g:     item.fat_g,
+          protein_g: item.protein_g ?? 0,
+          carbs_g:   item.carbs_g ?? 0,
+          fat_g:     item.fat_g ?? 0,
           source:    'ai_estimate',
           meal_type: meal.meal_type,
           quantity:  item.amount,
@@ -447,6 +510,10 @@ export default function PlanScreen() {
                 </View>
               </View>
 
+              {plan.target_basis && TARGET_BASIS_CAPTION[plan.target_basis] ? (
+                <Text style={s.targetCaption}>{TARGET_BASIS_CAPTION[plan.target_basis]}</Text>
+              ) : null}
+
               {plan.meals.map((meal, i) => (
                 <MealCard
                   key={i}
@@ -463,6 +530,9 @@ export default function PlanScreen() {
                 <Text style={s.adjustedNote}>
                   Portions were scaled to match your calorie target.
                 </Text>
+              ) : null}
+              {plan.disclaimer ? (
+                <Text style={s.disclaimer}>{plan.disclaimer}</Text>
               ) : null}
             </>
           ) : null}
@@ -586,5 +656,23 @@ const s = StyleSheet.create({
     color: C.inkFaint,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  // Caption under the totals strip explaining where the target came from.
+  targetCaption: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 11.5,
+    color: C.inkFaint,
+    textAlign: 'center',
+    marginTop: -4,
+  },
+  // Non-medical disclaimer near the bottom of the plan.
+  disclaimer: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 11.5,
+    color: C.inkFaint,
+    textAlign: 'center',
+    lineHeight: 17,
+    paddingHorizontal: 10,
+    marginTop: 4,
   },
 });

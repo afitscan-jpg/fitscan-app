@@ -82,11 +82,12 @@ const COUNTRIES: Array<{ code: string; name: string; group: string }> = [
 
 const COUNTRY_DEFAULT_CODES = ['IN', 'US', 'GB', 'AU', 'CA', 'SG'];
 
-const ACTIVITY_OPTIONS: Array<{ label: string; factor: number }> = [
-  { label: 'Not very active', factor: 1.2 },
-  { label: 'Lightly active',  factor: 1.375 },
-  { label: 'Active',          factor: 1.55 },
-  { label: 'Very active',     factor: 1.725 },
+const ACTIVITY_OPTIONS: Array<{ label: string; factor: number; desc: string }> = [
+  { label: 'Sedentary',         factor: 1.2,   desc: 'Little or no exercise, mostly sitting' },
+  { label: 'Lightly active',    factor: 1.375, desc: 'Light exercise 1–3 days/week' },
+  { label: 'Moderately active', factor: 1.55,  desc: 'Moderate exercise 3–5 days/week' },
+  { label: 'Very active',       factor: 1.725, desc: 'Hard exercise 6–7 days/week' },
+  { label: 'Extra active',      factor: 1.9,   desc: 'Physical job or twice-a-day training' },
 ];
 
 const GOAL_OPTIONS: Array<{ label: string; value: Goal; note?: string }> = [
@@ -300,6 +301,30 @@ function GoalCards({ goal, onSelect }: { goal: Goal; onSelect: (g: Goal) => void
   );
 }
 
+// ─── Activity-level select ────────────────────────────────────────────────────
+// Vertical cards (not a cramped 5-way segmented) so each tier can show its
+// plain-language description. Drives profiles.activity_factor — the TDEE/BMR
+// multiplier — so getting this right keeps a user's target off the BMR floor.
+function ActivitySelect({ factor, onSelect }: { factor: number; onSelect: (f: number) => void }) {
+  return (
+    <View style={s.goalCards}>
+      {ACTIVITY_OPTIONS.map((opt) => {
+        const on = factor === opt.factor;
+        return (
+          <Pressable
+            key={opt.factor}
+            style={[s.goalCard, on && s.goalCardOn]}
+            onPress={() => onSelect(opt.factor)}
+          >
+            <Text style={[s.goalCardLabel, on && s.goalCardLabelOn]}>{opt.label}</Text>
+            <Text style={[s.goalCardNote, on && s.goalCardNoteOn]}>{opt.desc}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 // ─── Step 3: Stats + Goal ────────────────────────────────────────────────────
 
 function GoalStep({
@@ -438,11 +463,7 @@ function GoalStep({
               </View>
 
               <Text style={s.fieldLabel}>How active are you?</Text>
-              <Segmented
-                options={ACTIVITY_OPTIONS.map((o) => o.label)}
-                selected={ACTIVITY_OPTIONS.findIndex((o) => o.factor === activityFactor)}
-                onSelect={(i) => setActivityFactor(ACTIVITY_OPTIONS[i].factor)}
-              />
+              <ActivitySelect factor={activityFactor} onSelect={setActivityFactor} />
 
               <Text style={s.fieldLabel}>Your goal</Text>
               <GoalCards goal={goal} onSelect={setGoal} />
@@ -506,11 +527,7 @@ function GoalStep({
               />
 
               <Text style={s.fieldLabel}>How active are you?</Text>
-              <Segmented
-                options={ACTIVITY_OPTIONS.map((o) => o.label)}
-                selected={ACTIVITY_OPTIONS.findIndex((o) => o.factor === activityFactor)}
-                onSelect={(i) => setActivityFactor(ACTIVITY_OPTIONS[i].factor)}
-              />
+              <ActivitySelect factor={activityFactor} onSelect={setActivityFactor} />
 
               <Text style={s.fieldLabel}>Your goal</Text>
               <GoalCards goal={goal} onSelect={setGoal} />

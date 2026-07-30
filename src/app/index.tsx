@@ -41,6 +41,7 @@ import {
   getDailyTotals,
   getDataFootprint,
   getProfile,
+  getStreak,
   getTodayLog,
   getWaterToday,
   getWeekTotals,
@@ -49,6 +50,7 @@ import {
   type DayTotal,
   type Goal,
   type Profile,
+  type Streak,
 } from '@/lib/db';
 import { authFetch, PaywallError } from '@/lib/api';
 import { getEntitlement, trialDaysLeft, type Entitlement } from '@/lib/entitlement';
@@ -1049,6 +1051,53 @@ const wo = StyleSheet.create({
   detail: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint, fontVariant: ['tabular-nums'] },
 });
 
+// ─── Streak pill ─────────────────────────────────────────────────────────────
+// Anti-guilt by design: there is NO broken/red/lost state. A run of ≥2 days shows
+// the count; a fresh or empty streak shows a warm invitation to log — never a
+// "you broke it" message. A missed day just quietly makes current 0 again.
+function StreakPill({ streak }: { streak: Streak | null }) {
+  if (!streak) return null;
+  const { current, loggedToday } = streak;
+
+  let label: string;
+  let active = true;
+  if (current >= 2) {
+    label = `${current} day streak`;
+  } else if (current === 1) {
+    label = loggedToday ? 'Day 1 — nice start' : 'Log today to keep your streak';
+  } else {
+    label = 'Log today to start a streak';
+    active = false;
+  }
+
+  return (
+    <View style={[stk.pill, active ? stk.pillActive : stk.pillIdle]} accessibilityLabel={label}>
+      <Text style={stk.emoji}>🔥</Text>
+      <Text style={[stk.text, active ? stk.textActive : stk.textIdle]}>{label}</Text>
+    </View>
+  );
+}
+
+const stk = StyleSheet.create({
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  pillActive: { backgroundColor: C.amberSoft, borderColor: 'rgba(185,132,56,0.25)' },
+  pillIdle:   { backgroundColor: C.card, borderColor: C.cardBorder },
+  emoji:      { fontSize: 13.5 },
+  text:       { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 12.5, fontWeight: '600' },
+  textActive: { color: C.amberInk },
+  textIdle:   { color: C.inkSoft },
+});
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
@@ -1067,13 +1116,14 @@ export default function HomeScreen() {
   const [paywall,        setPaywall]        = useState<PaywallError | null>(null);
   const [nudgeVisible,   setNudgeVisible]   = useState(false);
   const [workouts,       setWorkouts]       = useState<ExerciseLog[]>([]);
+  const [streak,         setStreak]         = useState<Streak | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [t, p, l, w, wk] = await Promise.all([
-        getDailyTotals(), getProfile(), getTodayLog(), getWaterToday(), getWeekTotals(),
+      const [t, p, l, w, wk, st] = await Promise.all([
+        getDailyTotals(), getProfile(), getTodayLog(), getWaterToday(), getWeekTotals(), getStreak(),
       ]);
-      setTotals(t); setProfile(p); setLog(l); setWater(w); setWeekData(wk);
+      setTotals(t); setProfile(p); setLog(l); setWater(w); setWeekData(wk); setStreak(st);
     } catch (e) {
       console.warn('[Home] load error', e);
     } finally {
@@ -1211,6 +1261,9 @@ export default function HomeScreen() {
               <Icon name="gear" color={C.inkSoft} size={22} strokeWidth={1.8} />
             </AnimatedPressable>
           </View>
+
+          {/* Logging streak (anti-guilt: never a broken/red state) */}
+          <StreakPill streak={streak} />
 
           {/* Plan status: trial banner / free usage chip / premium badge */}
           {ent ? (

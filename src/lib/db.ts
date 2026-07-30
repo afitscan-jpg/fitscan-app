@@ -205,6 +205,79 @@ export async function getWeekTotals(): Promise<DayTotal[]> {
   return dates.map((date) => map.get(date) ?? { log_date: date, kcal: 0, items: 0 });
 }
 
+export interface Streak {
+  current: number;   // consecutive days ending today/yesterday with ≥1 log
+  longest: number;   // longest such run ever seen in the window
+  loggedToday: boolean;
+}
+
+// How far back we scan for streaks. A bounded window keeps this cheap (like
+// getWeekTotals) while comfortably covering any realistic run.
+const STREAK_WINDOW_DAYS = 400;
+
+/**
+ * Logging streak from the days a user has ≥1 food log. Uses the user's LOCAL
+ * date (same basis as log_date is written), reading the daily_intake view like
+ * getWeekTotals does.
+ *
+ * Anti-guilt by design: the "current" streak counts consecutive days ending
+ * today OR yesterday (a one-day grace so a not-yet-logged today never reads as a
+ * break). A genuinely missed day simply makes current = 0 — the UI turns that
+ * into gentle "start a streak" copy, never a broken/negative state.
+ */
+export async function getStreak(): Promise<Streak> {
+  const today = new Date();
+  const since = new Date(today);
+  since.setDate(today.getDate() - (STREAK_WINDOW_DAYS - 1));
+
+  const { data, error } = await supabase
+    .from('daily_intake')
+    .select('log_date, items')
+    .gte('log_date', localDate(since));
+  if (error) throw error;
+
+  // Set of local dates that have at least one logged item.
+  const logged = new Set<string>(
+    (data ?? [])
+      .filter((r: { log_date: string; items: number }) => (r.items ?? 0) > 0)
+      .map((r: { log_date: string }) => r.log_date),
+  );
+
+  const todayStr = localDate(today);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const loggedToday = logged.has(todayStr);
+
+  // Walk backwards day by day counting the run. Anchor at today if logged, else
+  // at yesterday (grace) so an un-logged today isn't treated as a miss.
+  let current = 0;
+  const cursor = new Date(today);
+  if (!loggedToday) cursor.setDate(cursor.getDate() - 1); // start from yesterday
+  while (logged.has(localDate(cursor))) {
+    current += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  // Longest run anywhere in the window: sort the logged dates and count adjacency.
+  const sorted = [...logged].sort();
+  let longest = 0;
+  let run = 0;
+  let prev: string | null = null;
+  for (const d of sorted) {
+    if (prev !== null) {
+      const gap = (Date.parse(d) - Date.parse(prev)) / 86_400_000;
+      run = gap === 1 ? run + 1 : 1;
+    } else {
+      run = 1;
+    }
+    if (run > longest) longest = run;
+    prev = d;
+  }
+  longest = Math.max(longest, current);
+
+  return { current, longest, loggedToday };
+}
+
 /** Totals for the calorie ring + macros (from the daily_intake view). */
 export async function getDailyTotals(date = localDate()): Promise<DailyTotals> {
   const { data, error } = await supabase

@@ -582,12 +582,28 @@ const MEAL_TINT: Record<string, { bg: string; border: string; fg: string }> = {
   dinner:    { bg: '#ECEAF2', border: 'rgba(107,94,140,0.22)', fg: '#6B5E8C' },
 };
 
+// Compact per-item macro line in grams: "P78 · C120 · F30". Rounds to whole
+// numbers, omits any macro that's null, and hides the line entirely when there's
+// no macro data at all (all null/zero) so scanned rows without macros stay clean.
+function itemMacroLine(item: TodayEntry): string | null {
+  const p = item.protein_g == null ? null : Math.round(Number(item.protein_g));
+  const c = item.carbs_g   == null ? null : Math.round(Number(item.carbs_g));
+  const f = item.fat_g     == null ? null : Math.round(Number(item.fat_g));
+  if ((p ?? 0) === 0 && (c ?? 0) === 0 && (f ?? 0) === 0) return null;
+  const parts: string[] = [];
+  if (p != null) parts.push(`P${p}`);
+  if (c != null) parts.push(`C${c}`);
+  if (f != null) parts.push(`F${f}`);
+  return parts.length ? parts.join(' · ') : null;
+}
+
 function TodayItem({ item, onEdit, onDelete }: { item: TodayEntry; onEdit: () => void; onDelete: () => void }) {
   const mealType    = (item.meal_type as string) ?? 'snack';
   const mealLabel   = mealType.charAt(0).toUpperCase() + mealType.slice(1);
   const sourceLabel = item.source === 'scan' ? 'Scanned' : item.source === 'quick_add' ? 'Quick add' : '';
   const qtyUnit     = formatQtyUnit(item.quantity, item.unit);
   const metaText    = qtyUnit ? `${mealLabel} · ${qtyUnit}` : mealLabel;
+  const macroText   = itemMacroLine(item);
   const tint        = MEAL_TINT[mealType] ?? MEAL_TINT.snack;
   return (
     <Reanimated.View
@@ -614,6 +630,7 @@ function TodayItem({ item, onEdit, onDelete }: { item: TodayEntry; onEdit: () =>
             <VerdictDot verdict={item.verdict ?? null} />
             <Text style={ti.meta} numberOfLines={1}>{metaText}</Text>
           </View>
+          {macroText ? <Text style={ti.macro} numberOfLines={1}>{macroText}</Text> : null}
         </View>
       </Pressable>
       <Pressable onPress={onDelete} hitSlop={10} style={ti.delBtn}>
@@ -645,6 +662,7 @@ const ti = StyleSheet.create({
   tag:       { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint, fontWeight: '400' },
   metaRow:   { flexDirection: 'row', alignItems: 'center', gap: 7 },
   meta:      { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint, flex: 1 },
+  macro:     { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkFaint, fontVariant: ['tabular-nums'], letterSpacing: 0.1 },
   kcal:      { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.inkStrong, fontVariant: ['tabular-nums'], flexShrink: 0 },
   kcalUnit:  { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, fontWeight: '400', color: C.inkFaint },
   delBtn:    { paddingHorizontal: 6, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
@@ -1310,7 +1328,7 @@ export default function HomeScreen() {
 
                 {/* Macros */}
                 <View style={hs.macros}>
-                  <MacroChip label="Protein" value={totals?.protein_g ?? 0} unit="g" target={targets?.protein_g ?? null} />
+                  <MacroChip label="Protein" value={totals?.protein_g ?? 0} unit="g" target={targets?.protein_g ?? null} emphasis />
                   <MacroChip label="Carbs"   value={totals?.carbs_g   ?? 0} unit="g" target={targets?.carbs_g   ?? null} />
                   <MacroChip label="Fat"     value={totals?.fat_g      ?? 0} unit="g" target={targets?.fat_g      ?? null} />
                 </View>
@@ -1409,17 +1427,17 @@ export default function HomeScreen() {
   );
 }
 
-function MacroChip({ label, value, unit, warn = false, target }: {
-  label: string; value: number; unit: string; warn?: boolean; target?: number | null;
+function MacroChip({ label, value, unit, warn = false, target, emphasis = false }: {
+  label: string; value: number; unit: string; warn?: boolean; target?: number | null; emphasis?: boolean;
 }) {
   return (
-    <View style={[mc.chip, warn && mc.chipWarn]}>
-      <Text style={[mc.key, warn && mc.keyWarn]}>{label}</Text>
-      <Text style={[mc.val, warn && mc.valWarn]}>
+    <View style={[mc.chip, emphasis && mc.chipEmph, warn && mc.chipWarn]}>
+      <Text style={[mc.key, emphasis && mc.keyEmph, warn && mc.keyWarn]}>{label}</Text>
+      <Text style={[mc.val, emphasis && mc.valEmph, warn && mc.valWarn]}>
         {Math.round(value)}
         {target != null
-          ? <Text style={[mc.unit, warn && mc.keyWarn]}> / {target} {unit}</Text>
-          : <Text style={[mc.unit, warn && mc.keyWarn]}> {unit}</Text>
+          ? <Text style={[mc.unit, emphasis && mc.keyEmph, warn && mc.keyWarn]}> / {target} {unit}</Text>
+          : <Text style={[mc.unit, emphasis && mc.keyEmph, warn && mc.keyWarn]}> {unit}</Text>
         }
       </Text>
     </View>
@@ -1429,6 +1447,11 @@ function MacroChip({ label, value, unit, warn = false, target }: {
 const mc = StyleSheet.create({
   chip:     { flex: 1, backgroundColor: '#FBF9F4', borderWidth: 1, borderColor: C.cardBorder, borderRadius: 16, paddingHorizontal: 13, paddingVertical: 12 },
   chipWarn: { backgroundColor: C.redSoft, borderColor: 'rgba(196,85,61,0.25)' },
+  // Protein is emphasised — accent-tinted chip + green value, since it's the
+  // macro users track most.
+  chipEmph: { backgroundColor: C.greenSoft, borderColor: 'rgba(76,124,99,0.28)' },
+  keyEmph:  { color: C.greenInk },
+  valEmph:  { color: C.greenInk, fontSize: 21 },
   key:      { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkSoft },
   keyWarn:  { color: C.red },
   val:      { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 19, fontWeight: '600', color: C.inkStrong, marginTop: 3, fontVariant: ['tabular-nums'] },

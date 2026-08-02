@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
@@ -341,23 +344,18 @@ export default function AddFoodScreen() {
     setShowCamera(true);
   }
 
-  async function handleShutter() {
-    if (!cameraRef.current || !cameraReady || aiLoading) return;
+  // Shared downstream handling for BOTH a camera capture and a gallery pick: send
+  // the base64 image to /ai/parse and open the confirm sheet with the result.
+  async function runAiParse(imageBase64: string) {
+    setAiLoading(true);
+    setAiInlineMsg(null);
+    startStages();
     try {
-      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.4 });
-      setShowCamera(false);
-      if (!photo?.base64) {
-        setAiInlineMsg("Couldn't capture the photo — try again.");
-        return;
-      }
-      setAiLoading(true);
-      setAiInlineMsg(null);
-      startStages();
       const res = await authFetch('/ai/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image_base64: photo.base64,
+          image_base64: imageBase64,
           country: profile?.country ?? null,
           diet: profile?.diet_preference ?? null,
         }),
@@ -368,13 +366,58 @@ export default function AddFoodScreen() {
       }
       applyAiParseResponse(await res.json());
     } catch (e) {
-      setShowCamera(false);
       if (e instanceof PaywallError) setPaywall(e);
       else setAiInlineMsg("Couldn't reach the server — is the backend running?");
     } finally {
       stopStages();
       setAiLoading(false);
     }
+  }
+
+  async function handleShutter() {
+    if (!cameraRef.current || !cameraReady || aiLoading) return;
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ base64: true, quality: 0.4 });
+      setShowCamera(false);
+      if (!photo?.base64) {
+        setAiInlineMsg("Couldn't capture the photo — try again.");
+        return;
+      }
+      await runAiParse(photo.base64);
+    } catch {
+      setShowCamera(false);
+      setAiInlineMsg("Couldn't capture the photo — try again.");
+    }
+  }
+
+  // Pick an existing food photo from the gallery — same downstream flow as a
+  // camera capture. Permission denial is surfaced inline, never as a crash.
+  async function handleGalleryPress() {
+    if (aiLoading) return;
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      setAiInlineMsg('Photo access needed to choose from your gallery.');
+      return;
+    }
+    setAiInlineMsg(null);
+    let res: ImagePicker.ImagePickerResult;
+    try {
+      res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        base64: true,
+        quality: 0.4,
+      });
+    } catch {
+      setAiInlineMsg("Couldn't open the gallery — try again.");
+      return;
+    }
+    if (res.canceled) return;
+    const base64 = res.assets?.[0]?.base64;
+    if (!base64) {
+      setAiInlineMsg("Couldn't read that image — try another.");
+      return;
+    }
+    await runAiParse(base64);
   }
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -407,10 +450,17 @@ export default function AddFoodScreen() {
     <View style={s.root}>
       <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
+        {/* Keep the focused food-text input visible above the on-screen keyboard.
+            iOS: padding; Android: undefined (relies on adjustResize). */}
+        <KeyboardAvoidingView
+          style={s.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <ScrollView
           style={s.flex}
           contentContainerStyle={s.scroll}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
@@ -431,21 +481,30 @@ export default function AddFoodScreen() {
               <Icon name="camera" color={C.marigold} size={16} strokeWidth={1.5} />
               <Text style={s.aiTitle}>Snap your meal</Text>
             </View>
-            <Text style={s.aiNote}>Take a photo and we&apos;ll estimate it — you can adjust before logging.</Text>
+            <Text style={s.aiNote}>Take a photo or choose one from your gallery — we&apos;ll estimate it, and you can adjust before logging.</Text>
             {aiInlineMsg != null ? (
               <Text style={s.aiNote}>{aiInlineMsg}</Text>
             ) : null}
-            <AnimatedPressable
-              style={[s.aiSend, s.aiSendFull, aiLoading && s.aiSendDim]}
-              onPress={handleCameraPress}
-              disabled={aiLoading}
-            >
-              {aiLoading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={s.aiSendText}>Take a photo →</Text>
-              )}
-            </AnimatedPressable>
+            <View style={s.photoBtnRow}>
+              <AnimatedPressable
+                style={[s.aiSend, s.photoBtn, aiLoading && s.aiSendDim]}
+                onPress={handleCameraPress}
+                disabled={aiLoading}
+              >
+                {aiLoading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={s.aiSendText}>Take a photo</Text>
+                )}
+              </AnimatedPressable>
+              <AnimatedPressable
+                style={[s.photoBtnAlt, aiLoading && s.aiSendDim]}
+                onPress={handleGalleryPress}
+                disabled={aiLoading}
+              >
+                <Text style={s.photoBtnAltText}>Choose from gallery</Text>
+              </AnimatedPressable>
+            </View>
             {aiLoading && aiStage != null ? (
               <Text style={s.aiStageText}>{aiStage}</Text>
             ) : null}
@@ -487,6 +546,7 @@ export default function AddFoodScreen() {
             <Icon name="arrow" color={C.marigold} size={17} strokeWidth={2} />
           </AnimatedPressable>
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
 
       {/* Quick-add stepper sheet */}
@@ -955,6 +1015,26 @@ const s = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#fff',
+  },
+  // Two-up photo actions: primary "Take a photo" + secondary "Choose from gallery".
+  photoBtnRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  photoBtn: { flex: 1, minWidth: 0, paddingVertical: 13 },
+  photoBtnAlt: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(185,132,56,0.35)',
+    borderRadius: Radius.sm,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoBtnAltText: {
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.marigold,
   },
 
   sectionLabel: {

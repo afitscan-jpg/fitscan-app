@@ -28,7 +28,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // Parse a local YYYY-MM-DD without timezone drift, then format for the header.
 function prettyDate(d: string): string {
   const [y, m, day] = d.split('-').map(Number);
-  return new Date(y, m - 1, day).toLocaleDateString('en-US', {
+  return new Date(y, m - 1, day).toLocaleDateString(undefined, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',

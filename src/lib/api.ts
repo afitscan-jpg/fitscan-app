@@ -9,6 +9,35 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Thrown when a request exceeds REQUEST_TIMEOUT_MS (e.g. a cold backend that never
+ * responds). Distinct from a normal network error so callers can show a clear,
+ * retryable message instead of hanging forever.
+ */
+export class TimeoutError extends Error {
+  constructor(message = 'The request timed out — check your connection and try again.') {
+    super(message);
+    this.name = 'TimeoutError';
+  }
+}
+
+const REQUEST_TIMEOUT_MS = 15000;
+
+// fetch() with a hard timeout via AbortController. On timeout, throws TimeoutError
+// (a slow/hung backend no longer freezes the screen). Other fetch errors pass through.
+async function fetchWithTimeout(input: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') throw new TimeoutError();
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export type PaywallKind = 'limit' | 'premium';
 
 export interface PaywallInfo {
@@ -62,7 +91,7 @@ async function paywallFromResponse(res: Response): Promise<PaywallError> {
 }
 
 export async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`);
+  const res = await fetchWithTimeout(`${API_URL}${path}`);
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
     throw new ApiError(res.status, text);
@@ -94,7 +123,7 @@ async function currentAccessToken(): Promise<string> {
  */
 export async function authFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const run = (token: string) =>
-    fetch(`${API_URL}${path}`, {
+    fetchWithTimeout(`${API_URL}${path}`, {
       ...options,
       headers: {
         ...(options.headers ?? {}),

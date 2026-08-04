@@ -94,7 +94,7 @@ function formatAmount(amount: number, unit: ItemUnit): string {
 function tomorrowLabel(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
 // Cache key is scoped to tomorrow's local date so a stale plan from a previous

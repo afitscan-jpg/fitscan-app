@@ -31,7 +31,8 @@ const NUTRIENT_ROWS: Array<{ key: NutrientKey; label: string; unit: string }> = 
   { key: 'energy_kcal', label: 'Energy', unit: 'kcal' },
   { key: 'sugars_g', label: 'Sugar', unit: 'g' },
   { key: 'protein_g', label: 'Protein', unit: 'g' },
-  { key: 'saturated_fat_g', label: 'Fat', unit: 'g' },
+  { key: 'fat_g', label: 'Fat', unit: 'g' },
+  { key: 'saturated_fat_g', label: 'Saturated fat', unit: 'g' },
 ];
 
 // ─── Screen state ────────────────────────────────────────────────────────────
@@ -113,7 +114,7 @@ function clampGrams(n: number): number {
   return Math.max(PORTION_MIN, Math.min(PORTION_MAX, Math.round(n)));
 }
 
-function GramsStepper({ grams, onChange }: { grams: number; onChange: (g: number) => void }) {
+function GramsStepper({ grams, unit, onChange }: { grams: number; unit: string; onChange: (g: number) => void }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
 
@@ -153,7 +154,7 @@ function GramsStepper({ grams, onChange }: { grams: number; onChange: (g: number
             selectTextOnFocus
           />
         ) : (
-          <Text style={styles.gramsText}>{grams} g</Text>
+          <Text style={styles.gramsText}>{grams} {unit}</Text>
         )}
       </Pressable>
 
@@ -183,6 +184,10 @@ function OkResultView({ data }: { data: ScanResponse }) {
   // Couldn't be graded (insufficient label data) → clean state, no numbers.
   const isUnknown = result.verdict === 'Unknown' || result.grade == null;
 
+  // Beverages are measured by volume — label the stepper and log the row in ml.
+  const isVolumetric = result.is_beverage;
+  const portionUnit = isVolumetric ? 'ml' : 'g';
+
   const factor = grams / 100; // scan nutrients are per 100 g/ml
   const scaledKcal = Math.round((result.nutrients.energy_kcal ?? 0) * factor);
 
@@ -211,7 +216,7 @@ function OkResultView({ data }: { data: ScanResponse }) {
         verdict: verdictMap[result.verdict] ?? null,
         meal_type: mealTypeForNow(),
         quantity: grams,
-        unit: 'g',
+        unit: portionUnit,
       });
       router.replace('/');
     } catch {
@@ -257,6 +262,12 @@ function OkResultView({ data }: { data: ScanResponse }) {
 
         {/* Verdict card */}
         <VerdictCard result={result} />
+        {/* Disclose which basis the grade was computed on. */}
+        {!isUnknown && result.scored_basis ? (
+          <Text style={styles.basisNote}>
+            {result.scored_basis === 'serving' ? 'Graded per serving' : 'Graded per 100g'}
+          </Text>
+        ) : null}
 
         {/* Flags */}
         {result.flags.length > 0 && (
@@ -296,7 +307,7 @@ function OkResultView({ data }: { data: ScanResponse }) {
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Portion to log</Text>
             <View style={styles.portionCard}>
-              <GramsStepper grams={grams} onChange={setGrams} />
+              <GramsStepper grams={grams} unit={portionUnit} onChange={setGrams} />
               <View style={styles.portionKcalWrap}>
                 <Text style={styles.portionKcal}>{scaledKcal}</Text>
                 <Text style={styles.portionKcalUnit}>kcal</Text>
@@ -411,6 +422,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Fonts?.body ?? 'system',
     color: C.inkSoft,
+  },
+
+  basisNote: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 12,
+    color: C.inkFaint,
+    marginTop: -Spacing.two + 2,
   },
 
   section: { gap: Spacing.two },

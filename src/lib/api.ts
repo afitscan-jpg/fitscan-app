@@ -21,7 +21,9 @@ export class TimeoutError extends Error {
   }
 }
 
-const REQUEST_TIMEOUT_MS = 15000;
+// 45s covers a Render free-tier cold start (~30-50s). Drop to 15s once on a paid
+// instance that doesn't sleep.
+const REQUEST_TIMEOUT_MS = 45000;
 
 // fetch() with a hard timeout via AbortController. On timeout, throws TimeoutError
 // (a slow/hung backend no longer freezes the screen). Other fetch errors pass through.

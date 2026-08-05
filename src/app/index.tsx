@@ -1116,6 +1116,39 @@ const stk = StyleSheet.create({
   textIdle:   { color: C.inkSoft },
 });
 
+// ─── Load-error banner (Home) ────────────────────────────────────────────────
+// Shown when the core Home fetch fails, so the screen never silently renders an
+// all-zeros dashboard against a fallback target. Neutral, anti-guilt copy.
+
+function LoadErrorBanner({ onRetry }: { onRetry: () => void }) {
+  return (
+    <View style={eb.banner}>
+      <Text style={eb.text}>Couldn't load your data.</Text>
+      <Pressable onPress={onRetry} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retry loading">
+        <Text style={eb.retry}>Tap to retry</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const eb = StyleSheet.create({
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    backgroundColor: C.amberSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(185,132,56,0.25)',
+    borderRadius: Radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  text: { flex: 1, fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13.5, fontWeight: '600', color: C.amberInk },
+  retry: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13.5, fontWeight: '700', color: C.amberInk, textDecorationLine: 'underline' },
+});
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
@@ -1135,6 +1168,7 @@ export default function HomeScreen() {
   const [nudgeVisible,   setNudgeVisible]   = useState(false);
   const [workouts,       setWorkouts]       = useState<ExerciseLog[]>([]);
   const [streak,         setStreak]         = useState<Streak | null>(null);
+  const [loadError,      setLoadError]      = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -1142,8 +1176,12 @@ export default function HomeScreen() {
         getDailyTotals(), getProfile(), getTodayLog(), getWaterToday(), getWeekTotals(), getStreak(),
       ]);
       setTotals(t); setProfile(p); setLog(l); setWater(w); setWeekData(wk); setStreak(st);
+      setLoadError(false);
     } catch (e) {
+      // Surface the failure instead of silently rendering an all-zeros dashboard
+      // against a fake target — see LoadErrorBanner below.
       console.warn('[Home] load error', e);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -1304,6 +1342,10 @@ export default function HomeScreen() {
             </View>
           ) : (
             <>
+              {loadError ? <LoadErrorBanner onRetry={load} /> : null}
+              {/* On a failed profile fetch, show only the banner — never a fake-target ring. */}
+              {loadError && !profile ? null : (
+              <>
               {/* ── Calorie card ── */}
               <Reanimated.View entering={enter(0)}>
                <GlassCard contentStyle={hs.calCard}>
@@ -1400,6 +1442,8 @@ export default function HomeScreen() {
                   ))}
                 </View>
               ) : null}
+              </>
+              )}
             </>
           )}
         </ScrollView>

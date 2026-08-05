@@ -47,8 +47,8 @@ export default function ScanScreen() {
 
     const apiUrl = process.env.EXPO_PUBLIC_API_URL;
     if (!apiUrl) {
-      console.warn('[Scanner] EXPO_PUBLIC_API_URL is not set — cannot look up product');
-      setErrorMsg('API not configured. Set EXPO_PUBLIC_API_URL in .env and restart.');
+      console.warn('[Scanner] EXPO_PUBLIC_API_URL is not set — set it in .env and restart to enable scanning');
+      setErrorMsg("Scanning isn't available right now — please try again later.");
       setScanState('error');
       isBusy.current = false;
       return;

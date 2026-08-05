@@ -203,17 +203,6 @@ function AuthForms() {
           them on any device.
         </Text>
 
-        {/* Google — coming soon (disabled) */}
-        <View style={s.googleBtn}>
-          <Text style={s.googleText}>Continue with Google</Text>
-          <Text style={s.soon}>Coming soon</Text>
-        </View>
-        <View style={s.dividerRow}>
-          <View style={s.divider} />
-          <Text style={s.dividerText}>or with email</Text>
-          <View style={s.divider} />
-        </View>
-
         {/* Segmented control */}
         <View style={s.seg}>
           {(['create', 'signin'] as Mode[]).map((m) => {
@@ -338,33 +327,6 @@ const s = StyleSheet.create({
     marginTop: 8,
     marginBottom: 20,
   },
-
-  // Google (disabled)
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: C.card,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    borderRadius: Radius.md,
-    height: 52,
-    opacity: 0.55,
-  },
-  googleText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.inkSoft },
-  soon: {
-    fontFamily: Fonts?.bodySemi ?? 'system',
-    fontSize: 10.5,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-    color: C.inkFaint,
-  },
-
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 18 },
-  divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: C.line },
-  dividerText: { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint },
 
   // Segmented control
   seg: {

@@ -47,11 +47,10 @@ function ResultRow({ item }: { item: TextLogItem }) {
           <Text style={[s.pillText, { color: pill.fg }]}>{item.badge}</Text>
         </View>
         {item.needs_clarification ? (
-          // Affordance only — no action wired yet.
-          <Pressable hitSlop={6} style={s.verify} accessibilityRole="button" accessibilityLabel="Verify this item" onPress={() => undefined}>
-            <Icon name="pencil" color={C.inkFaint} size={11} strokeWidth={2} />
-            <Text style={s.verifyText}>verify</Text>
-          </Pressable>
+          // Static state marker — this item needs clarification. Not tappable.
+          <View style={s.verify}>
+            <Text style={s.verifyText}>unverified</Text>
+          </View>
         ) : null}
       </View>
 
@@ -348,7 +347,6 @@ const s = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '600',
     color: C.inkFaint,
-    textDecorationLine: 'underline',
   },
   modNote: { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkFaint, lineHeight: 16 },
 

@@ -73,13 +73,13 @@ function NotFoundView() {
         <Icon name="search" color={C.inkFaint} size={48} strokeWidth={1.5} />
         <Text style={styles.notFoundTitle}>Couldn't find this product</Text>
         <Text style={styles.notFoundSub}>
-          Snap the nutrition label and we'll analyse it for you.
+          You can describe it in text and we'll log it from that.
         </Text>
         <Pressable
           style={styles.primaryBtn}
-          onPress={() => router.push('/scanner/ocr-capture')}
+          onPress={() => router.replace('/add')}
         >
-          <Text style={styles.primaryBtnText}>Snap nutrition label</Text>
+          <Text style={styles.primaryBtnText}>Describe it in text</Text>
         </Pressable>
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Text style={styles.ghostBtnText}>Scan another product</Text>

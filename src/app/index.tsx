@@ -56,6 +56,7 @@ import { authFetch, PaywallError } from '@/lib/api';
 import { getEntitlement, trialDaysLeft, type Entitlement } from '@/lib/entitlement';
 import { getAuthState } from '@/lib/auth';
 import { getExerciseLogs, type ExerciseLog } from '@/lib/exercises';
+import { getAdaptiveTdee, type AdaptiveTdee } from '@/lib/me';
 import { PaywallSheet } from '@/components/paywall-sheet';
 
 // Session-scoped dismiss flag for the account nudge — once dismissed it won't
@@ -1174,6 +1175,7 @@ export default function HomeScreen() {
   const [workouts,       setWorkouts]       = useState<ExerciseLog[]>([]);
   const [streak,         setStreak]         = useState<Streak | null>(null);
   const [loadError,      setLoadError]      = useState(false);
+  const [adaptive,       setAdaptive]       = useState<AdaptiveTdee | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -1222,6 +1224,13 @@ export default function HomeScreen() {
     if (e) setEnt(e);
   }, []);
 
+  // Adaptive TDEE (advisory). Session-cached in the client; any failure resolves to
+  // null so Home silently keeps the static profile target. Never blocks the ring.
+  const loadAdaptive = useCallback(async () => {
+    const a = await getAdaptiveTdee();
+    if (a) setAdaptive(a);
+  }, []);
+
   // Today's logged workouts. Kept separate/resilient like loadEnt/loadNudge so a
   // backend hiccup never blanks the core (Supabase) Home data in load().
   const loadWorkouts = useCallback(async () => {
@@ -1255,7 +1264,8 @@ export default function HomeScreen() {
     loadEnt();
     loadNudge();
     loadWorkouts();
-  }, [load, loadInsight, loadEnt, loadNudge, loadWorkouts]));
+    loadAdaptive();
+  }, [load, loadInsight, loadEnt, loadNudge, loadWorkouts, loadAdaptive]));
 
   function handleDelete(id: string, name: string) {
     Alert.alert('Remove this entry?', name, [
@@ -1284,6 +1294,20 @@ export default function HomeScreen() {
   }
 
   const target      = profile?.daily_target_kcal ?? 2000;
+  // Adaptive target surfacing (advisory). Use the adaptive number on the ring ONLY
+  // when the engine's blended maintenance meaningfully differs from the static anchor
+  // (>5%) AND there's real trend+intake data (adaptive_tdee non-null); otherwise keep
+  // the static number so it doesn't flicker. `adaptive` is null on any call failure →
+  // static path, silently.
+  const adaptiveShift = adaptive && adaptive.adaptive_tdee != null && adaptive.static_tdee > 0
+    ? Math.abs(adaptive.estimated_tdee - adaptive.static_tdee) / adaptive.static_tdee
+    : 0;
+  const useAdaptive   = !!adaptive && adaptive.adaptive_tdee != null && adaptiveShift > 0.05;
+  const ringTarget    = useAdaptive ? adaptive!.target_kcal : target;
+  const targetWeeks   = adaptive ? Math.min(3, Math.max(1, Math.round(adaptive.intake_day_count / 7))) : 3;
+  const targetCaption = useAdaptive
+    ? `Target ${ringTarget.toLocaleString()} · tuned from your last ${targetWeeks} ${targetWeeks === 1 ? 'week' : 'weeks'} of logging + weight trend`
+    : `Target ${ringTarget.toLocaleString()} · based on your profile — logs + weigh-ins will tune this`;
   const maintenance = profile?.maintenance_kcal  ?? target;
   const eaten       = totals?.kcal ?? 0;
   const waterGoal   = profile?.water_goal_glasses ?? 8;
@@ -1355,7 +1379,8 @@ export default function HomeScreen() {
               <Reanimated.View entering={enter(0)}>
                <GlassCard contentStyle={hs.calCard}>
                 {/* Ring — centered hero */}
-                <CalorieRing eaten={eaten} target={target} />
+                <CalorieRing eaten={eaten} target={ringTarget} />
+                <Text style={hs.targetBasis}>{targetCaption}</Text>
 
                 {/* Stats row below the ring */}
                 <View style={hs.statsRow}>
@@ -1550,5 +1575,6 @@ const hs = StyleSheet.create({
   secLinkWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   secLink:     { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13, color: C.green, fontWeight: '600' },
   empty:       { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint, textAlign: 'center', paddingVertical: Spacing.four },
+  targetBasis: { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkSoft, textAlign: 'center', lineHeight: 16, marginTop: 6 },
   disclaimer:  { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, color: C.inkFaint, textAlign: 'center', lineHeight: 15, marginTop: 8 },
 });

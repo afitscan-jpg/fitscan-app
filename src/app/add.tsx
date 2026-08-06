@@ -310,6 +310,7 @@ export default function AddFoodScreen() {
             carbs_g:   parseFloat(nutr.carbs_g.toFixed(1)),
             fat_g:     parseFloat(nutr.fat_g.toFixed(1)),
             source:    'ai_estimate',
+            provenance: 'ai_estimate',
             meal_type: mealTypeForNow(),
             ai_raw_input: null,
           });

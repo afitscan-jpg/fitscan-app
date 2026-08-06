@@ -56,6 +56,8 @@ function DayItem({ item }: { item: DayEntry }) {
   const qtyUnit   = formatQtyUnit(item.quantity, item.unit);
   const metaText  = qtyUnit ? `${mealLabel} · ${qtyUnit}` : mealLabel;
   const tint      = MEAL_TINT[mealType] ?? MEAL_TINT.snack;
+  // Estimate provenance survives into the past-day view too; verified/null unchanged.
+  const isEstimate = item.provenance === 'ai_estimate' || item.provenance === 'analog_estimate';
   return (
     <View style={ti.card}>
       <View style={[ti.tile, { backgroundColor: tint.bg, borderColor: tint.border }]}>
@@ -65,10 +67,13 @@ function DayItem({ item }: { item: DayEntry }) {
         <View style={ti.topRow}>
           <Text style={ti.name} numberOfLines={1}>{item.name}</Text>
           <Text style={ti.kcal}>
-            {item.kcal}<Text style={ti.kcalUnit}> kcal</Text>
+            {isEstimate ? '≈' : ''}{item.kcal}<Text style={ti.kcalUnit}> kcal</Text>
           </Text>
         </View>
-        <Text style={ti.meta} numberOfLines={1}>{metaText}</Text>
+        <View style={ti.metaRow}>
+          <Text style={ti.meta} numberOfLines={1}>{metaText}</Text>
+          {isEstimate ? <Text style={ti.estTag}>estimate</Text> : null}
+        </View>
       </View>
     </View>
   );
@@ -223,7 +228,9 @@ const ti = StyleSheet.create({
   info:       { flex: 1, gap: 5 },
   topRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   name:       { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, color: C.inkStrong, fontWeight: '600', flex: 1 },
+  metaRow:    { flexDirection: 'row', alignItems: 'center', gap: 7 },
   meta:       { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint },
+  estTag:     { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 10, fontWeight: '600', color: C.amberInk, backgroundColor: C.amberSoft, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, overflow: 'hidden' },
   kcal:       { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.inkStrong, fontVariant: ['tabular-nums'], flexShrink: 0 },
   kcalUnit:   { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, fontWeight: '400', color: C.inkFaint },
 });

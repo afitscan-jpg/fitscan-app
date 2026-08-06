@@ -45,6 +45,10 @@ export interface FoodEntry {
   sugar_g?: number;
   verdict?: Verdict | null;
   ai_raw_input?: string | null;
+  // Resolver provenance, orthogonal to `source` (migration_011). Free text so any
+  // resolver value round-trips; only estimate tiers get a diary marker. Null =
+  // unmarked (e.g. quick-add, manual).
+  provenance?: string | null;
 }
 
 export interface DailyTotals {
@@ -126,6 +130,7 @@ export async function logFood(entry: FoodEntry): Promise<void> {
     sugar_g: entry.sugar_g ?? 0,
     verdict: entry.verdict ?? null,
     ai_raw_input: entry.ai_raw_input ?? null,
+    provenance: entry.provenance ?? null,
   });
   if (error) throw error;
 }
@@ -158,16 +163,18 @@ export async function updateFoodLog(
   if (error) throw error;
 }
 
-/** Convenience: log an item that came from a scan result. */
+/** Convenience: log an item that came from a scan result. A packaged scan carries
+ *  label-verified numbers, so it defaults to provenance 'verified_packaged'
+ *  (caller may override). */
 export function logScannedFood(entry: Omit<FoodEntry, 'source'>): Promise<void> {
-  return logFood({ ...entry, source: 'scan' });
+  return logFood({ ...entry, source: 'scan', provenance: entry.provenance ?? 'verified_packaged' });
 }
 
 /** Food-log items for a given local date (YYYY-MM-DD), oldest-first. */
 export async function getLogForDate(date: string) {
   const { data, error } = await supabase
     .from('food_logs')
-    .select('id, name, meal_type, source, kcal, quantity, unit, protein_g, carbs_g, fat_g, verdict, logged_at')
+    .select('id, name, meal_type, source, provenance, kcal, quantity, unit, protein_g, carbs_g, fat_g, verdict, logged_at')
     .eq('log_date', date)
     .order('logged_at', { ascending: true });
   if (error) throw error;

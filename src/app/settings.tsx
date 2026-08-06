@@ -265,6 +265,18 @@ export default function SettingsScreen() {
                 <Icon name="arrow" color={C.inkDim} size={18} strokeWidth={2} />
               </Pressable>
 
+              <Text style={s.eyebrow}>Notifications</Text>
+              <Pressable
+                style={({ pressed }) => [s.actionBtn, s.linkRow, pressed && s.pressed]}
+                onPress={() => router.push('/reminders' as never)}
+              >
+                <View style={s.linkText}>
+                  <Text style={s.actionText}>Reminders</Text>
+                  <Text style={s.actionSub}>Gentle mealtime & weigh-in nudges — invitational, never nagging</Text>
+                </View>
+                <Icon name="arrow" color={C.inkDim} size={18} strokeWidth={2} />
+              </Pressable>
+
               <Text style={s.eyebrow}>Setup</Text>
               <Pressable
                 style={({ pressed }) => [s.actionBtn, pressed && s.pressed]}

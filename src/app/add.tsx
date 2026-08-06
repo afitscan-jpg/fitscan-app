@@ -24,6 +24,7 @@ import { PaywallSheet } from '@/components/paywall-sheet';
 import { TextLogCard } from '@/components/text-log-card';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { getProfile, logFood, mealTypeForNow, type MealType, type Profile } from '@/lib/db';
+import { syncReminders } from '@/lib/reminders';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 // ─── Food definitions ────────────────────────────────────────────────────────
@@ -208,6 +209,7 @@ export default function AddFoodScreen() {
         quantity: amount,
         unit: selected.unit,
       });
+      void syncReminders(); // logged this meal → drop today's now-satisfied nudge
       setSelected(null);
       router.back();
     } catch {
@@ -316,6 +318,7 @@ export default function AddFoodScreen() {
           });
         })
       );
+      void syncReminders(); // logged → re-apply meal suppression
       // Brief success beat on the button before the sheet dismisses.
       setAiSuccess(true);
       await new Promise((resolve) => setTimeout(resolve, 400));

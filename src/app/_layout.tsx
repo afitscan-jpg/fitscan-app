@@ -13,13 +13,14 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, DeviceEventEmitter, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState as RNAppState, DeviceEventEmitter, StyleSheet, View } from 'react-native';
 
 import AppTabs from '@/components/app-tabs';
 import { AssistantFab } from '@/components/assistant-fab';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { C } from '@/constants/theme';
 import { getProfile } from '@/lib/db';
+import { onRemindersAppActive } from '@/lib/reminders';
 import { ensureSession } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
@@ -70,6 +71,17 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, appState]);
+
+  // Local reminders: resolve auto-pause + reschedule (with suppression) once the
+  // session is ready and again on every foreground. Never blocks or throws.
+  useEffect(() => {
+    if (appState !== 'ready') return;
+    void onRemindersAppActive();
+    const sub = RNAppState.addEventListener('change', (next) => {
+      if (next === 'active') void onRemindersAppActive();
+    });
+    return () => sub.remove();
+  }, [appState]);
 
   if (!fontsLoaded || appState === 'loading') {
     return (

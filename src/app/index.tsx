@@ -57,6 +57,12 @@ import { getEntitlement, trialDaysLeft, type Entitlement } from '@/lib/entitleme
 import { getAuthState } from '@/lib/auth';
 import { getExerciseLogs, type ExerciseLog } from '@/lib/exercises';
 import { getAdaptiveTdee, type AdaptiveTdee } from '@/lib/me';
+import {
+  dismissRemindersNudge,
+  requestRemindersPermission,
+  shouldOfferRemindersNudge,
+  syncReminders,
+} from '@/lib/reminders';
 import { PaywallSheet } from '@/components/paywall-sheet';
 
 // Session-scoped dismiss flag for the account nudge — once dismissed it won't
@@ -965,6 +971,25 @@ function AccountNudge({ onPress, onDismiss }: { onPress: () => void; onDismiss: 
   );
 }
 
+// 3rd-logged-day offer for local reminders. Invitational, dismissible, one line —
+// reuses the account-nudge visual language.
+function RemindersNudge({ onEnable, onDismiss }: { onEnable: () => void; onDismiss: () => void }) {
+  return (
+    <View style={ent$.nudge}>
+      <AnimatedPressable style={ent$.nudgeMain} onPress={onEnable}>
+        <Icon name="spark" color={C.greenInk} size={15} strokeWidth={2} />
+        <Text style={ent$.nudgeText} numberOfLines={2}>
+          Want gentle reminders? Mealtime nudges you can turn off anytime.
+        </Text>
+        <Icon name="arrow" color={C.greenInk} size={15} strokeWidth={2} />
+      </AnimatedPressable>
+      <Pressable onPress={onDismiss} hitSlop={10} style={ent$.nudgeClose} accessibilityLabel="Not now">
+        <Text style={ent$.nudgeCloseTxt}>×</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function InsightUpsellCard({ onPress }: { onPress: () => void }) {
   return (
     <AnimatedPressable onPress={onPress}>
@@ -1176,6 +1201,7 @@ export default function HomeScreen() {
   const [streak,         setStreak]         = useState<Streak | null>(null);
   const [loadError,      setLoadError]      = useState(false);
   const [adaptive,       setAdaptive]       = useState<AdaptiveTdee | null>(null);
+  const [remindersNudge, setRemindersNudge] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -1191,6 +1217,9 @@ export default function HomeScreen() {
       setLoadError(true);
     } finally {
       setLoading(false);
+      // Re-apply reminder suppression after a refresh (e.g. returning to Home
+      // post-log cancels today's now-satisfied meal/weigh-in nudge). Serialized.
+      void syncReminders();
     }
   }, []);
 
@@ -1231,6 +1260,11 @@ export default function HomeScreen() {
     if (a) setAdaptive(a);
   }, []);
 
+  // Whether to gently offer local reminders (≥3 logged days, never asked/dismissed).
+  const loadRemindersNudge = useCallback(async () => {
+    try { setRemindersNudge(await shouldOfferRemindersNudge()); } catch { /* ignore */ }
+  }, []);
+
   // Today's logged workouts. Kept separate/resilient like loadEnt/loadNudge so a
   // backend hiccup never blanks the core (Supabase) Home data in load().
   const loadWorkouts = useCallback(async () => {
@@ -1265,7 +1299,8 @@ export default function HomeScreen() {
     loadNudge();
     loadWorkouts();
     loadAdaptive();
-  }, [load, loadInsight, loadEnt, loadNudge, loadWorkouts, loadAdaptive]));
+    loadRemindersNudge();
+  }, [load, loadInsight, loadEnt, loadNudge, loadWorkouts, loadAdaptive, loadRemindersNudge]));
 
   function handleDelete(id: string, name: string) {
     Alert.alert('Remove this entry?', name, [
@@ -1362,6 +1397,14 @@ export default function HomeScreen() {
             <AccountNudge
               onPress={() => router.push('/account' as never)}
               onDismiss={() => { accountNudgeDismissed = true; setNudgeVisible(false); }}
+            />
+          ) : null}
+
+          {/* 3rd-day reminders offer (permission-gated, invitational, dismissible) */}
+          {remindersNudge ? (
+            <RemindersNudge
+              onEnable={() => { setRemindersNudge(false); void requestRemindersPermission(); }}
+              onDismiss={() => { setRemindersNudge(false); void dismissRemindersNudge(); }}
             />
           ) : null}
 

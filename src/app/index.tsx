@@ -1312,7 +1312,9 @@ export default function HomeScreen() {
   const eaten       = totals?.kcal ?? 0;
   const waterGoal   = profile?.water_goal_glasses ?? 8;
   const dayName     = DAYS[new Date().getDay()];
-  const targets     = macroTargets(profile?.weight_kg ?? null, profile?.goal, profile?.daily_target_kcal ?? null);
+  // Macro budget is derived from the SAME target the ring shows (ringTarget), so the
+  // macro chips judge intake against the same number as the ring and week strip.
+  const targets     = macroTargets(profile?.weight_kg ?? null, profile?.goal, ringTarget);
 
   // Stagger the main sections in on first appearance only (not on every focus).
   const didStagger = useRef(false);
@@ -1410,7 +1412,7 @@ export default function HomeScreen() {
 
               {/* Week balance */}
               <Reanimated.View entering={enter(1)}>
-                <WeekStrip days={weekData} target={target} />
+                <WeekStrip days={weekData} target={ringTarget} />
               </Reanimated.View>
 
               {/* AI weekly insight (or a Premium upsell when it's locked) */}

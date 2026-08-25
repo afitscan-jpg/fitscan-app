@@ -37,6 +37,17 @@ export default function ScanScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const isBusy = useRef(false);
 
+  // Ask for camera access as soon as Scan opens. Fresh installs (e.g. after a
+  // re-signed APK) land here with permission 'undetermined' and, without this,
+  // nothing ever prompts — the screen just sits with no camera feed. If access
+  // was permanently denied (canAskAgain=false) we skip the prompt and fall
+  // through to the Settings deep-link in the denied state below.
+  useEffect(() => {
+    if (permission && !permission.granted && permission.canAskAgain) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
+
   // BARCODE motion: a sweep line runs down the reticle while scanning, and the
   // corners pulse while a scanned code is being looked up. Reduced-motion → still.
   const reduced = useReducedMotion();
@@ -129,9 +140,11 @@ export default function ScanScreen() {
   if (!permission.granted) {
     return (
       <SafeAreaView style={styles.center}>
-        <Text style={styles.permTitle}>Camera access needed</Text>
+        <Text style={styles.permTitle}>Calibreta needs camera access</Text>
         <Text style={styles.permBody}>
-          Calibreta needs the camera to scan product barcodes.
+          {permission.canAskAgain
+            ? 'Allow the camera so you can scan product barcodes.'
+            : 'Camera access is turned off. Turn it on in Settings to scan barcodes.'}
         </Text>
         {permission.canAskAgain ? (
           <Pressable style={styles.permBtn} onPress={requestPermission}>

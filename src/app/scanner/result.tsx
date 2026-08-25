@@ -77,7 +77,7 @@ function NotFoundView() {
           You can describe it in text and we'll log it from that.
         </Text>
         <Pressable
-          style={styles.primaryBtn}
+          style={styles.btnSolo}
           onPress={() => router.replace('/add')}
         >
           <Text style={styles.primaryBtnText}>Describe it in text</Text>
@@ -97,7 +97,7 @@ function ErrorView({ message }: { message: string }) {
       <View style={styles.notFoundBody}>
         <Text style={styles.notFoundTitle}>Something went wrong</Text>
         <Text style={styles.notFoundSub}>{message}</Text>
-        <Pressable style={styles.primaryBtn} onPress={() => router.back()}>
+        <Pressable style={styles.btnSolo} onPress={() => router.back()}>
           <Text style={styles.primaryBtnText}>Go back</Text>
         </Pressable>
       </View>
@@ -544,7 +544,19 @@ const styles = StyleSheet.create({
     ...Shadow.md,
   },
   primaryBtn: {
-    flex: 1,
+    flex: 1,                    // for the side-by-side FOOTER ROW in the OK view
+    backgroundColor: C.green,
+    borderRadius: Radius.md,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadow.md,
+  },
+  // Same look, but sized to its content — for a LONE button inside a centered
+  // column (NotFound / Error views). primaryBtn's flex:1 would stretch it to
+  // fill the whole column vertically, which is the "tall Go back button" bug.
+  btnSolo: {
+    alignSelf: 'stretch',
     backgroundColor: C.green,
     borderRadius: Radius.md,
     paddingVertical: 14,

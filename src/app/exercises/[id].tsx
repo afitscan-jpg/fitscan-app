@@ -3,6 +3,8 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated as RNAnimated,
+  Easing as RNEasing,
   Modal,
   Pressable,
   ScrollView,
@@ -14,15 +16,18 @@ import {
 import Reanimated, {
   Easing,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { ExerciseDemo } from '@/components/exercise-demo';
 import { GlassCard } from '@/components/glass-card';
+import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { C, Fonts, Gradients, Radius, Shadow } from '@/constants/theme';
@@ -392,7 +397,7 @@ export default function ExerciseDetailScreen() {
         {/* Log CTA */}
         <View style={s.ctaBar}>
           <AnimatedPressable style={s.cta} onPress={() => setSheetOpen(true)}>
-            <Icon name="dumbbell" color="#fff" size={18} strokeWidth={2} />
+            <CIcon name="workout" color="#fff" size={18} />
             <Text style={s.ctaText}>Log this exercise</Text>
           </AnimatedPressable>
         </View>
@@ -519,6 +524,42 @@ const ls = StyleSheet.create({
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
+// EXERCISE log-success: the check draws on — circle stroke first, then the tick.
+// Uses legacy RN Animated (strokeDashoffset via interpolate), NOT Reanimated
+// useAnimatedProps — the latter does not update SVG props in release on this
+// stack (Reanimated 4 + Fabric); CalorieRing's proven pattern is mirrored here.
+// Delays are scaled down from 850/1250ms to fit the toast's ~1.6s life.
+const AnimatedCircle = RNAnimated.createAnimatedComponent(Circle);
+const AnimatedPath = RNAnimated.createAnimatedComponent(Path);
+const CHECK_CIRC = 2 * Math.PI * 10; // r=10
+const CHECK_TICK = 19;               // ~length of the tick path
+
+function AnimatedCheck() {
+  const reduced = useReducedMotion();
+  const circle = useRef(new RNAnimated.Value(reduced ? 1 : 0)).current;
+  const tick = useRef(new RNAnimated.Value(reduced ? 1 : 0)).current;
+  useEffect(() => {
+    if (reduced) return;
+    RNAnimated.timing(circle, { toValue: 1, duration: 320, easing: RNEasing.out(RNEasing.cubic), useNativeDriver: false }).start();
+    RNAnimated.timing(tick, { toValue: 1, duration: 300, delay: 300, easing: RNEasing.out(RNEasing.cubic), useNativeDriver: false }).start();
+  }, [circle, tick, reduced]);
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24">
+      <AnimatedCircle
+        cx={12} cy={12} r={10} stroke="#fff" strokeWidth={2} fill="none"
+        strokeDasharray={CHECK_CIRC}
+        strokeDashoffset={circle.interpolate({ inputRange: [0, 1], outputRange: [CHECK_CIRC, 0] })}
+      />
+      <AnimatedPath
+        d="M6 12.5 L10.5 17 L18 8" stroke="#fff" strokeWidth={2.6} fill="none"
+        strokeLinecap="round" strokeLinejoin="round"
+        strokeDasharray={CHECK_TICK}
+        strokeDashoffset={tick.interpolate({ inputRange: [0, 1], outputRange: [CHECK_TICK, 0] })}
+      />
+    </Svg>
+  );
+}
+
 function Toast({ visible, onDone }: { visible: boolean; onDone: () => void }) {
   const o = useSharedValue(0);
   const y = useSharedValue(20);
@@ -541,7 +582,7 @@ function Toast({ visible, onDone }: { visible: boolean; onDone: () => void }) {
   return (
     <View pointerEvents="none" style={ts.wrap}>
       <Reanimated.View style={[ts.toast, style]}>
-        <Icon name="check" color="#fff" size={16} strokeWidth={2.6} />
+        <AnimatedCheck />
         <Text style={ts.text}>Logged</Text>
       </Reanimated.View>
     </View>

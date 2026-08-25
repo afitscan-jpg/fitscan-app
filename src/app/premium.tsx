@@ -30,7 +30,7 @@ export default function PremiumScreen() {
           <View style={s.heroIcon}>
             <Icon name="spark" color="#fff" size={26} strokeWidth={1.8} />
           </View>
-          <Text style={s.hero}>Go unlimited with{'\n'}FitScan Premium</Text>
+          <Text style={s.hero}>Go unlimited with{'\n'}Calibreta Premium</Text>
           <Text style={s.heroSub}>
             Keep the AI logging, insights and planner working without limits — same honest,
             no-guilt app, just more of it.

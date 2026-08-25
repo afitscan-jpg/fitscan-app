@@ -1,11 +1,12 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
   Alert,
   Animated,
   Easing,
+  type GestureResponderEvent,
   Modal,
   Pressable,
   ScrollView,
@@ -19,11 +20,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Reanimated, {
   Easing as REasing,
-  FadeInDown,
+  Extrapolation,
+  interpolate,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
+  useDerivedValue,
+  useReducedMotion,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -33,6 +40,7 @@ import { GlassCard } from '@/components/glass-card';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { WeightCard } from '@/components/weight-card';
 import { useCountUp } from '@/hooks/use-count-up';
+import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Gradients, Radius, RingGradient, Shadow, Spacing } from '@/constants/theme';
 import {
@@ -65,9 +73,32 @@ import {
 } from '@/lib/reminders';
 import { PaywallSheet } from '@/components/paywall-sheet';
 
+// TRIAL kill-switch (fluid layer): a single spring follower gives the whole Home
+// content a tiny weight-in-water trail on fast flicks only. Flip to false to
+// remove it entirely in one line after device testing.
+const FLUID_CONTENT_LAG = true;
+
 // Session-scoped dismiss flag for the account nudge — once dismissed it won't
 // reappear until the app is relaunched (kept in memory on purpose).
 let accountNudgeDismissed = false;
+
+// Mount-only staggered section reveal (section i enters at i*60ms, 350ms cbOut,
+// translateY 12→0). Uses useAnimatedStyle rather than the `entering` prop, which
+// is release-fragile on this stack (see motion notes). Each StaggerIn mounts once
+// (after the load flag flips) so it plays once and never re-staggers on refresh.
+function StaggerIn({ index, children }: { index: number; children: ReactNode }) {
+  const reduced = useReducedMotion();
+  const v = useSharedValue(reduced ? 1 : 0);
+  useEffect(() => {
+    if (reduced) { v.value = 1; return; }
+    v.value = withDelay(index * 60, withTiming(1, { duration: 350, easing: REasing.out(REasing.cubic) }));
+  }, [v, reduced, index]);
+  const style = useAnimatedStyle(() => ({
+    opacity: v.value,
+    transform: [{ translateY: 12 * (1 - v.value) }],
+  }));
+  return <Reanimated.View style={style}>{children}</Reanimated.View>;
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -130,16 +161,19 @@ function CalorieRing({ eaten, target }: { eaten: number; target: number }) {
       animOffset.setValue(RING_CIRCUM);
       Animated.timing(animOffset, {
         toValue: targetOffset,
-        duration: 1100,
+        duration: 800, // cbOut reveal (retuned from 1100ms per Calibreta motion spec)
         easing: Easing.bezier(0.2, 0.7, 0.2, 1),
         useNativeDriver: false,
       }).start();
     } else {
-      // Data refresh after a log: ease from the current arc to the new value.
-      Animated.timing(animOffset, {
+      // Data refresh after a log: spring to the new value so the ring "finds
+      // level" — a slight overshoot + single wobble (fluid layer). Reduced motion
+      // is already handled by the early return above.
+      Animated.spring(animOffset, {
         toValue: targetOffset,
-        duration: 450,
-        easing: Easing.out(Easing.cubic),
+        damping: 12,
+        stiffness: 120,
+        mass: 1,
         useNativeDriver: false,
       }).start();
     }
@@ -375,7 +409,7 @@ function WeekInsightCard({
       <View style={wi.header}>
         <View style={wi.headerLeft}>
           <View style={wi.aiIcon}>
-            <Icon name="spark" color="#fff" size={16} strokeWidth={2} />
+            <CIcon name="insights" color="#fff" size={16} />
           </View>
           <Text style={wi.title}>Your week</Text>
           <View style={wi.badge}>
@@ -475,19 +509,60 @@ const wi = StyleSheet.create({
 
 const BOTTLE_INNER_H = 70;
 
+// Bubble fade curve (0→1→0). MUST be a worklet: it is called inside the
+// bubble useAnimatedStyle worklets on the UI thread. A plain JS helper is
+// captured as a non-callable reference in release builds → "Object is not a
+// function" crash at launch (dev builds often mask it).
+function bubbleFade(b: number): number {
+  'worklet';
+  return b <= 0 || b >= 1 ? 0 : b < 0.5 ? b * 2 : (1 - b) * 2;
+}
+
 // The centerpiece bottle: fills with a cyan gradient to `pct`, with a gentle
 // looping wave shimmer on the surface.
 function WaterBottle({ pct }: { pct: number }) {
-  const fill = useSharedValue(Math.max(0, Math.min(1, pct)));
+  const clampedPct = Math.max(0, Math.min(1, pct));
+  const fill = useSharedValue(clampedPct);
   const wave = useSharedValue(0);
+  const ripple = useSharedValue(0);   // one-shot on a glass being added
+  const bubble = useSharedValue(0);
+  const prevPct = useRef(clampedPct);
+  const reduced = useReducedMotion();
+
   useEffect(() => {
-    fill.value = withTiming(Math.max(0, Math.min(1, pct)), { duration: 900, easing: REasing.out(REasing.cubic) });
-  }, [pct, fill]);
+    fill.value = withTiming(clampedPct, { duration: 900, easing: REasing.out(REasing.cubic) });
+    // WATER log-success: fire the ripple + bubbles only when the level rises
+    // (a glass was added), never on first mount or a same-value refocus.
+    if (!reduced && clampedPct > prevPct.current + 0.001) {
+      ripple.value = 0;
+      ripple.value = withTiming(1, { duration: 650, easing: REasing.out(REasing.cubic) });
+      bubble.value = 0;
+      bubble.value = withTiming(1, { duration: 900, easing: REasing.out(REasing.cubic) });
+    }
+    prevPct.current = clampedPct;
+  }, [clampedPct, fill, ripple, bubble, reduced]);
   useEffect(() => {
     wave.value = withRepeat(withTiming(1, { duration: 2200, easing: REasing.linear }), -1, false);
   }, [wave]);
+
   const fillStyle = useAnimatedStyle(() => ({ height: fill.value * BOTTLE_INNER_H }));
   const waveStyle = useAnimatedStyle(() => ({ transform: [{ translateX: -30 * wave.value }] }));
+  // ripple: scale 0.4 → 1.7, opacity 0.6 → 0
+  const rippleStyle = useAnimatedStyle(() => ({
+    opacity: 0.6 * (1 - ripple.value),
+    transform: [{ scale: 0.4 + ripple.value * 1.3 }],
+  }));
+  // two bubbles rise (translateY → −44) and fade in-then-out (bubbleFade is a
+  // module-level worklet so it is callable from these UI-thread worklets)
+  const bubbleAStyle = useAnimatedStyle(() => ({
+    opacity: bubbleFade(bubble.value) * 0.7,
+    transform: [{ translateY: -44 * bubble.value }],
+  }));
+  const bubbleBStyle = useAnimatedStyle(() => {
+    const b = Math.max(0, (bubble.value - 0.18) / 0.82);
+    return { opacity: bubbleFade(b) * 0.55, transform: [{ translateY: -38 * b }] };
+  });
+
   return (
     <View style={wa.bottle}>
       <Reanimated.View style={[wa.bottleFill, fillStyle]}>
@@ -501,6 +576,9 @@ function WaterBottle({ pct }: { pct: number }) {
           />
         </Reanimated.View>
       </Reanimated.View>
+      <Reanimated.View pointerEvents="none" style={[wa.ripple, rippleStyle]} />
+      <Reanimated.View pointerEvents="none" style={[wa.bubbleA, bubbleAStyle]} />
+      <Reanimated.View pointerEvents="none" style={[wa.bubbleB, bubbleBStyle]} />
     </View>
   );
 }
@@ -565,6 +643,13 @@ const wa = StyleSheet.create({
   },
   bottleFill: { position: 'absolute', left: 0, right: 0, bottom: 0, overflow: 'hidden' },
   wave: { position: 'absolute', top: -3, left: 0, width: '220%', height: 8 },
+  ripple: {
+    position: 'absolute', alignSelf: 'center', bottom: 22,
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 2, borderColor: 'rgba(191,234,243,0.9)',
+  },
+  bubbleA: { position: 'absolute', left: 14, bottom: 16, width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.85)' },
+  bubbleB: { position: 'absolute', right: 13, bottom: 12, width: 4.5, height: 4.5, borderRadius: 2.25, backgroundColor: 'rgba(255,255,255,0.75)' },
   addBtnWrap: { borderRadius: 20, ...Shadow.md },
   addBtn: {
     width: 60, height: 60, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
@@ -615,13 +700,25 @@ function TodayItem({ item, onEdit, onDelete }: { item: TodayEntry; onEdit: () =>
   // Estimate provenance carries into the diary: a "≈" on the number + a muted tag.
   // Null / verified rows render unchanged — absence of the marker IS the verified state.
   const isEstimate  = item.provenance === 'ai_estimate' || item.provenance === 'analog_estimate';
+
+  // FOOD log-success: a newly-logged diary row glides in from above with a slight
+  // scale (cbOut, 500ms). Driven per-mount via useAnimatedStyle rather than the
+  // `entering` prop — `entering` is release-fragile on this stack (Reanimated 4 +
+  // Fabric), while useAnimatedStyle ships reliably. The ring arc growing to the
+  // new total is handled by CalorieRing's 450ms data-refresh sweep.
+  const reducedMotionItem = useReducedMotion();
+  const enterV = useSharedValue(reducedMotionItem ? 1 : 0);
+  useEffect(() => {
+    if (reducedMotionItem) { enterV.value = 1; return; }
+    enterV.value = withTiming(1, { duration: 500, easing: REasing.bezier(0.2, 0.7, 0.2, 1) });
+  }, [enterV, reducedMotionItem]);
+  const enterStyle = useAnimatedStyle(() => ({
+    opacity: enterV.value,
+    transform: [{ translateY: -18 * (1 - enterV.value) }, { scale: 0.96 + 0.04 * enterV.value }],
+  }));
+
   return (
-    <Reanimated.View
-      style={ti.card}
-      entering={FadeInDown.duration(300)
-        .easing(REasing.out(REasing.cubic))
-        .withInitialValues({ transform: [{ translateY: 12 }] })}
-    >
+    <Reanimated.View style={[ti.card, enterStyle]}>
       <Pressable style={ti.rowMain} onPress={onEdit} accessibilityLabel={`Edit ${item.name}`}>
         <View style={[ti.tile, { backgroundColor: tint.bg, borderColor: tint.border }]}>
           <Text style={[ti.tileLetter, { color: tint.fg }]}>{mealLabel.charAt(0)}</Text>
@@ -1067,7 +1164,7 @@ function WorkoutItem({ workout }: { workout: ExerciseLog }) {
   return (
     <View style={wo.card}>
       <View style={wo.tile}>
-        <Icon name="dumbbell" color={C.greenInk} size={20} strokeWidth={1.9} />
+        <CIcon name="workout" color={C.greenInk} size={20} />
       </View>
       <View style={wo.info}>
         <Text style={wo.name} numberOfLines={1}>{workout.exercise_name}</Text>
@@ -1121,7 +1218,7 @@ function StreakPill({ streak }: { streak: Streak | null }) {
 
   return (
     <View style={[stk.pill, active ? stk.pillActive : stk.pillIdle]} accessibilityLabel={label}>
-      <Text style={stk.emoji}>🔥</Text>
+      <CIcon name="streak" active={active} color={active ? C.amberInk : C.inkFaint} size={16} />
       <Text style={[stk.text, active ? stk.textActive : stk.textIdle]}>{label}</Text>
     </View>
   );
@@ -1141,7 +1238,6 @@ const stk = StyleSheet.create({
   },
   pillActive: { backgroundColor: C.amberSoft, borderColor: 'rgba(185,132,56,0.25)' },
   pillIdle:   { backgroundColor: C.card, borderColor: C.cardBorder },
-  emoji:      { fontSize: 13.5 },
   text:       { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 12.5, fontWeight: '600' },
   textActive: { color: C.amberInk },
   textIdle:   { color: C.inkSoft },
@@ -1351,25 +1447,73 @@ export default function HomeScreen() {
   // macro chips judge intake against the same number as the ring and week strip.
   const targets     = macroTargets(profile?.weight_kg ?? null, profile?.goal, ringTarget);
 
-  // Stagger the main sections in on first appearance only (not on every focus).
-  const didStagger = useRef(false);
-  useEffect(() => { if (!loading) didStagger.current = true; }, [loading]);
-  const enter = (i: number) =>
-    didStagger.current
-      ? undefined
-      : FadeInDown.duration(300)
-          .delay(i * 60)
-          .easing(REasing.out(REasing.cubic))
-          .withInitialValues({ transform: [{ translateY: 12 }] });
+
+  // ── Fluid layer (all gated by reduced motion) ──────────────────────────────
+  const reducedMotion = useReducedMotion();
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((e) => { scrollY.value = e.contentOffset.y; });
+
+  // Greeting parallax (drifts ~0.85× scroll) + overscroll header stretch (wave).
+  const greetStyle = useAnimatedStyle(() => {
+    if (reducedMotion) return {};
+    const overscroll = Math.min(0, scrollY.value); // negative when pulled past the top
+    return {
+      transform: [
+        { translateY: scrollY.value * 0.15 },
+        { scaleY: interpolate(overscroll, [-120, 0], [1.055, 1], Extrapolation.CLAMP) },
+      ],
+    };
+  });
+
+  // Ink-drop tap ripple: a soft radial spawned at the touch point on press-down.
+  const inkX = useSharedValue(0);
+  const inkY = useSharedValue(0);
+  const ink = useSharedValue(0);
+  const onInkTouch = (e: GestureResponderEvent) => {
+    if (reducedMotion) return;
+    inkX.value = e.nativeEvent.pageX;
+    inkY.value = e.nativeEvent.pageY;
+    ink.value = 0;
+    ink.value = withTiming(1, { duration: 650, easing: REasing.out(REasing.cubic) });
+  };
+  const inkStyle = useAnimatedStyle(() => ({
+    opacity: 0.32 * (1 - ink.value),
+    transform: [
+      { translateX: inkX.value },
+      { translateY: inkY.value },
+      { scale: 0.2 + ink.value * 1.3 }, // 0.2 → 1.5
+    ],
+  }));
+
+  // Single-follower content lag (trial): a near-critically-damped spring chases
+  // scrollY, so the content only trails on fast flicks (≤5px) and settles at once
+  // on slow scrolls. Overdamped (ratio ~1.1) → no wobble.
+  const contentFollower = useDerivedValue(() =>
+    (FLUID_CONTENT_LAG && !reducedMotion)
+      ? withSpring(scrollY.value, { damping: 24, stiffness: 200, mass: 0.55 })
+      : scrollY.value,
+  );
+  const contentLagStyle = useAnimatedStyle(() => {
+    if (!FLUID_CONTENT_LAG || reducedMotion) return {};
+    const trail = contentFollower.value - scrollY.value;
+    return { transform: [{ translateY: Math.max(-5, Math.min(5, trail)) }] };
+  });
 
   return (
-    <View style={hs.root}>
+    <View style={hs.root} onTouchStart={onInkTouch}>
       <AmbientBackground />
       <SafeAreaView style={hs.flex} edges={['top']}>
-        <ScrollView style={hs.flex} contentContainerStyle={hs.scroll} showsVerticalScrollIndicator={false}>
+        <Reanimated.ScrollView
+          style={hs.flex}
+          contentContainerStyle={hs.scroll}
+          showsVerticalScrollIndicator={false}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+        >
+        <Reanimated.View style={[hs.scrollInner, contentLagStyle]}>
 
-          {/* Greeting */}
-          <View style={hs.greet}>
+          {/* Greeting (parallax drift + overscroll stretch) */}
+          <Reanimated.View style={[hs.greet, hs.greetOrigin, greetStyle]}>
             <View style={hs.greetText}>
               <Text style={hs.eyebrow}>{dayName}</Text>
               <Text style={hs.greetTitle}>{greeting()}</Text>
@@ -1380,9 +1524,9 @@ export default function HomeScreen() {
               style={hs.gearBtn}
               accessibilityLabel="Settings"
             >
-              <Icon name="gear" color={C.inkSoft} size={22} strokeWidth={1.8} />
+              <CIcon name="settings" color={C.inkSoft} size={22} />
             </AnimatedPressable>
-          </View>
+          </Reanimated.View>
 
           {/* Logging streak (anti-guilt: never a broken/red state) */}
           <StreakPill streak={streak} />
@@ -1421,7 +1565,7 @@ export default function HomeScreen() {
               {loadError && !profile ? null : (
               <>
               {/* ── Calorie card ── */}
-              <Reanimated.View entering={enter(0)}>
+              <StaggerIn index={0}>
                <GlassCard contentStyle={hs.calCard}>
                 {/* Ring — centered hero */}
                 <CalorieRing eaten={eaten} target={ringTarget} />
@@ -1451,15 +1595,15 @@ export default function HomeScreen() {
                 </View>
                 <Text style={hs.disclaimer}>Estimates for general guidance, not medical advice. Consult a doctor if you have a health condition.</Text>
                </GlassCard>
-              </Reanimated.View>
+              </StaggerIn>
 
               {/* Week balance */}
-              <Reanimated.View entering={enter(1)}>
+              <StaggerIn index={1}>
                 <WeekStrip days={weekData} target={ringTarget} />
-              </Reanimated.View>
+              </StaggerIn>
 
               {/* AI weekly insight (or a Premium upsell when it's locked) */}
-              <Reanimated.View entering={enter(2)}>
+              <StaggerIn index={2}>
                 {insightLocked ? (
                   <InsightUpsellCard
                     onPress={() => setPaywall(new PaywallError('premium', { feature: 'insights' }))}
@@ -1471,17 +1615,17 @@ export default function HomeScreen() {
                     onRefresh={() => loadInsight(true)}
                   />
                 )}
-              </Reanimated.View>
+              </StaggerIn>
 
               {/* Water */}
-              <Reanimated.View entering={enter(3)}>
+              <StaggerIn index={3}>
                 <WaterCard glasses={water.glasses} goal={waterGoal} onAdd={handleAddWater} adding={addingWater} />
-              </Reanimated.View>
+              </StaggerIn>
 
               {/* Weight */}
-              <Reanimated.View entering={enter(4)}>
+              <StaggerIn index={4}>
                 <WeightCard />
-              </Reanimated.View>
+              </StaggerIn>
 
               {/* Today list */}
               <View>
@@ -1521,8 +1665,12 @@ export default function HomeScreen() {
               )}
             </>
           )}
-        </ScrollView>
+        </Reanimated.View>
+        </Reanimated.ScrollView>
       </SafeAreaView>
+
+      {/* Ink-drop tap ripple (fluid layer) — sits above content, never blocks it */}
+      <Reanimated.View pointerEvents="none" style={[hs.inkRipple, inkStyle]} />
 
       {/* Edit a logged entry */}
       <Modal
@@ -1583,10 +1731,24 @@ const mc = StyleSheet.create({
 const hs = StyleSheet.create({
   root:  { flex: 1, backgroundColor: C.bg },
   flex:  { flex: 1 },
-  scroll:{ paddingHorizontal: 22, paddingBottom: 120, gap: 16 },
+  scroll:{ paddingHorizontal: 22, paddingBottom: 120 },
+  scrollInner: { gap: 16 },
 
   greet:      { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingTop: 8, marginBottom: 4 },
+  greetOrigin:{ transformOrigin: 'top' },
   greetText:  { flex: 1 },
+  // Ink-drop ripple: 80px disc centred on the touch point via translate + margin.
+  inkRipple: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 80,
+    height: 80,
+    marginLeft: -40,
+    marginTop: -40,
+    borderRadius: 40,
+    backgroundColor: 'rgba(76,124,99,0.30)',
+  },
   gearBtn:    { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   eyebrow:    { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600', letterSpacing: 1.1, textTransform: 'uppercase', color: C.inkFaint },
   greetTitle: { fontFamily: Fonts?.display ?? 'system', fontSize: 25, color: C.ink, marginTop: 3, letterSpacing: -0.3 },

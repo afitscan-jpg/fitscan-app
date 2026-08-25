@@ -21,7 +21,7 @@ export default function OcrCaptureScreen() {
         </View>
         <Text style={styles.title}>Label reading is coming soon</Text>
         <Text style={styles.sub}>
-          We&apos;re still teaching FitScan to read nutrition labels. For now, try the
+          We&apos;re still teaching Calibreta to read nutrition labels. For now, try the
           barcode or &ldquo;Just tell me&rdquo; instead.
         </Text>
         <Pressable style={styles.btn} onPress={() => router.back()}>

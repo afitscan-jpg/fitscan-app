@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Icon } from '@/components/Icon';
+import { CIcon } from '@/components/CalibretaIcon';
 import { C, Gradients } from '@/constants/theme';
 
 // Height the tab dock reserves at the bottom (bar height + its top padding).
@@ -30,7 +30,7 @@ export function AssistantFab() {
       <Pressable
         onPress={() => router.push('/assistant' as never)}
         accessibilityRole="button"
-        accessibilityLabel="Ask FitScan"
+        accessibilityLabel="Ask Calibreta"
         hitSlop={8}
         style={styles.press}
       >
@@ -40,7 +40,7 @@ export function AssistantFab() {
           end={{ x: 0.9, y: 1 }}
           style={styles.fab}
         >
-          <Icon name="spark" color="#fff" size={24} strokeWidth={1.9} />
+          <CIcon name="aiAssistant" color="#fff" size={24} />
         </LinearGradient>
       </Pressable>
     </View>

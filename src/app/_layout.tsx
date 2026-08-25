@@ -12,11 +12,12 @@ import {
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState as RNAppState, DeviceEventEmitter, StyleSheet, View } from 'react-native';
 
 import AppTabs from '@/components/app-tabs';
 import { AssistantFab } from '@/components/assistant-fab';
+import { SplashSting } from '@/components/splash-sting';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { C } from '@/constants/theme';
 import { getProfile } from '@/lib/db';
@@ -45,6 +46,18 @@ export default function RootLayout() {
 
   const [appState, setAppState] = useState<AppState>('loading');
 
+  // Launch sting: play once per process, the first time the app is ready. A ref
+  // guard keeps it from replaying when Settings sends the user back through
+  // onboarding (ready → onboarding → ready again).
+  const [showSting, setShowSting] = useState(false);
+  const stingPlayed = useRef(false);
+  useEffect(() => {
+    if (appState === 'ready' && !stingPlayed.current) {
+      stingPlayed.current = true;
+      setShowSting(true);
+    }
+  }, [appState]);
+
   useEffect(() => {
     async function init() {
       try {
@@ -58,6 +71,9 @@ export default function RootLayout() {
     }
     init();
   }, []);
+
+  // Preload the tick sound + load the "Sounds & haptics" preference + set the
+  // audio mode (respect the silent switch). Fire-and-forget; never blocks.
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener(REONBOARD_EVENT, () => {
@@ -107,6 +123,7 @@ export default function RootLayout() {
       <AppTabs />
       {/* Single global instance — persists across all tabs (never per-screen). */}
       <AssistantFab />
+      {showSting && <SplashSting onDone={() => setShowSting(false)} />}
     </View>
   );
 }

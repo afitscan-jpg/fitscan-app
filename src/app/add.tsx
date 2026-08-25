@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
+import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { authFetch, PaywallError } from '@/lib/api';
 import { PaywallSheet } from '@/components/paywall-sheet';
@@ -531,7 +532,7 @@ export default function AddFoodScreen() {
           <Text style={s.sectionLabel}>Movement</Text>
           <AnimatedPressable style={s.workoutCard} onPress={() => router.push('/exercises' as never)}>
             <View style={s.workoutIcon}>
-              <Icon name="dumbbell" color={C.greenInk} size={22} strokeWidth={1.9} />
+              <CIcon name="workout" color={C.greenInk} size={22} />
             </View>
             <View style={s.workoutBody}>
               <Text style={s.workoutTitle}>Log a workout</Text>
@@ -544,9 +545,9 @@ export default function AddFoodScreen() {
           <Text style={s.sectionLabel}>Assistant</Text>
           <AnimatedPressable style={s.assistCard} onPress={() => router.push('/assistant' as never)}>
             <View style={s.assistIcon}>
-              <Icon name="spark" color={C.marigold} size={18} strokeWidth={1.9} />
+              <CIcon name="aiAssistant" color={C.marigold} size={18} />
             </View>
-            <Text style={s.assistText}>Ask FitScan</Text>
+            <Text style={s.assistText}>Ask Calibreta</Text>
             <Icon name="arrow" color={C.marigold} size={17} strokeWidth={2} />
           </AnimatedPressable>
         </ScrollView>

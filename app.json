@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "FitScan",
+    "name": "Calibreta",
     "slug": "fitscan",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,19 +8,17 @@
     "scheme": "fitscan",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "FitScan uses your mic so you can just say what you ate.",
-        "NSMicrophoneUsageDescription": "FitScan uses your mic so you can just say what you ate."
+        "NSSpeechRecognitionUsageDescription": "Calibreta uses your mic so you can just say what you ate.",
+        "NSMicrophoneUsageDescription": "Calibreta uses your mic so you can just say what you ate."
       },
       "bundleIdentifier": "com.sr8mu.fitscan"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#4C7C63",
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "monochromeImage": "./assets/images/adaptive-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -38,13 +36,13 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "FitScan uses the camera to scan product barcodes."
+          "cameraPermission": "Calibreta uses the camera to scan product barcodes."
         }
       ],
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#FAF8F4",
           "android": {
             "image": "./assets/images/splash-icon.png"
           }
@@ -54,8 +52,8 @@
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "FitScan uses your mic so you can just say what you ate.",
-          "speechRecognitionPermission": "FitScan uses your mic so you can just say what you ate.",
+          "microphonePermission": "Calibreta uses your mic so you can just say what you ate.",
+          "speechRecognitionPermission": "Calibreta uses your mic so you can just say what you ate.",
           "androidSpeechServicePackages": [
             "com.google.android.googlequicksearchbox"
           ]
@@ -65,8 +63,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "FitScan uses your photos so you can add progress pictures. They stay on your device and are never uploaded.",
-          "cameraPermission": "FitScan uses the camera so you can take progress photos. They stay on your device and are never uploaded."
+          "photosPermission": "Calibreta uses your photos so you can add progress pictures. They stay on your device and are never uploaded.",
+          "cameraPermission": "Calibreta uses the camera so you can take progress photos. They stay on your device and are never uploaded."
         }
       ],
       [
@@ -74,7 +72,8 @@
         {
           "color": "#4C7C63"
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

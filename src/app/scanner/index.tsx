@@ -1,6 +1,6 @@
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -10,6 +10,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Reanimated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { C, Fonts, Spacing } from '@/constants/theme';
 import { fetchScan } from '@/lib/scan';
@@ -27,6 +35,24 @@ export default function ScanScreen() {
   const [scanState, setScanState] = useState<ScanState>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const isBusy = useRef(false);
+
+  // BARCODE motion: a sweep line runs down the reticle while scanning, and the
+  // corners pulse while a scanned code is being looked up. Reduced-motion → still.
+  const reduced = useReducedMotion();
+  const sweep = useSharedValue(0);
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    if (reduced) return;
+    sweep.value = withRepeat(withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.quad) }), -1, true);
+  }, [reduced, sweep]);
+  useEffect(() => {
+    if (reduced) { pulse.value = 1; return; }
+    pulse.value = scanState === 'loading'
+      ? withRepeat(withTiming(0.35, { duration: 600, easing: Easing.inOut(Easing.quad) }), -1, true)
+      : withTiming(1, { duration: 200 });
+  }, [scanState, reduced, pulse]);
+  const sweepStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sweep.value * (RETICLE_SIZE - 3) }] }));
+  const cornerPulseStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
 
   // Reset state whenever this screen comes back into focus.
   useFocusEffect(
@@ -103,7 +129,7 @@ export default function ScanScreen() {
       <SafeAreaView style={styles.center}>
         <Text style={styles.permTitle}>Camera access needed</Text>
         <Text style={styles.permBody}>
-          FitScan needs the camera to scan product barcodes.
+          Calibreta needs the camera to scan product barcodes.
         </Text>
         {permission.canAskAgain ? (
           <Pressable style={styles.permBtn} onPress={requestPermission}>
@@ -136,10 +162,15 @@ export default function ScanScreen() {
         <View style={styles.middleRow}>
           <View style={styles.sideFade} />
           <View style={styles.reticle}>
-            <View style={[styles.corner, styles.tl]} />
-            <View style={[styles.corner, styles.tr]} />
-            <View style={[styles.corner, styles.bl]} />
-            <View style={[styles.corner, styles.br]} />
+            <Reanimated.View style={[StyleSheet.absoluteFill, cornerPulseStyle]}>
+              <View style={[styles.corner, styles.tl]} />
+              <View style={[styles.corner, styles.tr]} />
+              <View style={[styles.corner, styles.bl]} />
+              <View style={[styles.corner, styles.br]} />
+            </Reanimated.View>
+            {scanState !== 'error' && (
+              <Reanimated.View style={[styles.scanLine, sweepStyle]} />
+            )}
           </View>
           <View style={styles.sideFade} />
         </View>
@@ -221,6 +252,16 @@ const styles = StyleSheet.create({
   sideFade: { flex: 1, backgroundColor: OVERLAY_COLOR },
   bottomFade: { flex: 1.5, backgroundColor: OVERLAY_COLOR },
   reticle: { width: RETICLE_SIZE, height: RETICLE_SIZE },
+  scanLine: {
+    position: 'absolute',
+    left: 6,
+    right: 6,
+    top: 0,
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: C.mint,
+    opacity: 0.9,
+  },
 
   corner: {
     position: 'absolute',

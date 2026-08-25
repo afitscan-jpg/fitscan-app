@@ -1,28 +1,12 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 
 import { AnimatedPressable } from '@/components/animated-pressable';
+import { CIcon } from '@/components/CalibretaIcon';
 import { GlassCard } from '@/components/glass-card';
 import { C, Fonts, Radius } from '@/constants/theme';
 import { getWeightLogs, type WeightLog } from '@/lib/weight';
-
-// A small scale/weight glyph (no matching icon in the shared Icon set).
-function ScaleGlyph({ color, size = 22 }: { color: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 6h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z"
-        stroke={color}
-        strokeWidth={1.8}
-        strokeLinejoin="round"
-      />
-      <Path d="M12 6V4" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
-      <Path d="M8.5 12.5 12 9l1.6 2.4" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
 const fmt = (n: number) => (Math.round(n * 10) / 10).toFixed(1);
 
@@ -58,7 +42,7 @@ export function WeightCard() {
       <GlassCard contentStyle={s.card}>
         <View style={s.left}>
           <View style={s.tile}>
-            <ScaleGlyph color={C.accent} size={22} />
+            <CIcon name="weight" color={C.accent} size={22} />
           </View>
           <View>
             <Text style={s.eyebrow}>Weight</Text>

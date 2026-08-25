@@ -1,9 +1,20 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
+import Reanimated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
+import { CIcon, type CIconName } from '@/components/CalibretaIcon';
 import { C, Fonts, Gradients } from '@/constants/theme';
 
 // Minimal type that matches what React Navigation passes to the tabBar prop.
@@ -18,14 +29,6 @@ type TabBarProps = {
   navigation: any;
 };
 
-// SVG paths straight from the prototype nav
-const ICON_PATH = {
-  index:   'M3 11l9-8 9 8M5 10v10h14V10',
-  add:     'M12 5v14M5 12h14',
-  scanner: 'M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10',
-  explore: 'M4 19V6a2 2 0 0 1 2-2h13v15M6 17h13',
-} as const;
-
 const LABEL = {
   index:   'Home',
   add:     'Log',
@@ -33,18 +36,88 @@ const LABEL = {
   explore: 'News',
 } as const;
 
-type RouteName = keyof typeof ICON_PATH;
+type RouteName = keyof typeof LABEL;
+
+// Branded feature icons per tab (rest = outline, active = filled).
+const TAB_CICON: Record<RouteName, CIconName> = {
+  index:   'home',
+  add:     'mealLog',
+  scanner: 'barcodeScan',
+  explore: 'news',
+};
 
 // Only these routes get a button in the bar, in this order. Any other route
 // (plan, settings, …) is navigable but never rendered as a tab — this keeps
 // the five slots evenly spaced with Scan centered.
 const VISIBLE: RouteName[] = ['index', 'add', 'scanner', 'explore'];
 
-function TabIcon({ d, color, size }: { d: string; color: string; size: number }) {
+// A standard tab: the icon does a small bounce-settle when it becomes active.
+function TabButton({ name, label, isFocused, onPress }: {
+  name: RouteName; label: string; isFocused: boolean; onPress: () => void;
+}) {
+  const reduced = useReducedMotion();
+  const ty = useSharedValue(0);
+  useEffect(() => {
+    if (isFocused && !reduced) {
+      ty.value = withSequence(
+        withSpring(-4, { damping: 14, stiffness: 180 }),
+        withSpring(0, { damping: 14, stiffness: 180 }),
+      );
+    }
+  }, [isFocused, reduced, ty]);
+  const iconStyle = useAnimatedStyle(() => ({ transform: [{ translateY: ty.value }] }));
+  const iconColor = isFocused ? C.mint : C.inkDim;
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d={d} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
+    <Pressable
+      style={styles.tabItem}
+      onPress={onPress}
+      hitSlop={6}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isFocused }}
+      accessibilityLabel={label}
+    >
+      <View style={[styles.tabInner, isFocused && styles.tabInnerActive]}>
+        <Reanimated.View style={iconStyle}>
+          <CIcon name={TAB_CICON[name]} active={isFocused} color={iconColor} size={23} />
+        </Reanimated.View>
+        <Text style={[styles.label, isFocused && styles.labelActive]}>{label}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+// The centre Scan FAB: an ambient breathing halo loops behind it.
+function ScanButton({ isFocused, onPress }: { isFocused: boolean; onPress: () => void }) {
+  const reduced = useReducedMotion();
+  const glow = useSharedValue(0);
+  useEffect(() => {
+    if (reduced) return;
+    glow.value = withRepeat(withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.quad) }), -1, true);
+  }, [glow, reduced]);
+  // opacity 0.35 → 0.75, scale 1 → 1.18 (a soft disc approximates the blurred
+  // glow from the spec without pulling in a blur dependency).
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: 0.35 + glow.value * 0.4,
+    transform: [{ scale: 1 + glow.value * 0.18 }],
+  }));
+  return (
+    <Pressable
+      style={styles.fabWrap}
+      onPress={onPress}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isFocused }}
+      accessibilityLabel="Scan"
+    >
+      <Reanimated.View pointerEvents="none" style={[styles.fabGlow, glowStyle]} />
+      <LinearGradient
+        colors={Gradients.greenTeal}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={styles.fab}
+      >
+        <CIcon name="barcodeScan" color="#fff" size={24} />
+      </LinearGradient>
+    </Pressable>
   );
 }
 
@@ -81,46 +154,17 @@ function CustomTabBar({ state, navigation }: TabBarProps) {
             };
 
             if (isScan) {
-              return (
-                <Pressable
-                  key={route.key}
-                  style={styles.fabWrap}
-                  onPress={onPress}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: isFocused }}
-                  accessibilityLabel="Scan"
-                >
-                  <LinearGradient
-                    colors={Gradients.greenTeal}
-                    start={{ x: 0.1, y: 0 }}
-                    end={{ x: 0.9, y: 1 }}
-                    style={styles.fab}
-                  >
-                    <TabIcon d={ICON_PATH.scanner} color="#fff" size={24} />
-                  </LinearGradient>
-                </Pressable>
-              );
+              return <ScanButton key={route.key} isFocused={isFocused} onPress={onPress} />;
             }
 
-            const iconColor = isFocused ? C.mint : C.inkDim;
-
             return (
-              <Pressable
+              <TabButton
                 key={route.key}
-                style={styles.tabItem}
+                name={name}
+                label={LABEL[name]}
+                isFocused={isFocused}
                 onPress={onPress}
-                hitSlop={6}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: isFocused }}
-                accessibilityLabel={LABEL[name]}
-              >
-                <View style={[styles.tabInner, isFocused && styles.tabInnerActive]}>
-                  <TabIcon d={ICON_PATH[name]} color={iconColor} size={22} />
-                  <Text style={[styles.label, isFocused && styles.labelActive]}>
-                    {LABEL[name]}
-                  </Text>
-                </View>
-              </Pressable>
+              />
             );
           })}
         </LinearGradient>
@@ -205,6 +249,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Ambient halo behind the FAB (centred on the -26 offset fab).
+  fabGlow: {
+    position: 'absolute',
+    top: -34,
+    alignSelf: 'center',
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    backgroundColor: C.green,
   },
   fab: {
     width: 58,

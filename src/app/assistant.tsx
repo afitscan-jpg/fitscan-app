@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -10,11 +10,13 @@ import {
   Text,
   TextInput,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import Reanimated, {
   Easing,
-  FadeInDown,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -27,8 +29,22 @@ import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { PaywallSheet } from '@/components/paywall-sheet';
 import { PaywallError } from '@/lib/api';
+import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
+
+// Mount fade-in-up wrapper (useAnimatedStyle, not `entering` — release-fragile on
+// this stack; see motion notes). Plays once per message row mount.
+function EnterDown({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const reduced = useReducedMotion();
+  const v = useSharedValue(reduced ? 1 : 0);
+  useEffect(() => {
+    if (reduced) { v.value = 1; return; }
+    v.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
+  }, [v, reduced]);
+  const a = useAnimatedStyle(() => ({ opacity: v.value, transform: [{ translateY: 12 * (1 - v.value) }] }));
+  return <Reanimated.View style={[style, a]}>{children}</Reanimated.View>;
+}
 import {
   askAssistant,
   MAX_HISTORY_TURNS,
@@ -308,7 +324,7 @@ export default function AssistantScreen() {
             <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
           </Pressable>
           <View style={s.headerText}>
-            <Text style={s.title}>Ask FitScan</Text>
+            <Text style={s.title}>Ask Calibreta</Text>
             <Text style={s.subtitle}>Your logs · not medical advice</Text>
           </View>
           <View style={s.backBtn} />
@@ -329,7 +345,7 @@ export default function AssistantScreen() {
             {isEmpty ? (
               <View style={s.empty}>
                 <View style={s.emptyIcon}>
-                  <Icon name="spark" color={C.marigold} size={22} strokeWidth={1.8} />
+                  <CIcon name="aiAssistant" color={C.marigold} size={22} />
                 </View>
                 <Text style={s.emptyTitle}>Ask about your day</Text>
                 <Text style={s.emptySub}>
@@ -342,9 +358,8 @@ export default function AssistantScreen() {
               const mine = m.role === 'user';
               const action = m.action ?? null;
               return (
-                <Reanimated.View
+                <EnterDown
                   key={m.id}
-                  entering={FadeInDown.duration(220).easing(Easing.out(Easing.cubic))}
                   style={[b.row, mine ? b.rowRight : b.rowLeft]}
                 >
                   <View style={b.col}>
@@ -370,7 +385,7 @@ export default function AssistantScreen() {
                       />
                     ) : null}
                   </View>
-                </Reanimated.View>
+                </EnterDown>
               );
             })}
 

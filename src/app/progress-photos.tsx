@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
+import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { addPhoto, deletePhoto, listPhotos, type ProgressPhoto } from '@/lib/progress-photos';
@@ -297,7 +298,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
     <ScrollView contentContainerStyle={s.emptyWrap} showsVerticalScrollIndicator={false}>
       <View style={s.emptyGlyph}>
-        <Icon name="camera" color={C.green} size={30} strokeWidth={1.6} />
+        <CIcon name="progressPhotos" color={C.green} size={30} />
       </View>
       <Text style={s.emptyTitle}>Track progress beyond the scale</Text>
       <Text style={s.emptyBody}>

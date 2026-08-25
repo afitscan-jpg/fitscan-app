@@ -10,11 +10,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Reanimated, { FadeIn } from 'react-native-reanimated';
+import Reanimated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
+import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
@@ -33,8 +34,17 @@ function cap(s: string): string {
 // ─── Card ────────────────────────────────────────────────────────────────────
 
 function ExerciseCard({ item }: { item: Exercise }) {
+  // Mount fade-in via useAnimatedStyle (not `entering`, which is release-fragile
+  // on this stack — see motion notes).
+  const reduced = useReducedMotion();
+  const v = useSharedValue(reduced ? 1 : 0);
+  useEffect(() => {
+    if (reduced) { v.value = 1; return; }
+    v.value = withTiming(1, { duration: 220 });
+  }, [v, reduced]);
+  const fade = useAnimatedStyle(() => ({ opacity: v.value }));
   return (
-    <Reanimated.View entering={FadeIn.duration(220)} style={ec.itemWrap}>
+    <Reanimated.View style={[ec.itemWrap, fade]}>
       <AnimatedPressable
         style={ec.card}
         onPress={() =>
@@ -58,7 +68,7 @@ function ExerciseCard({ item }: { item: Exercise }) {
             />
           ) : (
             <View style={[ec.thumb, ec.thumbFallback]}>
-              <Icon name="dumbbell" color={C.inkFaint} size={22} strokeWidth={1.8} />
+              <CIcon name="workout" color={C.inkFaint} size={22} />
             </View>
           )}
         </View>

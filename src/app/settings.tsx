@@ -7,6 +7,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -303,7 +304,7 @@ export default function SettingsScreen() {
               ) : null}
 
               <Text style={s.footnote}>
-                FitScan keeps you anonymous by default — no account needed.
+                Calibreta keeps you anonymous by default — no account needed.
               </Text>
             </>
           )}

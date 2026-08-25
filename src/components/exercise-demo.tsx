@@ -10,7 +10,7 @@ import Reanimated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Icon } from '@/components/Icon';
+import { CIcon } from '@/components/CalibretaIcon';
 import { C, Radius, Shadow } from '@/constants/theme';
 
 const FRAME_MS = 600;
@@ -95,7 +95,7 @@ export function ExerciseDemo({
         />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.placeholder]}>
-          <Icon name="dumbbell" color={C.inkFaint} size={40} strokeWidth={1.6} />
+          <CIcon name="workout" color={C.inkFaint} size={40} />
         </View>
       )}
     </View>

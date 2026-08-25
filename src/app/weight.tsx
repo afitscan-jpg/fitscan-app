@@ -1,8 +1,10 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated as RNAnimated,
+  Easing as RNEasing,
   Modal,
   Pressable,
   ScrollView,
@@ -21,10 +23,12 @@ import Svg, {
   Stop,
   Text as SvgText,
 } from 'react-native-svg';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { GlassCard } from '@/components/glass-card';
+import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
@@ -70,8 +74,18 @@ const PAD_L = 12;
 const PAD_R = 14;
 const GRAD_ID = 'weightArea';
 
+const AnimatedPath = RNAnimated.createAnimatedComponent(Path);
+const AnimatedCircle = RNAnimated.createAnimatedComponent(Circle);
+
 function WeightChart({ logs, target }: { logs: WeightLog[]; target: number | null }) {
   const [width, setWidth] = useState(0);
+  const reduced = useReducedMotion();
+
+  // WEIGHT log-success: the trend line draws on (strokeDashoffset) and the latest
+  // point drops in. NOTE: this chart is a line chart, not a gauge — the spec's
+  // "needle sweep" has no target here, so it's intentionally omitted.
+  const draw = useRef(new RNAnimated.Value(reduced ? 1 : 0)).current;
+  const dot = useRef(new RNAnimated.Value(reduced ? 1 : 0)).current;
 
   const geom = useMemo(() => {
     if (width <= 0 || logs.length === 0) return null;
@@ -98,6 +112,27 @@ function WeightChart({ logs, target }: { logs: WeightLog[]; target: number | nul
 
     return { pts, line, area, targetY, hi, lo };
   }, [width, logs, target]);
+
+  // Length of the trend line (sum of segment distances) — drives the draw-on.
+  const lineLen = useMemo(() => {
+    if (!geom) return 0;
+    let L = 0;
+    for (let i = 1; i < geom.pts.length; i++) {
+      L += Math.hypot(geom.pts[i].x - geom.pts[i - 1].x, geom.pts[i].y - geom.pts[i - 1].y);
+    }
+    return L;
+  }, [geom]);
+  const lastPt = geom ? geom.pts[geom.pts.length - 1] : null;
+  const lastY = lastPt ? lastPt.y : 0;
+
+  useEffect(() => {
+    if (!geom) return;
+    if (reduced) { draw.setValue(1); dot.setValue(1); return; }
+    draw.setValue(0);
+    RNAnimated.timing(draw, { toValue: 1, duration: 600, delay: 450, easing: RNEasing.bezier(0.2, 0.7, 0.2, 1), useNativeDriver: false }).start();
+    dot.setValue(0);
+    RNAnimated.spring(dot, { toValue: 1, damping: 14, stiffness: 180, delay: 1000, useNativeDriver: false }).start();
+  }, [geom?.line, reduced, draw, dot]);
 
   return (
     <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={ch.wrap}>
@@ -135,22 +170,45 @@ function WeightChart({ logs, target }: { logs: WeightLog[]; target: number | nul
             </>
           ) : null}
 
-          {/* Area + line */}
+          {/* Area + line (line draws on via strokeDashoffset) */}
           <Path d={geom.area} fill={`url(#${GRAD_ID})`} />
-          <Path d={geom.line} stroke={C.accent} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <AnimatedPath
+            d={geom.line}
+            stroke={C.accent}
+            strokeWidth={2.5}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={lineLen}
+            strokeDashoffset={draw.interpolate({ inputRange: [0, 1], outputRange: [lineLen, 0] })}
+          />
 
-          {/* Points (last one emphasized) */}
+          {/* Points — last one emphasized and drops in after the line draws */}
           {geom.pts.map((p, i) => {
             const last = i === geom.pts.length - 1;
+            if (last) {
+              return (
+                <AnimatedCircle
+                  key={p.date}
+                  cx={p.x}
+                  r={5}
+                  fill={C.accent}
+                  stroke={C.accent}
+                  strokeWidth={2}
+                  opacity={dot.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' })}
+                  cy={dot.interpolate({ inputRange: [0, 1], outputRange: [lastY - 9, lastY] })}
+                />
+              );
+            }
             return (
               <Circle
                 key={p.date}
                 cx={p.x}
                 cy={p.y}
-                r={last ? 5 : 3}
-                fill={last ? C.accent : C.card}
+                r={3}
+                fill={C.card}
                 stroke={C.accent}
-                strokeWidth={last ? 2 : 1.5}
+                strokeWidth={1.5}
               />
             );
           })}
@@ -420,7 +478,7 @@ export default function WeightScreen() {
               {/* Progress photos — natural pairing with weight */}
               <AnimatedPressable style={s.photoCard} onPress={() => router.push('/progress-photos' as never)}>
                 <View style={s.photoIcon}>
-                  <Icon name="camera" color={C.greenInk} size={20} strokeWidth={1.9} />
+                  <CIcon name="progressPhotos" color={C.greenInk} size={20} />
                 </View>
                 <View style={s.photoText}>
                   <Text style={s.photoTitle}>Progress Photos</Text>

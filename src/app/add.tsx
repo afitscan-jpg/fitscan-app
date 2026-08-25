@@ -142,6 +142,9 @@ export default function AddFoodScreen() {
   const [profile,     setProfile]     = useState<Profile | null>(null);
   const [selected,    setSelected]    = useState<Food | null>(null);
   const [amount,      setAmount]      = useState(1);
+  // Quick-add meal defaults to the CURRENT time of day (not the preset's food
+  // stereotype); an explicit chip tap in the sheet overrides it for that log.
+  const [sheetMeal,   setSheetMeal]   = useState<MealType>(() => mealTypeForNow());
   const [logging,     setLogging]     = useState(false);
 
   const [aiLoading,   setAiLoading]   = useState(false);
@@ -188,6 +191,7 @@ export default function AddFoodScreen() {
   function openStepper(food: Food) {
     setSelected(food);
     setAmount(food.defaultAmount);
+    setSheetMeal(mealTypeForNow());   // default to now on every open; tap can override
   }
 
   function closeStepper() {
@@ -206,7 +210,7 @@ export default function AddFoodScreen() {
         protein_g: parseFloat(nutr.protein_g.toFixed(1)),
         carbs_g:   parseFloat(nutr.carbs_g.toFixed(1)),
         fat_g:     parseFloat(nutr.fat_g.toFixed(1)),
-        meal_type: selected.meal_type,
+        meal_type: sheetMeal,
         source: 'quick_add',
         verdict: 'good',
         quantity: amount,
@@ -577,7 +581,24 @@ export default function AddFoodScreen() {
               </Pressable>
             </View>
 
-            <Text style={s.sheetBase}>{selected?.meal_type}</Text>
+            <View style={s.sheetMealRow}>
+              {(['breakfast', 'lunch', 'snack', 'dinner'] as MealType[]).map((m) => {
+                const on = sheetMeal === m;
+                return (
+                  <Pressable
+                    key={m}
+                    style={[s.sheetMealChip, on && s.sheetMealChipOn]}
+                    onPress={() => setSheetMeal(m)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[s.sheetMealText, on && s.sheetMealTextOn]}>
+                      {m.charAt(0).toUpperCase() + m.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
             <View style={s.stepper}>
               <Pressable
@@ -1220,14 +1241,29 @@ const s = StyleSheet.create({
     color: C.inkFaint,
     lineHeight: 26,
   },
-  sheetBase: {
-    fontFamily: Fonts?.body ?? 'system',
-    fontSize: 13,
-    color: C.inkSoft,
-    textTransform: 'capitalize',
-    marginTop: 4,
-    marginBottom: 24,
+  // Meal picker in the quick-add sheet — defaults to time-of-day, tap to override.
+  sheetMealRow: {
+    flexDirection: 'row',
+    gap: 7,
+    marginTop: 10,
+    marginBottom: 22,
   },
+  sheetMealChip: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: Radius.pill,
+    backgroundColor: '#F1EEE8',
+  },
+  sheetMealChipOn: { backgroundColor: C.green },
+  sheetMealText: {
+    fontFamily: Fonts?.bodyMed ?? 'system',
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: C.inkSoft,
+  },
+  sheetMealTextOn: { color: '#fff' },
 
   // ── Stepper (quick-add) ────────────────────────────────────────────────────
   stepper: {

@@ -28,6 +28,7 @@ import { getProfile, logFood, mealTypeForNow, type MealType, type Profile } from
 import { syncReminders } from '@/lib/reminders';
 import { logSuccess, tap } from '@/lib/feedback';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // ─── Food definitions ────────────────────────────────────────────────────────
 
@@ -700,11 +701,17 @@ export default function AddFoodScreen() {
                 <Text style={s.closeBtnText}>×</Text>
               </Pressable>
             </View>
-            <Text style={s.aiSubtitle}>Check what I found — edit anything before logging.</Text>
+            <Text style={s.aiSubtitle}>
+              {(aiSheet?.items.length ?? 0) > 0
+                ? `${aiSheet!.items.length} food${aiSheet!.items.length === 1 ? '' : 's'} found — edit anything before logging.`
+                : 'Check what I found — edit anything before logging.'}
+            </Text>
 
+            <View style={s.aiScrollWrap}>
             <ScrollView
               style={s.aiSheetScroll}
-              showsVerticalScrollIndicator={false}
+              contentContainerStyle={s.aiScrollContent}
+              showsVerticalScrollIndicator
               keyboardShouldPersistTaps="handled"
             >
               {aiSheet?.clarify != null ? (
@@ -755,6 +762,14 @@ export default function AddFoodScreen() {
                 </>
               ) : null}
             </ScrollView>
+            {(aiSheet?.items.length ?? 0) > 3 ? (
+              <LinearGradient
+                pointerEvents="none"
+                colors={['rgba(255,255,255,0)', C.card]}
+                style={s.aiScrollFade}
+              />
+            ) : null}
+            </View>
 
             <AnimatedPressable
               style={[
@@ -1306,15 +1321,34 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 32,
-    maxHeight: '75%',
+    maxHeight: '82%',
   },
-  aiSheetScroll: {
-    // NOTE: must be flexShrink (basis auto), NOT flex:1. The sheet has a
-    // maxHeight but no fixed height, so flex:1 (basis 0) collapses this
-    // ScrollView to zero height and hides every item row inside it.
+  // The scroll region shrinks within the capped sheet so the list scrolls while
+  // the header and the Log CTA stay fixed and reachable. flexShrink (not flex:1)
+  // because the sheet has a maxHeight, not a fixed height; minHeight:0 lets Yoga
+  // actually shrink it below content height on Android (without it the ScrollView
+  // can keep its full content height and refuse to scroll).
+  aiScrollWrap: {
     flexShrink: 1,
+    minHeight: 0,
+    position: 'relative',
     marginTop: 12,
     marginBottom: 12,
+  },
+  aiSheetScroll: {
+    flexShrink: 1,
+    minHeight: 0,
+  },
+  aiScrollContent: {
+    paddingBottom: 8,
+  },
+  // Soft white fade at the bottom edge — a calm cue that more items are below.
+  aiScrollFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 28,
   },
   aiSubtitle: {
     fontFamily: Fonts?.body ?? 'system',

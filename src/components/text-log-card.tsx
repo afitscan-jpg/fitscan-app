@@ -151,6 +151,19 @@ export function TextLogCard({
     }
   }
 
+  // Reset to a fresh form — ONLY on the completed-log "Done" action. Never while
+  // a log is in progress or if the user leaves without finishing: this screen is a
+  // mounted tab, so an in-progress query or a typed-but-unlogged draft must survive
+  // navigating away and back. Only tapping Done (which appears only after a
+  // successful log) clears the input, result and total.
+  function handleDone() {
+    setText('');
+    setResult(null);
+    setError(null);
+    setMeal(mealTypeForNow());
+    onLogged?.();
+  }
+
   // Auto-submit a handed-off prefill once (assistant "Review & log").
   const autoDone = useRef(false);
   useEffect(() => {
@@ -237,7 +250,7 @@ export function TextLogCard({
           </Text>
 
           {onLogged && result.items.some((it) => it.kcal != null) ? (
-            <AnimatedPressable style={s.done} onPress={onLogged}>
+            <AnimatedPressable style={s.done} onPress={handleDone}>
               <Text style={s.doneText}>Done — back to home</Text>
             </AnimatedPressable>
           ) : null}

@@ -67,6 +67,7 @@ interface Msg {
 
 const STARTERS = [
   'How much protein today?',
+  'How did this week look?',
   'What should I eat tonight?',
   'Log 2 roti and dal',
   'Did 3 sets of 10 pushups',
@@ -332,7 +333,12 @@ export default function AssistantScreen() {
 
         <KeyboardAvoidingView
           style={s.flex}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          // Android edge-to-edge (decorFitsSystemWindows=false) does NOT resize the
+          // window for the keyboard, so behavior=undefined leaves the composer hidden
+          // behind it. 'padding' actively lifts the input bar by the measured keyboard
+          // height on both platforms; the KAV sits below the header at the screen
+          // bottom, so the keyboard's full height (incl. nav-bar inset) is the offset.
+          behavior="padding"
           keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
         >
           <ScrollView
@@ -349,7 +355,7 @@ export default function AssistantScreen() {
                 </View>
                 <Text style={s.emptyTitle}>Ask about your day</Text>
                 <Text style={s.emptySub}>
-                  I can read your logged food and workouts, and help you log more.
+                  I can look over your food and workouts — today and the past week — and help you log more.
                 </Text>
               </View>
             ) : null}

@@ -79,6 +79,12 @@ import { PaywallSheet } from '@/components/paywall-sheet';
 // remove it entirely in one line after device testing.
 const FLUID_CONTENT_LAG = true;
 
+// Ink-drop tap ripple (fluid layer) — tuned to be clearly visible on every tap
+// yet still calm, never flashy. Tweak these three after feeling it on device:
+const INK_PEAK_OPACITY = 0.5;   // opacity at the moment of the tap (was 0.32)
+const INK_END_SCALE    = 1.7;   // how wide the disc spreads before it fades
+const INK_FADE_MS      = 800;   // how long the ripple takes to fade out
+
 // Session-scoped dismiss flag for the account nudge — once dismissed it won't
 // reappear until the app is relaunched (kept in memory on purpose).
 let accountNudgeDismissed = false;
@@ -1483,14 +1489,14 @@ export default function HomeScreen() {
     inkX.value = e.nativeEvent.pageX;
     inkY.value = e.nativeEvent.pageY;
     ink.value = 0;
-    ink.value = withTiming(1, { duration: 650, easing: REasing.out(REasing.cubic) });
+    ink.value = withTiming(1, { duration: INK_FADE_MS, easing: REasing.out(REasing.cubic) });
   };
   const inkStyle = useAnimatedStyle(() => ({
-    opacity: 0.32 * (1 - ink.value),
+    opacity: INK_PEAK_OPACITY * (1 - ink.value),
     transform: [
       { translateX: inkX.value },
       { translateY: inkY.value },
-      { scale: 0.2 + ink.value * 1.3 }, // 0.2 → 1.5
+      { scale: 0.2 + ink.value * (INK_END_SCALE - 0.2) }, // 0.2 → INK_END_SCALE
     ],
   }));
 

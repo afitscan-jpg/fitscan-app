@@ -16,6 +16,7 @@ import Reanimated, {
 
 import { CIcon, type CIconName } from '@/components/CalibretaIcon';
 import { C, Fonts, Gradients } from '@/constants/theme';
+import { tap } from '@/lib/feedback';
 
 // Minimal type that matches what React Navigation passes to the tabBar prop.
 // navigation is typed as any to avoid fighting React Navigation's deeply
@@ -149,6 +150,7 @@ function CustomTabBar({ state, navigation }: TabBarProps) {
                 canPreventDefault: true,
               });
               if (!isFocused && !event.defaultPrevented) {
+                tap(); // light tactile on an actual tab switch
                 navigation.navigate(route.name, route.params);
               }
             };

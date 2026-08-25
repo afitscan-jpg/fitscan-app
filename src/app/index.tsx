@@ -63,6 +63,7 @@ import {
 import { authFetch, PaywallError } from '@/lib/api';
 import { getEntitlement, trialDaysLeft, type Entitlement } from '@/lib/entitlement';
 import { getAuthState } from '@/lib/auth';
+import { celebrate, logSuccess } from '@/lib/feedback';
 import { getExerciseLogs, type ExerciseLog } from '@/lib/exercises';
 import { getAdaptiveTdee, type AdaptiveTdee } from '@/lib/me';
 import {
@@ -1295,6 +1296,13 @@ export default function HomeScreen() {
   const [nudgeVisible,   setNudgeVisible]   = useState(false);
   const [workouts,       setWorkouts]       = useState<ExerciseLog[]>([]);
   const [streak,         setStreak]         = useState<Streak | null>(null);
+  // Streak celebration: fire when the count ticks up, never on first load.
+  const prevStreak = useRef<number | null>(null);
+  useEffect(() => {
+    const cur = streak?.current ?? null;
+    if (prevStreak.current != null && cur != null && cur > prevStreak.current) celebrate();
+    prevStreak.current = cur;
+  }, [streak]);
   const [loadError,      setLoadError]      = useState(false);
   const [adaptive,       setAdaptive]       = useState<AdaptiveTdee | null>(null);
   const [remindersNudge, setRemindersNudge] = useState(false);
@@ -1420,6 +1428,7 @@ export default function HomeScreen() {
       await addWater(250);
       const w = await getWaterToday();
       setWater(w);
+      logSuccess();
     } catch { /* ignore */ }
     finally { setAddingWater(false); }
   }

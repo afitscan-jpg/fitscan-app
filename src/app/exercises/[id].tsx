@@ -33,6 +33,7 @@ import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { C, Fonts, Gradients, Radius, Shadow } from '@/constants/theme';
 import { getScienceNote } from '@/data/exercise-science';
 import { logExercise, type Exercise } from '@/lib/exercises';
+import { logSuccess } from '@/lib/feedback';
 
 function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -461,6 +462,7 @@ function LogSheet({
               weight_kg: weight > 0 ? weight : null,
             }),
       });
+      logSuccess();
       onLogged();
     } catch {
       setSaving(false);

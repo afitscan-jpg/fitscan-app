@@ -21,6 +21,7 @@ import Reanimated, {
 
 import { C, Fonts, Spacing } from '@/constants/theme';
 import { fetchScan } from '@/lib/scan';
+import { logSuccess } from '@/lib/feedback';
 import { scanResultStore } from '@/lib/scan-result-store';
 
 type ScanState = 'idle' | 'loading' | 'error';
@@ -87,6 +88,7 @@ export default function ScanScreen() {
       console.log('[Scanner] ← outcome:', outcome.kind);
 
       if (outcome.kind === 'ok') {
+        logSuccess();
         scanResultStore.set(outcome.data);
         router.push({ pathname: '/scanner/result', params: { outcome: 'ok' } });
       } else if (outcome.kind === 'not_found') {

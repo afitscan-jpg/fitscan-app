@@ -21,6 +21,7 @@ import { SplashSting } from '@/components/splash-sting';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { C } from '@/constants/theme';
 import { getProfile } from '@/lib/db';
+import { initFeedback } from '@/lib/feedback';
 import { onRemindersAppActive } from '@/lib/reminders';
 import { ensureSession } from '@/lib/supabase';
 
@@ -74,6 +75,7 @@ export default function RootLayout() {
 
   // Preload the tick sound + load the "Sounds & haptics" preference + set the
   // audio mode (respect the silent switch). Fire-and-forget; never blocks.
+  useEffect(() => { void initFeedback(); }, []);
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener(REONBOARD_EVENT, () => {

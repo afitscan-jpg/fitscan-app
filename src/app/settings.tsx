@@ -18,6 +18,7 @@ import { Icon } from '@/components/Icon';
 import { REONBOARD_EVENT } from '@/app/_layout';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { getProfile, updateProfile, type Goal, type Profile } from '@/lib/db';
+import { isFeedbackEnabled, setFeedbackEnabled, tap } from '@/lib/feedback';
 import { getEntitlement, trialDaysLeft, type Entitlement } from '@/lib/entitlement';
 import { getAuthState, type AuthState } from '@/lib/auth';
 import { ensureSession, supabase } from '@/lib/supabase';
@@ -86,6 +87,13 @@ export default function SettingsScreen() {
   const [auth, setAuth]       = useState<AuthState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy]       = useState(false);
+  const [soundsOn, setSoundsOn] = useState(isFeedbackEnabled());
+
+  function toggleSounds(v: boolean) {
+    setSoundsOn(v);
+    void setFeedbackEnabled(v);
+    if (v) tap(); // let them feel it turn on
+  }
 
   useEffect(() => {
     getProfile()
@@ -277,6 +285,19 @@ export default function SettingsScreen() {
                 </View>
                 <Icon name="arrow" color={C.inkDim} size={18} strokeWidth={2} />
               </Pressable>
+
+              <View style={[s.actionBtn, s.linkRow]}>
+                <View style={s.linkText}>
+                  <Text style={s.actionText}>Sounds & haptics</Text>
+                  <Text style={s.actionSub}>Gentle taps and a soft tick when you log — silent-switch aware</Text>
+                </View>
+                <Switch
+                  value={soundsOn}
+                  onValueChange={toggleSounds}
+                  trackColor={{ true: C.green, false: '#D8D3C8' }}
+                  accessibilityLabel="Sounds and haptics"
+                />
+              </View>
 
               <Text style={s.eyebrow}>Setup</Text>
               <Pressable

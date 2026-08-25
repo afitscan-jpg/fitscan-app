@@ -26,6 +26,7 @@ import { TextLogCard } from '@/components/text-log-card';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { getProfile, logFood, mealTypeForNow, type MealType, type Profile } from '@/lib/db';
 import { syncReminders } from '@/lib/reminders';
+import { logSuccess, tap } from '@/lib/feedback';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 // ─── Food definitions ────────────────────────────────────────────────────────
@@ -211,6 +212,7 @@ export default function AddFoodScreen() {
         unit: selected.unit,
       });
       void syncReminders(); // logged this meal → drop today's now-satisfied nudge
+      logSuccess();
       setSelected(null);
       router.back();
     } catch {
@@ -320,6 +322,7 @@ export default function AddFoodScreen() {
         })
       );
       void syncReminders(); // logged → re-apply meal suppression
+      logSuccess();
       // Brief success beat on the button before the sheet dismisses.
       setAiSuccess(true);
       await new Promise((resolve) => setTimeout(resolve, 400));
@@ -478,7 +481,7 @@ export default function AddFoodScreen() {
 
           {/* Log with sources — the single text-logging path (→ /log/text) */}
           <Text style={s.sectionLabel}>Log with sources</Text>
-          <TextLogCard onPaywall={setPaywall} onLogged={() => router.back()} initialText={prefill || undefined} country={profile?.country} />
+          <TextLogCard onPaywall={setPaywall} onLogged={() => { logSuccess(); router.back(); }} initialText={prefill || undefined} country={profile?.country} />
 
           {/* Photo logger (scan/photo flow, unchanged — /ai/parse vision) */}
           <View style={s.aiBox}>
@@ -791,7 +794,7 @@ function QuickChip({
   onPress: () => void;
 }) {
   return (
-    <AnimatedPressable style={s.chip} onPress={onPress}>
+    <AnimatedPressable style={s.chip} onPress={() => { tap(); onPress(); }}>
       <View style={s.chipDot} />
       <Text style={s.chipName}>{name}</Text>
       <Text style={s.chipKcal}>{kcal} kcal</Text>

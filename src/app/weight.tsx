@@ -41,6 +41,7 @@ import {
   type WeightPeriod,
 } from '@/lib/weight';
 import { syncReminders } from '@/lib/reminders';
+import { logSuccess } from '@/lib/feedback';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -257,6 +258,7 @@ function LogWeightSheet({ current, onClose, onSaved }: {
     setSaving(true);
     try {
       await logWeight(Math.round(parsed * 10) / 10, { note: note.trim() || undefined });
+      logSuccess();
       void syncReminders(); // weighed in today → drop today's weigh-in nudge
       onSaved();
     } catch {

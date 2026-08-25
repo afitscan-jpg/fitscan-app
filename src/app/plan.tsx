@@ -31,6 +31,9 @@ interface PlanItem {
   // Resolved items carry verified numbers; "idea" items (resolved === false) have
   // null nutrition and are shown as a suggestion, never with fabricated numbers.
   resolved?: boolean;
+  // True when the lookup itself failed (transient system error), not when the
+  // food is genuinely unknown — the copy stays temporary, never "not in database".
+  unavailable?: boolean;
   badge?: string | null;
   kcal: number | null;
   protein_g: number | null;
@@ -194,7 +197,9 @@ function MealCard({
                 <Text style={mc.itemMeta}>
                   {formatAmount(item.amount, item.unit)}
                   {'\n'}
-                  <Text style={mc.ideaLabel}>Idea to try — not counted</Text>
+                  <Text style={mc.ideaLabel}>
+                    {item.unavailable ? 'Couldn’t check — not counted' : 'Idea to try — not counted'}
+                  </Text>
                 </Text>
               </View>
             );

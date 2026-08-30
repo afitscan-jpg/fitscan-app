@@ -19,7 +19,7 @@ export default function PremiumScreen() {
       <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backBtn} hitSlop={8}>
             <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
           </Pressable>
           <Text style={s.headerTitle}>Premium</Text>
@@ -143,7 +143,7 @@ const s = StyleSheet.create({
   },
   benefitText: { flex: 1, gap: 2, paddingBottom: 14 },
   benefitTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.ink },
-  benefitSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 13, color: C.inkFaint, lineHeight: 19 },
+  benefitSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 13, color: C.inkSoft, lineHeight: 19 },
 
   comingBtn: {
     alignSelf: 'stretch',
@@ -160,7 +160,7 @@ const s = StyleSheet.create({
   footnote: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
-    color: C.inkFaint,
+    color: C.inkSoft,
     textAlign: 'center',
     lineHeight: 18,
     marginTop: 12,

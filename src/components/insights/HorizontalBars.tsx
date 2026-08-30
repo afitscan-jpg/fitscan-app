@@ -22,8 +22,15 @@ export function MealTypeBar({ split }: { split: Record<MealKind, number> }) {
   const total = MEAL_ORDER.reduce((s, m) => s + Math.max(0, split[m]), 0);
   const shown = MEAL_ORDER.filter((m) => split[m] > 0);
 
+  // C2: describe the split in words — the SVG says nothing to a screen reader.
+  const a11y = total === 0
+    ? 'Chart. No meals logged this week yet.'
+    : 'Where your calories came from this week: '
+      + shown.map((m) => `${MEAL_LABEL[m]} ${Math.round((split[m] / total) * 100)}%`).join(', ')
+      + '.';
+
   return (
-    <View>
+    <View accessible accessibilityRole="image" accessibilityLabel={a11y}>
       <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
         {w > 0 && total > 0 ? (
           <Svg width={w} height={BAR_H}>
@@ -56,12 +63,16 @@ export function MealTypeBar({ split }: { split: Record<MealKind, number> }) {
 }
 
 export function VerifiedShare({ verifiedPct }: { verifiedPct: number }) {
+  // C2: the hatching carries the honesty claim visually; this carries it aloud.
+  const a11yShare =
+    `Chart. ${Math.round(verifiedPct)}% of this week's calories come from verified `
+    + `foods, ${Math.round(100 - verifiedPct)}% from estimates.`;
   const [w, setW] = useState(0);
   const vPct = Math.max(0, Math.min(100, verifiedPct));
   const ePct = 100 - vPct;
 
   return (
-    <View>
+    <View accessible accessibilityRole="image" accessibilityLabel={a11yShare}>
       <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
         {w > 0 ? (
           <Svg width={w} height={BAR_H}>

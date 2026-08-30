@@ -17,6 +17,7 @@ import { ActivityIndicator, AppState as RNAppState, DeviceEventEmitter, StyleShe
 
 import AppTabs from '@/components/app-tabs';
 import { AssistantFab } from '@/components/assistant-fab';
+import { ToastProvider } from '@/components/toast';
 import { SplashSting } from '@/components/splash-sting';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { C } from '@/constants/theme';
@@ -120,13 +121,15 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={styles.appRoot}>
-      <StatusBar style="dark" />
-      <AppTabs />
-      {/* Single global instance — persists across all tabs (never per-screen). */}
-      <AssistantFab />
-      {showSting && <SplashSting onDone={() => setShowSting(false)} />}
-    </View>
+    <ToastProvider>
+      <View style={styles.appRoot}>
+        <StatusBar style="dark" />
+        <AppTabs />
+        {/* Single global instance — persists across all tabs (never per-screen). */}
+        <AssistantFab />
+        {showSting && <SplashSting onDone={() => setShowSting(false)} />}
+      </View>
+    </ToastProvider>
   );
 }
 

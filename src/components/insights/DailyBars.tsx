@@ -44,8 +44,28 @@ export function DailyBars({
   const slot = data.length > 0 ? plotW / data.length : 0;
   const barW = Math.min(slot * 0.56, 30);
 
+  // C2: an SVG tree conveys nothing to a screen reader — the numbers exist only
+  // as geometry. One sentence describing the SHAPE of the week is far more use
+  // than reading seven values aloud, and it names the estimated days because
+  // that is the honesty claim the hatching makes visually.
+  const logged = data.filter((d) => d.hasData && d.value > 0);
+  const estCount = logged.filter((d) => d.est).length;
+  const loggedAvg = logged.length
+    ? Math.round(logged.reduce((sum, d) => sum + d.value, 0) / logged.length)
+    : 0;
+  const a11ySummary = logged.length === 0
+    ? 'Chart. Nothing logged in the last 7 days yet.'
+    : `Chart of the last 7 days. ${logged.length} of 7 days logged, averaging `
+      + `${loggedAvg}${target != null && target > 0 ? ` against a target of ${target}` : ''}.`
+      + (estCount ? ` ${estCount} of those ${estCount === 1 ? 'is an estimate' : 'are estimates'}.` : '');
+
   return (
-    <View onLayout={(e) => setW(e.nativeEvent.layout.width)}>
+    <View
+      onLayout={(e) => setW(e.nativeEvent.layout.width)}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={a11ySummary}
+    >
       {w > 0 ? (
         <Svg width={w} height={H}>
           <Defs>
@@ -59,8 +79,8 @@ export function DailyBars({
           <Line x1={x0} y1={y1} x2={w - PAD.r} y2={y1} stroke={CHART.grid} strokeWidth={1} />
           <Line x1={x0} y1={yFor(max / 2)} x2={w - PAD.r} y2={yFor(max / 2)} stroke={CHART.grid} strokeWidth={1} />
           {/* y labels: 0 and max */}
-          <SvgText x={x0 - 6} y={y1 + 3} fontSize={9} fill={CHART.inkFaint} textAnchor="end" fontFamily="monospace">0</SvgText>
-          <SvgText x={x0 - 6} y={y0 + 3} fontSize={9} fill={CHART.inkFaint} textAnchor="end" fontFamily="monospace">
+          <SvgText x={x0 - 6} y={y1 + 3} fontSize={9} fill={CHART.axisText} textAnchor="end" fontFamily="monospace">0</SvgText>
+          <SvgText x={x0 - 6} y={y0 + 3} fontSize={9} fill={CHART.axisText} textAnchor="end" fontFamily="monospace">
             {max >= 1000 ? `${(max / 1000).toFixed(max % 1000 === 0 ? 0 : 1)}k` : String(max)}
           </SvgText>
 
@@ -88,7 +108,7 @@ export function DailyBars({
               return (
                 <G key={d.label + i}>
                   <Line x1={cx} y1={y1} x2={cx + barW} y2={y1} stroke={CHART.inkFaint} strokeWidth={1.5} strokeDasharray="1 3" opacity={0.6} />
-                  <SvgText x={mid} y={y1 + 15} fontSize={10} fill={d.isToday ? CHART.todayRing : CHART.inkFaint} textAnchor="middle" fontWeight={d.isToday ? '600' : '400'}>{d.label}</SvgText>
+                  <SvgText x={mid} y={y1 + 15} fontSize={10} fill={d.isToday ? CHART.todayRing : CHART.axisText} textAnchor="middle" fontWeight={d.isToday ? '600' : '400'}>{d.label}</SvgText>
                 </G>
               );
             }
@@ -106,7 +126,7 @@ export function DailyBars({
                   </>
                 ) : null}
                 {d.est ? <SvgText x={mid} y={y1 - 5} fontSize={8.5} fill={CHART.sage} textAnchor="middle" fontFamily="monospace">est</SvgText> : null}
-                <SvgText x={mid} y={y1 + 15} fontSize={10} fill={d.isToday ? CHART.todayRing : CHART.inkDim} textAnchor="middle" fontWeight={d.isToday ? '600' : '400'}>{d.label}</SvgText>
+                <SvgText x={mid} y={y1 + 15} fontSize={10} fill={d.isToday ? CHART.todayRing : CHART.axisText} textAnchor="middle" fontWeight={d.isToday ? '600' : '400'}>{d.label}</SvgText>
               </G>
             );
           })}

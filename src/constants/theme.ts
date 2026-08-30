@@ -20,8 +20,11 @@ const ACCENT_TINT = '#E9ECE6';
 export const C = {
   // Core ink / text (dark-on-light)
   ink:      '#2B2822',   // primary body text / headings
-  inkSoft:  '#79726A',   // secondary body
-  inkFaint: '#A79F91',   // muted labels / eyebrows
+  // C3: nudged one lightness step (44.5% -> 44.3%, hue/sat unchanged) so it
+  // clears WCAG AA 4.5:1 on BOTH cream and card. This is the app's muted-TEXT
+  // tone; inkFaint/inkDim below stay light and are decorative-only.
+  inkSoft:  '#78716A',   // secondary body — AA on bg (4.53) and card (4.81)
+  inkFaint: '#A79F91',   // DECORATIVE ONLY (2.47:1) — icons, placeholders, dividers
 
   // Backgrounds
   bg:   '#FAF8F4',       // warm cream app background
@@ -53,7 +56,7 @@ export const C = {
 
   // ── v3 system tokens ────────────────────────────────────────────────────────
   inkStrong: '#2B2822',  // strong headings (same ink; kept as a distinct name)
-  inkDim:    '#ACA597',  // faintest (nav inactive, disabled, axis labels)
+  inkDim:    '#ACA597',  // DECORATIVE ONLY (2.31:1) — nav inactive, disabled glyphs
   bgElev:    '#FFFFFF',  // elevated surface
   ambientTop:'#FCF6EC',  // morning-light wash (top)
   ambientMid:'#FAF6EF',

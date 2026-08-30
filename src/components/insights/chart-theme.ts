@@ -23,6 +23,9 @@ export const CHART = {
   },
   ink:      C.ink,
   inkDim:   C.inkSoft,
+  // C3: axis labels and day names are TEXT someone has to read, so they take the
+  // AA muted tone. inkFaint stays for the decorative dotted "no data" mark only.
+  axisText: C.inkSoft,
   inkFaint: C.inkFaint,
 } as const;
 

@@ -200,10 +200,10 @@ const cc = StyleSheet.create({
   },
   title: {
     fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600',
-    letterSpacing: 0.6, textTransform: 'uppercase', color: C.inkFaint,
+    letterSpacing: 0.6, textTransform: 'uppercase', color: C.inkSoft,
   },
   body: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.ink },
-  meta: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint },
+  meta: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft },
   btn: {
     marginTop: 8, backgroundColor: C.green, borderRadius: Radius.sm,
     height: 42, alignItems: 'center', justifyContent: 'center',
@@ -321,7 +321,7 @@ export default function AssistantScreen() {
       <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backBtn} hitSlop={8}>
             <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
           </Pressable>
           <View style={s.headerText}>
@@ -454,7 +454,7 @@ const s = StyleSheet.create({
   backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   headerText: { flex: 1, alignItems: 'center' },
   title: { fontFamily: Fonts?.display ?? 'system', fontSize: 19, color: C.ink, letterSpacing: -0.3 },
-  subtitle: { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkFaint, marginTop: 1 },
+  subtitle: { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkSoft, marginTop: 1 },
 
   scroll: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 12, flexGrow: 1 },
 
@@ -465,7 +465,7 @@ const s = StyleSheet.create({
   },
   emptyTitle: { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 17, color: C.ink },
   emptySub: {
-    fontFamily: Fonts?.body ?? 'system', fontSize: 13.5, color: C.inkFaint,
+    fontFamily: Fonts?.body ?? 'system', fontSize: 13.5, color: C.inkSoft,
     textAlign: 'center', lineHeight: 20,
   },
 

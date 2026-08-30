@@ -426,7 +426,7 @@ function GoalStep({
   return (
     <SafeAreaView style={s.flex} edges={['top', 'bottom']}>
       <View style={s.backHeader}>
-        <Pressable onPress={() => { if (result) { setResult(null); } else { onBack(); } }} hitSlop={8} style={s.backBtn}>
+        <Pressable onPress={() => { if (result) { setResult(null); } else { onBack(); } }} hitSlop={8} style={s.backBtn} accessibilityRole="button" accessibilityLabel="Go back">
           <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
         </Pressable>
       </View>
@@ -660,7 +660,7 @@ const s = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.7,
     textTransform: 'uppercase',
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginTop: Spacing.two,
     marginBottom: 2,
   },
@@ -695,14 +695,14 @@ const s = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginTop: Spacing.three,
     marginBottom: 6,
   },
   noMatch: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 13,
-    color: C.inkFaint,
+    color: C.inkSoft,
     textAlign: 'center',
     paddingVertical: Spacing.four,
   },
@@ -711,7 +711,7 @@ const s = StyleSheet.create({
   searchHint: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginBottom: 2,
   },
 
@@ -739,7 +739,7 @@ const s = StyleSheet.create({
   langSub: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 13,
-    color: C.inkFaint,
+    color: C.inkSoft,
   },
   check: {
     width: 20,
@@ -780,7 +780,7 @@ const s = StyleSheet.create({
   maintUnit: {
     fontSize: 15,
     fontWeight: '400',
-    color: C.inkFaint,
+    color: C.inkSoft,
   },
   maintSub: {
     fontFamily: Fonts?.body ?? 'system',
@@ -907,7 +907,7 @@ const s = StyleSheet.create({
   footnote: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
-    color: C.inkFaint,
+    color: C.inkSoft,
     textAlign: 'center',
     marginTop: 8,
   },

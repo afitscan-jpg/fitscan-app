@@ -252,7 +252,10 @@ export function TextLogCard({
 
   async function submit(override?: string) {
     const t = (override ?? text).trim();
-    if (!t || loading) return;
+    // A2: once a result exists this meal is logged. Re-enabling the button with
+    // the text still in the box was the duplicate-log path — a second tap wrote
+    // the same rows again AND spent another AI credit. Cleared only by Done.
+    if (!t || loading || result) return;
     setLoading(true);
     setError(null);
     try {
@@ -297,6 +300,10 @@ export function TextLogCard({
         <TextInput
           style={s.input}
           placeholder="e.g. 2 rotis and a katori of dal tadka"
+          // C3: the placeholder stays LIGHT on purpose — it is an example, not
+          // the label. An explicit label keeps it that way even if the screen
+          // title ever moves, so the hint never has to double as the name.
+          accessibilityLabel="What did you eat?"
           placeholderTextColor={C.inkFaint}
           value={text}
           onChangeText={(v) => { setText(v); setError(null); }}
@@ -333,11 +340,17 @@ export function TextLogCard({
       {error ? <Text style={s.error}>{error}</Text> : null}
 
       <AnimatedPressable
-        style={[s.submit, (loading || !text.trim()) && s.submitDim]}
+        style={[s.submit, (loading || !text.trim() || !!result) && s.submitDim]}
         onPress={() => submit()}
-        disabled={loading || !text.trim()}
+        disabled={loading || !text.trim() || !!result}
+        accessibilityRole="button"
+        accessibilityLabel={result ? 'Already logged' : 'Log this meal'}
       >
-        {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.submitText}>Log this meal</Text>}
+        {loading ? (
+          <ActivityIndicator color="#fff" size="small" />
+        ) : (
+          <Text style={s.submitText}>{result ? 'Logged' : 'Log this meal'}</Text>
+        )}
       </AnimatedPressable>
 
       {result ? (
@@ -488,7 +501,7 @@ const s = StyleSheet.create({
 
   // Results
   results: { marginTop: 16, gap: 10 },
-  emptyNote: { fontFamily: Fonts?.body ?? 'system', fontSize: 13.5, color: C.inkFaint, textAlign: 'center', paddingVertical: 8 },
+  emptyNote: { fontFamily: Fonts?.body ?? 'system', fontSize: 13.5, color: C.inkSoft, textAlign: 'center', paddingVertical: 8 },
 
   row: {
     backgroundColor: '#FBF9F4',
@@ -502,7 +515,7 @@ const s = StyleSheet.create({
   rowTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
   rowLeft: { flex: 1, gap: 2 },
   name: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.inkStrong },
-  qty: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint },
+  qty: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft },
   kcal: {
     fontFamily: Fonts?.bodySemi ?? 'system',
     fontSize: 14,
@@ -526,9 +539,9 @@ const s = StyleSheet.create({
     fontFamily: Fonts?.bodySemi ?? 'system',
     fontSize: 11.5,
     fontWeight: '600',
-    color: C.inkFaint,
+    color: C.inkSoft,
   },
-  modNote: { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkFaint, lineHeight: 16 },
+  modNote: { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkSoft, lineHeight: 16 },
 
   totalRow: {
     flexDirection: 'row',
@@ -542,11 +555,11 @@ const s = StyleSheet.create({
   totalLabel: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: C.ink },
   totalValue: { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.inkStrong, fontVariant: ['tabular-nums'] },
 
-  unverified: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint },
+  unverified: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft },
   footer: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
-    color: C.inkFaint,
+    color: C.inkSoft,
     lineHeight: 17,
     textAlign: 'center',
     marginTop: 2,

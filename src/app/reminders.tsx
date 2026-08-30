@@ -166,7 +166,7 @@ export default function RemindersScreen() {
       <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backBtn} hitSlop={8}>
             <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
           </Pressable>
           <Text style={s.title}>Reminders</Text>
@@ -306,7 +306,7 @@ const s = StyleSheet.create({
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   toggleText: { flex: 1, gap: 3 },
   toggleTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.ink },
-  toggleSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint, lineHeight: 17 },
+  toggleSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, lineHeight: 17 },
 
   pausedNote: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, marginTop: 10 },
 
@@ -338,7 +338,7 @@ const s = StyleSheet.create({
 
   pressed: { opacity: 0.85 },
   footnote: {
-    fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint,
+    fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkSoft,
     textAlign: 'center', lineHeight: 18, marginTop: 6,
   },
 });

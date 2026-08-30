@@ -82,10 +82,10 @@ const s = StyleSheet.create({
   eyebrow: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600', letterSpacing: 1.2, textTransform: 'uppercase', color: C.greenInk },
   value: { marginTop: 4, fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 23, fontWeight: '600', color: C.inkStrong, letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
   unit: { fontFamily: Fonts?.body ?? 'system', fontSize: 13, fontWeight: '400', color: C.inkSoft },
-  empty: { marginTop: 4, fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint },
+  empty: { marginTop: 4, fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft },
   right: { alignItems: 'flex-end' },
   trend: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.greenSoft, borderRadius: Radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
   trendArrow: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, color: C.greenInk, fontWeight: '700' },
   trendText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 12.5, color: C.greenInk, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  chev: { fontFamily: Fonts?.body ?? 'system', fontSize: 22, color: C.inkDim },
+  chev: { fontFamily: Fonts?.body ?? 'system', fontSize: 22, color: C.inkSoft },
 });

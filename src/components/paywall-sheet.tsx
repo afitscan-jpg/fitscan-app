@@ -118,5 +118,5 @@ const s = StyleSheet.create({
   },
   primaryText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: '#fff' },
   secondary: { height: 44, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
-  secondaryText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: C.inkFaint },
+  secondaryText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: C.inkSoft },
 });

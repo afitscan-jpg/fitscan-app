@@ -31,6 +31,7 @@ import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { C, Fonts, Gradients, Radius, Shadow } from '@/constants/theme';
+import { useToast } from '@/components/toast';
 import { getScienceNote } from '@/data/exercise-science';
 import { logExercise, type Exercise } from '@/lib/exercises';
 import { logSuccess } from '@/lib/feedback';
@@ -207,7 +208,7 @@ function NumberField({
 const nf = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   label: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14.5, fontWeight: '600', color: C.inkSoft },
-  unit: { fontFamily: Fonts?.body ?? 'system', fontSize: 12, fontWeight: '400', color: C.inkFaint },
+  unit: { fontFamily: Fonts?.body ?? 'system', fontSize: 12, fontWeight: '400', color: C.inkSoft },
   group: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stepBtn: {
     width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, borderColor: C.green,
@@ -286,7 +287,7 @@ const sci = StyleSheet.create({
   row: { gap: 3 },
   label: {
     fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600',
-    letterSpacing: 0.5, textTransform: 'uppercase', color: C.inkFaint,
+    letterSpacing: 0.5, textTransform: 'uppercase', color: C.inkSoft,
   },
   body: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft, lineHeight: 21 },
   tipRow: {
@@ -315,7 +316,7 @@ export default function ExerciseDetailScreen() {
         <AmbientBackground />
         <SafeAreaView style={s.flex} edges={['top']}>
           <View style={s.header}>
-            <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+            <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backBtn} hitSlop={8}>
               <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
             </Pressable>
           </View>
@@ -337,7 +338,7 @@ export default function ExerciseDetailScreen() {
       <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backBtn} hitSlop={8}>
             <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
           </Pressable>
           <Text style={s.headerTitle} numberOfLines={1}>{exercise.name}</Text>
@@ -443,6 +444,7 @@ function LogSheet({
   const [duration, setDuration] = useState(20);
   const [distance, setDistance] = useState(0);
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
 
   async function handleSave() {
     if (saving) return;
@@ -466,7 +468,9 @@ function LogSheet({
       onLogged();
     } catch {
       setSaving(false);
-      // Keep the sheet open so the user can retry.
+      // A1: keeping the sheet open is right, but doing it in silence is not —
+      // the user had no way to tell the save had failed at all.
+      toast("Couldn't save that workout — check your connection.");
     }
   }
 
@@ -514,7 +518,7 @@ const ls = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   title: { flex: 1, fontFamily: Fonts?.display ?? 'system', fontSize: 20, color: C.ink, letterSpacing: -0.3 },
   closeBtn: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-  closeTxt: { fontSize: 22, lineHeight: 26, color: C.inkFaint },
+  closeTxt: { fontSize: 22, lineHeight: 26, color: C.inkSoft },
   subtitle: { fontFamily: Fonts?.body ?? 'system', fontSize: 13.5, color: C.inkSoft, marginTop: 2, marginBottom: 18 },
   saveBtn: {
     backgroundColor: C.green, borderRadius: Radius.md, height: 52,
@@ -653,5 +657,5 @@ const s = StyleSheet.create({
 
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 24 },
   emptyTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 16, fontWeight: '600', color: C.ink },
-  emptySub: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint, textAlign: 'center' },
+  emptySub: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft, textAlign: 'center' },
 });

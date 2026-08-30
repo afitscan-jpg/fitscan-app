@@ -116,7 +116,7 @@ export default function DayScreen() {
       <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backBtn} hitSlop={8}>
             <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
           </Pressable>
           <View style={s.headerText}>
@@ -193,11 +193,11 @@ const s = StyleSheet.create({
   backBtn:    { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   headerText: { flex: 1, alignItems: 'center' },
   title:      { fontFamily: Fonts?.display ?? 'system', fontSize: 19, color: C.ink, letterSpacing: -0.3 },
-  subtitle:   { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint, marginTop: 1 },
+  subtitle:   { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkSoft, marginTop: 1 },
 
   center:     { alignItems: 'center', paddingTop: 60, gap: 6 },
   emptyTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 16, fontWeight: '600', color: C.ink },
-  emptySub:   { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint, textAlign: 'center' },
+  emptySub:   { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft, textAlign: 'center' },
 
   // Totals strip
   liveRow: {
@@ -236,8 +236,8 @@ const ti = StyleSheet.create({
   topRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   name:       { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, color: C.inkStrong, fontWeight: '600', flex: 1 },
   metaRow:    { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  meta:       { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint },
+  meta:       { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkSoft },
   estTag:     { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 10, fontWeight: '600', color: C.amberInk, backgroundColor: C.amberSoft, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, overflow: 'hidden' },
   kcal:       { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.inkStrong, fontVariant: ['tabular-nums'], flexShrink: 0 },
-  kcalUnit:   { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, fontWeight: '400', color: C.inkFaint },
+  kcalUnit:   { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, fontWeight: '400', color: C.inkSoft },
 });

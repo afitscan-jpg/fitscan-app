@@ -116,7 +116,7 @@ const ec = StyleSheet.create({
   body: { flex: 1, gap: 5 },
   name: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.ink, lineHeight: 19 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  muscle: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint, flexShrink: 1 },
+  muscle: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, flexShrink: 1 },
   equipChip: {
     backgroundColor: C.greenSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, flexShrink: 0,
   },
@@ -220,7 +220,7 @@ export default function ExerciseBrowserScreen() {
       <SafeAreaView style={s.flex} edges={['top']}>
         {/* Header */}
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backBtn} hitSlop={8}>
             <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
           </Pressable>
           <Text style={s.title}>Exercises</Text>
@@ -347,7 +347,7 @@ const s = StyleSheet.create({
 
   center: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 24, gap: 6 },
   emptyTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 16, fontWeight: '600', color: C.ink, textAlign: 'center' },
-  emptySub: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint, textAlign: 'center' },
+  emptySub: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft, textAlign: 'center' },
   retryBtn: {
     marginTop: 10, backgroundColor: C.card, borderRadius: Radius.md, borderWidth: 1, borderColor: C.cardBorder,
     paddingHorizontal: 22, minHeight: 46, alignItems: 'center', justifyContent: 'center', ...Shadow.sm,

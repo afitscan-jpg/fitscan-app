@@ -67,7 +67,7 @@ function TabButton({ name, label, isFocused, onPress }: {
     }
   }, [isFocused, reduced, ty]);
   const iconStyle = useAnimatedStyle(() => ({ transform: [{ translateY: ty.value }] }));
-  const iconColor = isFocused ? C.mint : C.inkDim;
+  const iconColor = isFocused ? C.mint : C.inkSoft;
   return (
     <Pressable
       style={styles.tabItem}
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     lineHeight: 12,
     letterSpacing: 0.2,
     fontWeight: '600',
-    color: C.inkDim,
+    color: C.inkSoft,
     textAlign: 'center',
   },
   labelActive: {

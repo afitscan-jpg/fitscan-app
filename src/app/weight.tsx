@@ -215,15 +215,15 @@ function WeightChart({ logs, target }: { logs: WeightLog[]; target: number | nul
           })}
 
           {/* Range weight labels (min/max) */}
-          <SvgText x={PAD_L} y={PAD_T - 7} fill={C.inkFaint} fontSize={9.5}>{fmt1(geom.hi)}</SvgText>
-          <SvgText x={PAD_L} y={CHART_H - 10} fill={C.inkFaint} fontSize={9.5}>{fmt1(geom.lo)}</SvgText>
+          <SvgText x={PAD_L} y={PAD_T - 7} fill={C.inkSoft} fontSize={9.5}>{fmt1(geom.hi)}</SvgText>
+          <SvgText x={PAD_L} y={CHART_H - 10} fill={C.inkSoft} fontSize={9.5}>{fmt1(geom.lo)}</SvgText>
 
           {/* First / last date labels */}
-          <SvgText x={geom.pts[0].x} y={CHART_H - 2} fill={C.inkFaint} fontSize={9.5} textAnchor="start">
+          <SvgText x={geom.pts[0].x} y={CHART_H - 2} fill={C.inkSoft} fontSize={9.5} textAnchor="start">
             {shortDate(geom.pts[0].date)}
           </SvgText>
           {geom.pts.length > 1 ? (
-            <SvgText x={geom.pts[geom.pts.length - 1].x} y={CHART_H - 2} fill={C.inkFaint} fontSize={9.5} textAnchor="end">
+            <SvgText x={geom.pts[geom.pts.length - 1].x} y={CHART_H - 2} fill={C.inkSoft} fontSize={9.5} textAnchor="end">
               {shortDate(geom.pts[geom.pts.length - 1].date)}
             </SvgText>
           ) : null}
@@ -382,7 +382,7 @@ export default function WeightScreen() {
       <SafeAreaView style={s.flex} edges={['top']}>
         {/* Header */}
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} style={s.iconBtn} hitSlop={8}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.iconBtn} hitSlop={8}>
             <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
           </Pressable>
           <Text style={s.headerTitle}>Weight</Text>
@@ -643,12 +643,12 @@ const s = StyleSheet.create({
   cardsRow: { flexDirection: 'row', gap: 12 },
   statCardWrap: { flex: 1 },
   statCard: { flex: 1, paddingHorizontal: 16, paddingVertical: 16, minHeight: 104, justifyContent: 'center' },
-  statLabel: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase', color: C.inkFaint },
+  statLabel: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase', color: C.inkSoft },
   statValue: { marginTop: 6, fontFamily: Fonts?.display ?? 'system', fontSize: 30, color: C.inkStrong, letterSpacing: -0.8, fontVariant: ['tabular-nums'] },
   statUnit: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft },
-  statDash: { marginTop: 6, fontFamily: Fonts?.display ?? 'system', fontSize: 30, color: C.inkDim },
+  statDash: { marginTop: 6, fontFamily: Fonts?.display ?? 'system', fontSize: 30, color: C.inkSoft },
   statTrend: { marginTop: 5, fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 12.5, fontWeight: '600', color: C.greenInk },
-  statTrendMuted: { marginTop: 5, fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint },
+  statTrendMuted: { marginTop: 5, fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft },
   statLink: { marginTop: 5, fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 12.5, fontWeight: '600', color: C.green },
 
   // Period tabs
@@ -671,7 +671,7 @@ const s = StyleSheet.create({
   emptyCard: { paddingHorizontal: 22, paddingVertical: 30, alignItems: 'center', gap: 8 },
   emptyGlyph: { width: 52, height: 52, borderRadius: 16, backgroundColor: C.greenSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   emptyTitle: { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 16, color: C.ink },
-  emptyBody: { fontFamily: Fonts?.body ?? 'system', fontSize: 13.5, color: C.inkFaint, textAlign: 'center', lineHeight: 20 },
+  emptyBody: { fontFamily: Fonts?.body ?? 'system', fontSize: 13.5, color: C.inkSoft, textAlign: 'center', lineHeight: 20 },
   emptyBtn: { marginTop: 8, backgroundColor: C.accent, borderRadius: Radius.md, paddingHorizontal: 22, paddingVertical: 12, ...Shadow.sm },
   emptyBtnText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: '#fff' },
 
@@ -687,7 +687,7 @@ const s = StyleSheet.create({
   },
   photoText: { flex: 1, gap: 2 },
   photoTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.ink },
-  photoSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint },
+  photoSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft },
 
   // Entries list
   listSection: { gap: 11 },
@@ -699,13 +699,13 @@ const s = StyleSheet.create({
   },
   entryLeft: { flex: 1, gap: 3 },
   entryWeight: { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 17, fontWeight: '600', color: C.inkStrong, fontVariant: ['tabular-nums'] },
-  entryUnit: { fontFamily: Fonts?.body ?? 'system', fontSize: 12, fontWeight: '400', color: C.inkFaint },
+  entryUnit: { fontFamily: Fonts?.body ?? 'system', fontSize: 12, fontWeight: '400', color: C.inkSoft },
   entryMeta: { flexDirection: 'row', alignItems: 'center' },
   entryDate: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft },
-  entryNote: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint, flexShrink: 1 },
+  entryNote: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, flexShrink: 1 },
   delBtn: { paddingHorizontal: 8, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
-  delTxt: { fontSize: 20, lineHeight: 24, color: C.inkDim },
-  footnote: { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint, textAlign: 'center', marginTop: 4, lineHeight: 17 },
+  delTxt: { fontSize: 20, lineHeight: 24, color: C.inkSoft },
+  footnote: { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkSoft, textAlign: 'center', marginTop: 4, lineHeight: 17 },
 
   // Skeleton
   skStatCard: { flex: 1, height: 104, borderRadius: Radius.xl, backgroundColor: C.line },
@@ -730,8 +730,8 @@ const sh = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   title: { fontFamily: Fonts?.display ?? 'system', fontSize: 20, color: C.ink, letterSpacing: -0.3 },
   closeBtn: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-  closeTxt: { fontSize: 22, lineHeight: 26, color: C.inkFaint },
-  hint: { fontFamily: Fonts?.body ?? 'system', fontSize: 13, color: C.inkFaint, marginBottom: 18 },
+  closeTxt: { fontSize: 22, lineHeight: 26, color: C.inkSoft },
+  hint: { fontFamily: Fonts?.body ?? 'system', fontSize: 13, color: C.inkSoft, marginBottom: 18 },
 
   weightRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8, marginBottom: 18 },
   weightInput: {

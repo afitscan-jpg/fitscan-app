@@ -10,7 +10,7 @@ export default function OcrCaptureScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.backBtn} hitSlop={8}>
           <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
         </Pressable>
       </View>

@@ -61,7 +61,7 @@ function initState(outcome: string): ScreenState {
 function Header() {
   return (
     <View style={styles.header}>
-      <Pressable onPress={() => router.back()} style={styles.headerBtn} hitSlop={8}>
+      <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.headerBtn} hitSlop={8}>
         <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
       </Pressable>
       <Text style={styles.headerTitle}>Scan result</Text>
@@ -86,7 +86,7 @@ function NotFoundView() {
         >
           <Text style={styles.primaryBtnText}>Describe it in text</Text>
         </Pressable>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
+        <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
           <Text style={styles.ghostBtnText}>Scan another product</Text>
         </Pressable>
       </View>
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
   basisNote: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginTop: -Spacing.two + 2,
   },
 
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: Fonts?.bodySemi ?? 'system',
     fontWeight: '700',
-    color: C.inkFaint,
+    color: C.inkSoft,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
   portionKcalUnit: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 13,
-    color: C.inkFaint,
+    color: C.inkSoft,
   },
 
   buttonSpacer: { height: Spacing.six + Spacing.four },

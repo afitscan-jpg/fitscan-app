@@ -165,7 +165,7 @@ export default function SettingsScreen() {
       <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backBtn} hitSlop={8}>
             <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
           </Pressable>
           <Text style={s.title}>Settings</Text>
@@ -365,7 +365,7 @@ const s = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.7,
     textTransform: 'uppercase',
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginTop: 6,
     marginBottom: -2,
   },
@@ -408,7 +408,7 @@ const s = StyleSheet.create({
   linkRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   linkText:   { flex: 1, gap: 2 },
   actionText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.ink },
-  actionSub:  { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint },
+  actionSub:  { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft },
   danger:     { color: C.red },
 
   accountCard: {
@@ -436,7 +436,7 @@ const s = StyleSheet.create({
   footnote: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
-    color: C.inkFaint,
+    color: C.inkSoft,
     textAlign: 'center',
     lineHeight: 18,
     marginTop: 6,
@@ -444,7 +444,7 @@ const s = StyleSheet.create({
   langLine: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12.5,
-    color: C.inkFaint,
+    color: C.inkSoft,
     lineHeight: 18,
     marginTop: 8,
     marginLeft: 2,

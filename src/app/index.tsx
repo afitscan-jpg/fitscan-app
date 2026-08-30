@@ -35,6 +35,8 @@ import Reanimated, {
 } from 'react-native-reanimated';
 
 import { AmbientBackground } from '@/components/ambient-background';
+import { useToast } from '@/components/toast';
+import { runOptimistic } from '@/lib/optimistic';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { GlassCard } from '@/components/glass-card';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
@@ -381,10 +383,10 @@ const wk = StyleSheet.create({
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   title:  { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 15, color: C.ink },
-  meta:   { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint },
+  meta:   { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkSoft },
   dots:   { flexDirection: 'row', justifyContent: 'space-between' },
   day:    { alignItems: 'center', gap: 8 },
-  dayLabel:      { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, color: C.inkFaint },
+  dayLabel:      { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, color: C.inkSoft },
   dayLabelToday: { color: C.ink, fontWeight: '600' },
   dot: { width: 23, height: 23, borderRadius: 12 },
   dotToday: { borderWidth: 2, borderColor: C.accent },
@@ -444,7 +446,7 @@ function WeekInsightCard({
             <Text style={wi.badgeText}>{data.days_logged} of 7 logged</Text>
           </View>
         </AnimatedPressable>
-        <AnimatedPressable onPress={onRefresh} hitSlop={12} style={wi.refreshBtn} disabled={loading}>
+        <AnimatedPressable onPress={onRefresh} hitSlop={12} style={wi.refreshBtn} disabled={loading} accessibilityRole="button" accessibilityLabel="Refresh your weekly readout">
           <Icon name="refresh" color={C.inkFaint} size={16} strokeWidth={2} />
         </AnimatedPressable>
       </View>
@@ -523,7 +525,7 @@ const wi = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    color: C.inkFaint,
+    color: C.inkSoft,
   },
   sectionBody: {
     fontFamily: Fonts?.body ?? 'system',
@@ -716,18 +718,25 @@ const MEAL_TINT: Record<string, { bg: string; border: string; fg: string }> = {
   dinner:    { bg: '#ECEAF2', border: 'rgba(107,94,140,0.22)', fg: '#6B5E8C' },
 };
 
-// Compact per-item macro line in grams: "P78 · C120 · F30". Rounds to whole
-// numbers, omits any macro that's null, and hides the line entirely when there's
-// no macro data at all (all null/zero) so scanned rows without macros stay clean.
+// Per-item macro line: "12g protein · 40g carbs · 7g fat".
+//
+// B1: this used to read "P12 · C40 · F7", which a real user could not decode —
+// and it was the ONLY place in the app that abbreviated. Every other macro
+// surface (day, plan, quick-add, the photo sheet) already spells out
+// protein/carbs/fat, so the fix is to make the diary card match its siblings
+// rather than invent a third vocabulary or bolt on an explanatory hint.
+//
+// Rounds to whole numbers, omits any macro that's null, and hides the line
+// entirely when there's no macro data at all, so scanned rows stay clean.
 function itemMacroLine(item: TodayEntry): string | null {
   const p = item.protein_g == null ? null : Math.round(Number(item.protein_g));
   const c = item.carbs_g   == null ? null : Math.round(Number(item.carbs_g));
   const f = item.fat_g     == null ? null : Math.round(Number(item.fat_g));
   if ((p ?? 0) === 0 && (c ?? 0) === 0 && (f ?? 0) === 0) return null;
   const parts: string[] = [];
-  if (p != null) parts.push(`P${p}`);
-  if (c != null) parts.push(`C${c}`);
-  if (f != null) parts.push(`F${f}`);
+  if (p != null) parts.push(`${p}g protein`);
+  if (c != null) parts.push(`${c}g carbs`);
+  if (f != null) parts.push(`${f}g fat`);
   return parts.length ? parts.join(' · ') : null;
 }
 
@@ -780,7 +789,13 @@ function TodayItem({ item, onEdit, onDelete }: { item: TodayEntry; onEdit: () =>
             <Text style={ti.meta} numberOfLines={1}>{metaText}</Text>
             {isEstimate ? <Text style={ti.estTag}>estimate</Text> : null}
           </View>
-          {macroText ? <Text style={ti.macro} numberOfLines={1}>{macroText}</Text> : null}
+          {/* B1: spelled-out labels are longer, so allow a shrink-to-fit rather
+              than truncating "…7g f" on a 5.5" screen. */}
+          {macroText ? (
+            <Text style={ti.macro} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+              {macroText}
+            </Text>
+          ) : null}
         </View>
       </Pressable>
       <Pressable onPress={onDelete} hitSlop={10} style={ti.delBtn}>
@@ -809,15 +824,15 @@ const ti = StyleSheet.create({
   info:      { flex: 1, gap: 5 },
   topRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   name:      { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, color: C.inkStrong, fontWeight: '600', flex: 1 },
-  tag:       { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint, fontWeight: '400' },
+  tag:       { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkSoft, fontWeight: '400' },
   metaRow:   { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  meta:      { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint, flex: 1 },
+  meta:      { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkSoft, flex: 1 },
   estTag:    { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 10, fontWeight: '600', color: C.amberInk, backgroundColor: C.amberSoft, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, overflow: 'hidden' },
-  macro:     { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkFaint, fontVariant: ['tabular-nums'], letterSpacing: 0.1 },
+  macro:     { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkSoft, fontVariant: ['tabular-nums'], letterSpacing: 0.1 },
   kcal:      { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.inkStrong, fontVariant: ['tabular-nums'], flexShrink: 0 },
-  kcalUnit:  { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, fontWeight: '400', color: C.inkFaint },
+  kcalUnit:  { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, fontWeight: '400', color: C.inkSoft },
   delBtn:    { paddingHorizontal: 6, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
-  delBtnText:{ fontSize: 20, lineHeight: 24, color: C.inkDim },
+  delBtnText:{ fontSize: 20, lineHeight: 24, color: C.inkSoft },
 });
 
 // ─── Edit-a-logged-entry sheet ───────────────────────────────────────────────
@@ -975,7 +990,7 @@ const es = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
   title: { flex: 1, fontFamily: Fonts?.display ?? 'system', fontSize: 20, color: C.ink, letterSpacing: -0.3 },
   closeBtn: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-  closeTxt: { fontSize: 22, lineHeight: 26, color: C.inkFaint },
+  closeTxt: { fontSize: 22, lineHeight: 26, color: C.inkSoft },
 
   fieldRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   fieldLabel: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: C.inkSoft },
@@ -1002,7 +1017,7 @@ const es = StyleSheet.create({
   },
   unit: { fontFamily: Fonts?.body ?? 'system', fontSize: 13, color: C.inkSoft },
 
-  hint: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint, marginTop: -4, marginBottom: 18 },
+  hint: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, marginTop: -4, marginBottom: 18 },
   saveBtn: { backgroundColor: C.green, borderRadius: Radius.md, height: 52, alignItems: 'center', justifyContent: 'center', ...Shadow.md },
   saveDim: { opacity: 0.7 },
   saveTxt: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: '#fff' },
@@ -1236,7 +1251,7 @@ const wo = StyleSheet.create({
   },
   info: { flex: 1, gap: 4 },
   name: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.inkStrong },
-  detail: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint, fontVariant: ['tabular-nums'] },
+  detail: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, fontVariant: ['tabular-nums'] },
 });
 
 // ─── Streak pill ─────────────────────────────────────────────────────────────
@@ -1328,6 +1343,7 @@ export default function HomeScreen() {
   const [water,          setWater]          = useState<WaterData>({ ml: 0, glasses: 0 });
   const [loading,        setLoading]        = useState(true);
   const [addingWater,    setAddingWater]    = useState(false);
+  const toast = useToast();
   const [insightData,    setInsightData]    = useState<WeekInsight | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightLocked,  setInsightLocked]  = useState(false);
@@ -1454,24 +1470,36 @@ export default function HomeScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          try {
-            await deleteFoodLog(id);
-            await load();
-          } catch { /* silently ignore */ }
+          // A1: was `catch { /* silently ignore */ }` — offline, the row simply
+          // stayed and said nothing, inviting a second tap.
+          const before = log;
+          await runOptimistic({
+            apply:  () => setLog((rows) => rows.filter((r) => r.id !== id)),
+            revert: () => setLog(before),
+            commit: () => deleteFoodLog(id),
+            settle: load,
+            notify: toast,
+            message: "Couldn't remove that entry — check your connection.",
+          });
         },
       },
     ]);
   }
 
   async function handleAddWater() {
+    // A1: was `catch { /* ignore */ }` — the tap appeared to do nothing at all.
     setAddingWater(true);
-    try {
-      await addWater(250);
-      const w = await getWaterToday();
-      setWater(w);
-      logSuccess();
-    } catch { /* ignore */ }
-    finally { setAddingWater(false); }
+    const before = water;
+    const ok = await runOptimistic({
+      apply:  () => setWater((w) => ({ ml: w.ml + 250, glasses: Math.round((w.ml + 250) / 250) })),
+      revert: () => setWater(before),
+      commit: () => addWater(250),
+      settle: async () => setWater(await getWaterToday()),
+      notify: toast,
+      message: "Couldn't save that glass — check your connection.",
+    });
+    if (ok !== null) logSuccess();
+    setAddingWater(false);
   }
 
   const target      = profile?.daily_target_kcal ?? 2000;
@@ -1792,7 +1820,7 @@ const mc = StyleSheet.create({
   keyWarn:  { color: C.red },
   val:      { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 19, fontWeight: '600', color: C.inkStrong, marginTop: 3, fontVariant: ['tabular-nums'] },
   valWarn:  { color: C.red },
-  unit:     { fontSize: 13, fontWeight: '400', color: C.inkFaint },
+  unit:     { fontSize: 13, fontWeight: '400', color: C.inkSoft },
 });
 
 // ─── Screen styles ────────────────────────────────────────────────────────────
@@ -1819,7 +1847,7 @@ const hs = StyleSheet.create({
     backgroundColor: 'rgba(76,124,99,0.30)',
   },
   gearBtn:    { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  eyebrow:    { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600', letterSpacing: 1.1, textTransform: 'uppercase', color: C.inkFaint },
+  eyebrow:    { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600', letterSpacing: 1.1, textTransform: 'uppercase', color: C.inkSoft },
   greetTitle: { fontFamily: Fonts?.display ?? 'system', fontSize: 25, color: C.ink, marginTop: 3, letterSpacing: -0.3 },
 
   calCard: {
@@ -1834,7 +1862,7 @@ const hs = StyleSheet.create({
     padding: 20,
     ...Shadow.sm,
   },
-  loadingText: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint },
+  loadingText: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft },
 
   // Stats row (below ring)
   statsRow: { flexDirection: 'row', marginTop: 18 },
@@ -1850,13 +1878,13 @@ const hs = StyleSheet.create({
   secTitle:    { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 17, color: C.ink, letterSpacing: -0.2 },
   secLinkWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   secLink:     { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13, color: C.green, fontWeight: '600' },
-  empty:       { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint, textAlign: 'center', paddingVertical: Spacing.four },
+  empty:       { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft, textAlign: 'center', paddingVertical: Spacing.four },
   trendsRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: Radius.lg, paddingVertical: 13, paddingHorizontal: 15, ...Shadow.sm },
   trendsIcon:  { width: 34, height: 34, borderRadius: 11, backgroundColor: C.greenSoft, alignItems: 'center', justifyContent: 'center' },
   trendsText:  { flex: 1 },
   trendsTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14.5, fontWeight: '600', color: C.inkStrong },
-  trendsSub:   { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint, marginTop: 1 },
-  trendsChev:  { fontFamily: Fonts?.body ?? 'system', fontSize: 22, color: C.inkFaint, marginTop: -2 },
+  trendsSub:   { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, marginTop: 1 },
+  trendsChev:  { fontFamily: Fonts?.body ?? 'system', fontSize: 22, color: C.inkSoft, marginTop: -2 },
   targetBasis: { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkSoft, textAlign: 'center', lineHeight: 16, marginTop: 6 },
-  disclaimer:  { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, color: C.inkFaint, textAlign: 'center', lineHeight: 15, marginTop: 8 },
+  disclaimer:  { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, color: C.inkSoft, textAlign: 'center', lineHeight: 15, marginTop: 8 },
 });

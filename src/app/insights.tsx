@@ -16,6 +16,7 @@ import { Icon } from '@/components/Icon';
 import { DailyBars, type BarDatum } from '@/components/insights/DailyBars';
 import { MealTypeBar, VerifiedShare } from '@/components/insights/HorizontalBars';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
+import { formatTotalKcal } from '@/lib/format-total';
 import { getInsights7d, type InsightsData } from '@/lib/insights';
 
 // ── "Handy to know" education snippets — static, non-medical, anti-guilt ────────
@@ -120,7 +121,9 @@ export default function InsightsScreen() {
               A calm look at your last 7 days — {data.loggedDays} day{data.loggedDays === 1 ? '' : 's'} logged. Numbers, not judgments.
             </Text>
 
-            <ChartCard index={0} title="Calories vs target" sub={data.weeklyAvgKcal != null ? `Averaging ${data.weeklyAvgKcal.toLocaleString()} kcal this week` : 'Last 7 days'}>
+            <ChartCard index={0} title="Calories vs target" sub={data.weeklyAvgKcal != null
+                ? `Averaging ${formatTotalKcal(data.weeklyAvgKcal, data.days.some((d) => d.est))} this week`
+                : 'Last 7 days'}>
               <DailyBars data={kcalBars} target={data.kcalTarget} avg={data.weeklyAvgKcal} yStep={500} />
             </ChartCard>
             <EduSnippet index={1} tag="Handy to know" body={EDU.target} />
@@ -163,12 +166,12 @@ const s = StyleSheet.create({
 
   card: { backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: Radius.lg, padding: 16, ...Shadow.sm },
   cardTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15.5, fontWeight: '600', color: C.inkStrong },
-  cardSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint, marginTop: 2 },
+  cardSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, marginTop: 2 },
   chartWrap: { marginTop: 12 },
 
   edu: { backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderLeftWidth: 3, borderLeftColor: C.green, borderRadius: Radius.md, paddingVertical: 12, paddingHorizontal: 14 },
   eduTag: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 10.5, letterSpacing: 0.6, textTransform: 'uppercase', color: C.greenInk },
   eduBody: { fontFamily: Fonts?.body ?? 'system', fontSize: 13.5, color: C.ink, lineHeight: 20, marginTop: 4 },
 
-  footer: { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkFaint, lineHeight: 17, textAlign: 'center', marginTop: 6, paddingHorizontal: 8 },
+  footer: { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkSoft, lineHeight: 17, textAlign: 'center', marginTop: 6, paddingHorizontal: 8 },
 });

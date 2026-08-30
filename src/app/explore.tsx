@@ -170,7 +170,7 @@ const nc = StyleSheet.create({
   time: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
-    color: C.inkFaint,
+    color: C.inkSoft,
   },
   headline: {
     fontFamily: Fonts?.bodySemi ?? 'system',
@@ -332,7 +332,7 @@ const s = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.7,
     textTransform: 'uppercase',
-    color: C.inkFaint,
+    color: C.inkSoft,
   },
   title: {
     fontFamily: Fonts?.display ?? 'system',
@@ -387,7 +387,7 @@ const s = StyleSheet.create({
   emptySub: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 14,
-    color: C.inkFaint,
+    color: C.inkSoft,
     textAlign: 'center',
     marginTop: 6,
   },
@@ -395,7 +395,7 @@ const s = StyleSheet.create({
   footnote: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
-    color: C.inkFaint,
+    color: C.inkSoft,
     textAlign: 'center',
     paddingTop: 4,
     lineHeight: 18,

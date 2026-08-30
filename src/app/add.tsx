@@ -165,6 +165,10 @@ export default function AddFoodScreen() {
   // Ids, not snapshots: the sheet stays open after a partial write and items stay
   // editable, so a retry must re-read the CURRENT amounts, not the ones that failed.
   const [aiRetryIds,   setAiRetryIds]   = useState<string[] | null>(null);
+  // A4: the meal this photo gets logged under; defaults to time-of-day, chip overrides.
+  const [aiMeal,       setAiMeal]       = useState<MealType>(() => mealTypeForNow());
+  // A3: per-item outcome so the sheet shows WHICH rows landed and which didn't.
+  const [aiItemStatus, setAiItemStatus] = useState<Record<string, 'logged' | 'failed'>>({});
   const [aiLoggedNames,setAiLoggedNames]= useState<string[]>([]);
   const [paywall,       setPaywall]       = useState<PaywallError | null>(null);
   const [showCamera,    setShowCamera]    = useState(false);
@@ -224,7 +228,12 @@ export default function AddFoodScreen() {
         fat_g:     parseFloat(nutr.fat_g.toFixed(1)),
         meal_type: sheetMeal,
         source: 'quick_add',
-        verdict: 'good',
+        // A5: was hardcoded verdict:'good'. Nothing here can EARN a verdict — a
+        // preset food carries no scoring input — and no other logging path sets
+        // one (text and photo both leave it null). Stamping green on every
+        // quick-add made Home's dot meaningless on the highest-volume path and
+        // asserted a judgement we never computed. Omitted; the dot renders
+        // neutral for null.
         quantity: amount,
         unit: selected.unit,
       });
@@ -266,6 +275,8 @@ export default function AddFoodScreen() {
       setAiPartial(null);
       setAiRetryIds(null);
       setAiLoggedNames([]);
+      setAiItemStatus({});
+      setAiMeal(mealTypeForNow());   // fresh parse → default the meal from the clock again
     }
   }
 
@@ -326,6 +337,7 @@ export default function AddFoodScreen() {
     setAiPartial(null);
     setAiRetryIds(null);
     setAiLoggedNames([]);
+    setAiItemStatus({});
   }
 
   async function handleLogAll() {
@@ -352,7 +364,7 @@ export default function AddFoodScreen() {
             fat_g:     parseFloat(nutr.fat_g.toFixed(1)),
             source:    'ai_estimate',
             provenance: 'ai_estimate',
-            meal_type: mealTypeForNow(),
+            meal_type: aiMeal,     // A4: the user's chip, not the clock
             ai_raw_input: null,
           });
         },
@@ -363,6 +375,14 @@ export default function AddFoodScreen() {
         void syncReminders(); // something landed → re-apply meal suppression
         logSuccess();
       }
+
+      // A3: mark every row with what actually happened to it.
+      const failedIds = new Set(written.failedItems.map((it) => it.id));
+      setAiItemStatus((prev) => {
+        const next = { ...prev };
+        for (const it of pending) next[it.id] = failedIds.has(it.id) ? 'failed' : 'logged';
+        return next;
+      });
 
       if (written.skipped.length > 0) {
         // Partial write: say so and leave the sheet open so the retry is possible.
@@ -382,6 +402,7 @@ export default function AddFoodScreen() {
       setAiSheet(null);
       setAiRetryIds(null);
       setAiLoggedNames([]);
+      setAiItemStatus({});
       router.back();
     } catch {
       Alert.alert('Could not log food. Please try again.');
@@ -530,7 +551,7 @@ export default function AddFoodScreen() {
         >
           {/* Header */}
           <View style={s.header}>
-            <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+            <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backBtn} hitSlop={8}>
               <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
             </Pressable>
             <Text style={s.title}>What did you eat?</Text>
@@ -797,10 +818,38 @@ export default function AddFoodScreen() {
                 </Text>
               ) : null}
 
+              {/* A4: the photo sheet had NO meal control at all — it hardcoded
+                  mealTypeForNow(), so a photo of last night's dinner taken at 9am
+                  filed as breakfast with no way to correct it. Quick-add and the
+                  text card both have chips; this is the third path. */}
+              {(aiSheet?.items.length ?? 0) > 0 ? (
+                <View style={s.sheetMealRow}>
+                  {(['breakfast', 'lunch', 'snack', 'dinner'] as MealType[]).map((m) => {
+                    const on = aiMeal === m;
+                    return (
+                      <Pressable
+                        key={m}
+                        style={[s.sheetMealChip, on && s.sheetMealChipOn]}
+                        onPress={() => setAiMeal(m)}
+                        disabled={aiLogging}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: on }}
+                        accessibilityLabel={`Log as ${m}`}
+                      >
+                        <Text style={[s.sheetMealText, on && s.sheetMealTextOn]}>
+                          {m.charAt(0).toUpperCase() + m.slice(1)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+
               {aiSheet?.items.map((item) => (
                 <AiConfirmItem
                   key={item.id}
                   item={item}
+                  status={aiItemStatus[item.id]}
                   onAmount={updateAiAmount}
                   onKcal={updateAiKcal}
                   onRemove={removeAiItem}
@@ -905,11 +954,16 @@ function QuickChip({
 // in local draft strings and committed on blur / submit so macros rescale then.
 function AiConfirmItem({
   item,
+  status,
   onAmount,
   onKcal,
   onRemove,
 }: {
   item: AiItem;
+  /** A3: what happened to THIS row on the last "Log all". Undefined = not tried
+   *  yet. A logged row is marked and locked so a retry cannot duplicate it; a
+   *  failed row stays editable and is the only kind the retry re-sends. */
+  status?: 'logged' | 'failed';
   onAmount: (id: string, amount: number) => void;
   onKcal: (id: string, kcal: number) => void;
   onRemove: (id: string) => void;
@@ -942,8 +996,27 @@ function AiConfirmItem({
     onKcal(item.id, parsed);
   }
 
+  // A3: a row that already landed is shown as done and locked — editing or
+  // re-sending it is exactly how a retry used to duplicate rows.
+  if (status === 'logged') {
+    return (
+      <View style={[s.aiItemCard, s.aiItemLogged]}>
+        <View style={s.aiItemTop}>
+          <Text style={s.aiItemName}>{item.name}</Text>
+          <Text style={s.aiStatusLogged}>Logged</Text>
+        </View>
+        <Text style={s.aiStatusSub}>
+          {item.amount} {unitLabel} · {displayedKcal} kcal
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={s.aiItemCard}>
+    <View style={[s.aiItemCard, status === 'failed' && s.aiItemFailed]}>
+      {status === 'failed' ? (
+        <Text style={s.aiStatusFailed}>Didn&apos;t save — included in the retry</Text>
+      ) : null}
       <View style={s.aiItemTop}>
         <Text style={s.aiItemName}>{item.name}</Text>
         <Pressable onPress={() => onRemove(item.id)} hitSlop={10} style={s.aiItemRemoveBtn}>
@@ -1086,7 +1159,7 @@ const s = StyleSheet.create({
   aiNote: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12.5,
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginTop: 8,
     lineHeight: 18,
   },
@@ -1149,7 +1222,7 @@ const s = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.7,
     textTransform: 'uppercase',
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginTop: Spacing.three,
   },
 
@@ -1186,7 +1259,7 @@ const s = StyleSheet.create({
   chipKcal: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
-    color: C.inkFaint,
+    color: C.inkSoft,
   },
 
   // ── Workout entry point ──────────────────────────────────────────────────────
@@ -1220,7 +1293,7 @@ const s = StyleSheet.create({
   workoutSub: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12.5,
-    color: C.inkFaint,
+    color: C.inkSoft,
   },
 
   // ── Assistant entry point (slim) ─────────────────────────────────────────────
@@ -1300,7 +1373,7 @@ const s = StyleSheet.create({
   },
   closeBtnText: {
     fontSize: 22,
-    color: C.inkFaint,
+    color: C.inkSoft,
     lineHeight: 26,
   },
   // Meal picker in the quick-add sheet — defaults to time-of-day, tap to override.
@@ -1365,7 +1438,7 @@ const s = StyleSheet.create({
   stepUnit: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginTop: 2,
   },
 
@@ -1479,7 +1552,7 @@ const s = StyleSheet.create({
   aiKcalUnit: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 13,
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginRight: 2,
   },
   aiKcalInput: {
@@ -1509,6 +1582,18 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  aiItemLogged: { opacity: 0.72, borderColor: C.greenSoft, backgroundColor: C.greenSoft },
+  aiItemFailed: { borderColor: C.amberSoft, backgroundColor: C.amberSoft },
+  aiStatusLogged: {
+    fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 12.5, fontWeight: '600', color: C.greenInk,
+  },
+  aiStatusFailed: {
+    fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11.5, fontWeight: '600',
+    color: C.amberInk, marginBottom: 6,
+  },
+  aiStatusSub: {
+    fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, marginTop: 2,
+  },
   aiItemName: {
     fontFamily: Fonts?.bodySemi ?? 'system',
     fontSize: 15,
@@ -1527,12 +1612,12 @@ const s = StyleSheet.create({
   aiItemRemoveText: {
     fontSize: 17,
     lineHeight: 19,
-    color: C.inkFaint,
+    color: C.inkSoft,
   },
   aiItemHint: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 11.5,
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginTop: -2,
   },
 
@@ -1590,7 +1675,7 @@ const s = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.7,
     textTransform: 'uppercase',
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginBottom: 6,
   },
   aiLogBtn: {
@@ -1615,7 +1700,7 @@ const s = StyleSheet.create({
   aiStageText: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12.5,
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginTop: 10,
   },
   aiItemStepRow: {

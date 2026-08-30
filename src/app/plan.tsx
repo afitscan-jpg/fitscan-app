@@ -289,7 +289,7 @@ const mc = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    color: C.inkFaint,
+    color: C.inkSoft,
   },
   title: {
     fontFamily: Fonts?.displaySemi ?? 'system',
@@ -348,7 +348,7 @@ const mc = StyleSheet.create({
     textAlign: 'right',
     flexShrink: 0,
   },
-  itemKcal: { color: C.inkFaint, fontSize: 12.5 },
+  itemKcal: { color: C.inkSoft, fontSize: 12.5 },
   logBtn: {
     backgroundColor: C.green,
     borderRadius: Radius.md,
@@ -501,7 +501,7 @@ export default function PlanScreen() {
       <SafeAreaView style={s.flex} edges={['top']}>
         {/* ── Header ── */}
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backBtn} hitSlop={8}>
             <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
           </Pressable>
           <View style={s.headerText}>
@@ -511,6 +511,8 @@ export default function PlanScreen() {
           <Pressable
             onPress={() => { setLoggedMeals(new Map()); fetchPlan(true, dietOverride); }}
             hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Generate a new plan"
             style={[s.refreshBtn, loading && { opacity: 0.3 }]}
             disabled={loading}
           >
@@ -648,7 +650,7 @@ const s = StyleSheet.create({
   subtitle: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
-    color: C.inkFaint,
+    color: C.inkSoft,
     marginTop: 1,
   },
   refreshBtn:  { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
@@ -661,7 +663,7 @@ const s = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.7,
     textTransform: 'uppercase',
-    color: C.inkFaint,
+    color: C.inkSoft,
   },
   dietRow: { flexDirection: 'row', gap: 8, paddingRight: 4 },
   chip: {
@@ -685,7 +687,7 @@ const s = StyleSheet.create({
   loadingMsg: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 13,
-    color: C.inkFaint,
+    color: C.inkSoft,
     lineHeight: 19,
     marginTop: 2,
     marginBottom: 2,
@@ -718,14 +720,14 @@ const s = StyleSheet.create({
   // Error state
   center:      { alignItems: 'center', paddingTop: 80, gap: 8 },
   centerTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 16, fontWeight: '600', color: C.ink },
-  centerSub:   { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint, textAlign: 'center' },
+  centerSub:   { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft, textAlign: 'center' },
   retryBtn:    { marginTop: 8, backgroundColor: C.card, borderRadius: Radius.md, paddingHorizontal: 22, minHeight: 48, alignItems: 'center', justifyContent: 'center', ...Shadow.sm },
   retryText:   { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: C.green },
 
   note: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 13,
-    color: C.inkFaint,
+    color: C.inkSoft,
     textAlign: 'center',
     lineHeight: 19,
     paddingHorizontal: 10,
@@ -733,7 +735,7 @@ const s = StyleSheet.create({
   adjustedNote: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12,
-    color: C.inkFaint,
+    color: C.inkSoft,
     textAlign: 'center',
     fontStyle: 'italic',
   },
@@ -741,7 +743,7 @@ const s = StyleSheet.create({
   targetCaption: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 11.5,
-    color: C.inkFaint,
+    color: C.inkSoft,
     textAlign: 'center',
     marginTop: -4,
   },
@@ -749,7 +751,7 @@ const s = StyleSheet.create({
   disclaimer: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 11.5,
-    color: C.inkFaint,
+    color: C.inkSoft,
     textAlign: 'center',
     lineHeight: 17,
     paddingHorizontal: 10,

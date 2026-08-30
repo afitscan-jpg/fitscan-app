@@ -54,7 +54,7 @@ export default function AccountScreen() {
       <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backBtn} hitSlop={8}>
             <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
           </Pressable>
           <Text style={s.title}>Account</Text>
@@ -390,7 +390,7 @@ const s = StyleSheet.create({
   warnNote: {
     fontFamily: Fonts?.body ?? 'system',
     fontSize: 12.5,
-    color: C.inkFaint,
+    color: C.inkSoft,
     lineHeight: 18,
     textAlign: 'center',
     marginTop: 14,

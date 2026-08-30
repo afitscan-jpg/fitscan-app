@@ -206,7 +206,7 @@ export default function ProgressPhotosScreen() {
       <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         <View style={s.header}>
-          <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={8}>
+          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.backBtn} hitSlop={8}>
             <Icon name="chevL" color={C.ink} size={20} strokeWidth={2} />
           </Pressable>
           <Text style={s.title}>Progress Photos</Text>
@@ -399,7 +399,7 @@ function PhotoViewer({ photo, onClose, onDelete }: { photo: ProgressPhoto; onClo
         </Pressable>
       </SafeAreaView>
 
-      <Pressable style={v.imgWrap} onPress={onClose}>
+      <Pressable style={v.imgWrap} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close photo">
         <Image source={{ uri: photo.uri }} style={v.img} contentFit="contain" transition={150} />
       </Pressable>
 
@@ -547,13 +547,13 @@ const s = StyleSheet.create({
   slot: { flex: 1, gap: 6 },
   slotLabel: {
     fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600',
-    letterSpacing: 0.6, textTransform: 'uppercase', color: C.inkFaint,
+    letterSpacing: 0.6, textTransform: 'uppercase', color: C.inkSoft,
   },
   slotImg: { width: '100%', aspectRatio: 0.75, borderRadius: Radius.md, backgroundColor: '#EDEAE2', ...Shadow.sm },
   slotEmpty: { alignItems: 'center', justifyContent: 'center' },
   slotDate: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 12.5, fontWeight: '600', color: C.ink, marginTop: 2 },
   slotWeight: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.greenInk },
-  compareHint: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint, textAlign: 'center', marginTop: 16, marginBottom: 10 },
+  compareHint: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, textAlign: 'center', marginTop: 16, marginBottom: 10 },
   stripRow: { gap: 10, paddingVertical: 4, paddingRight: 8 },
   stripItem: { width: 74, borderRadius: Radius.sm, overflow: 'hidden', borderWidth: 2, borderColor: 'transparent' },
   stripItemOn: { borderColor: C.green },
@@ -588,9 +588,9 @@ const sh = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   title: { fontFamily: Fonts?.display ?? 'system', fontSize: 20, color: C.ink, letterSpacing: -0.3 },
   closeBtn: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-  closeTxt: { fontSize: 22, lineHeight: 26, color: C.inkFaint },
+  closeTxt: { fontSize: 22, lineHeight: 26, color: C.inkSoft },
   preview: { width: '100%', aspectRatio: 1, borderRadius: Radius.lg, backgroundColor: '#EDEAE2' },
-  dateLine: { fontFamily: Fonts?.body ?? 'system', fontSize: 13, color: C.inkFaint, marginTop: 12 },
+  dateLine: { fontFamily: Fonts?.body ?? 'system', fontSize: 13, color: C.inkSoft, marginTop: 12 },
   fieldLabel: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13, fontWeight: '600', color: C.inkSoft, marginTop: 16, marginBottom: 8 },
   weightRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   weightInput: {
@@ -602,5 +602,5 @@ const sh = StyleSheet.create({
   saveBtn: { backgroundColor: C.green, borderRadius: Radius.md, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 20, ...Shadow.md },
   saveDim: { opacity: 0.7 },
   saveTxt: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: '#fff' },
-  privacy: { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint, textAlign: 'center', marginTop: 12 },
+  privacy: { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkSoft, textAlign: 'center', marginTop: 12 },
 });

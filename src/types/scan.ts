@@ -27,7 +27,7 @@ export interface ScanResult {
 }
 
 export interface ScanResponse {
-  status: 'ok' | 'not_found';
+  status: 'ok' | 'not_found' | 'unavailable';
   barcode: string;
   name: string;
   brand: string;

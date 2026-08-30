@@ -104,6 +104,9 @@ export default function ScanScreen() {
         router.push({ pathname: '/scanner/result', params: { outcome: 'ok' } });
       } else if (outcome.kind === 'not_found') {
         router.push({ pathname: '/scanner/result', params: { outcome: 'not_found' } });
+      } else if (outcome.kind === 'unavailable') {
+        // Reachability problem, not a missing product — keep the copy temporary.
+        router.push({ pathname: '/scanner/result', params: { outcome: 'unavailable' } });
       } else if (outcome.kind === 'upstream_error') {
         setErrorMsg('Server error — please try again.');
         setScanState('error');

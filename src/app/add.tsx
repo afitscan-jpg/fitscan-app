@@ -25,6 +25,11 @@ import { PaywallSheet } from '@/components/paywall-sheet';
 import { TextLogCard } from '@/components/text-log-card';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { getProfile, logFood, mealTypeForNow, type MealType, type Profile } from '@/lib/db';
+import {
+  logAllSettled,
+  partialLogSummary,
+  type PartialLogResult,
+} from '@/lib/partial-log';
 import { syncReminders } from '@/lib/reminders';
 import { logSuccess, tap } from '@/lib/feedback';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -154,6 +159,13 @@ export default function AddFoodScreen() {
   const [aiSheet,     setAiSheet]     = useState<AiSheet | null>(null);
   const [aiLogging,    setAiLogging]    = useState(false);
   const [aiSuccess,    setAiSuccess]    = useState(false);
+  // Partial-write bookkeeping: what landed, what didn't, and which rows a retry
+  // should re-send (never the ones already written).
+  const [aiPartial,    setAiPartial]    = useState<PartialLogResult | null>(null);
+  // Ids, not snapshots: the sheet stays open after a partial write and items stay
+  // editable, so a retry must re-read the CURRENT amounts, not the ones that failed.
+  const [aiRetryIds,   setAiRetryIds]   = useState<string[] | null>(null);
+  const [aiLoggedNames,setAiLoggedNames]= useState<string[]>([]);
   const [paywall,       setPaywall]       = useState<PaywallError | null>(null);
   const [showCamera,    setShowCamera]    = useState(false);
   const [cameraReady,   setCameraReady]   = useState(false);
@@ -251,6 +263,9 @@ export default function AddFoodScreen() {
         };
       });
       setAiSheet({ items: aiItems, clarify: data.clarify ?? null });
+      setAiPartial(null);
+      setAiRetryIds(null);
+      setAiLoggedNames([]);
     }
   }
 
@@ -306,12 +321,28 @@ export default function AddFoodScreen() {
     });
   }
 
+  function closeAiSheet() {
+    setAiSheet(null);
+    setAiPartial(null);
+    setAiRetryIds(null);
+    setAiLoggedNames([]);
+  }
+
   async function handleLogAll() {
     if (!aiSheet || aiLogging || aiSheet.items.length === 0) return;
     setAiLogging(true);
+    setAiPartial(null);
+    // On a retry, re-send ONLY the rows that failed last time. Promise.all used to
+    // report total failure while leaving the successful inserts written, so a retry
+    // duplicated every row that had already landed.
+    const pending = aiRetryIds
+      ? aiSheet.items.filter((it) => aiRetryIds.includes(it.id))
+      : aiSheet.items;
+    if (pending.length === 0) { setAiLogging(false); return; }
     try {
-      await Promise.all(
-        aiSheet.items.map((item) => {
+      const written = await logAllSettled(
+        pending,
+        (item) => {
           const nutr = computeAiNutr(item);
           return logFood({
             name:      item.name,
@@ -324,14 +355,33 @@ export default function AddFoodScreen() {
             meal_type: mealTypeForNow(),
             ai_raw_input: null,
           });
-        })
+        },
+        (item) => item.name,
       );
-      void syncReminders(); // logged → re-apply meal suppression
-      logSuccess();
+
+      if (written.logged.length > 0) {
+        void syncReminders(); // something landed → re-apply meal suppression
+        logSuccess();
+      }
+
+      if (written.skipped.length > 0) {
+        // Partial write: say so and leave the sheet open so the retry is possible.
+        // Never dismiss on a partial — that is what hid the problem before.
+        setAiPartial({
+          logged: [...aiLoggedNames, ...written.logged],
+          skipped: written.skipped,
+        });
+        setAiRetryIds(written.failedItems.map((it) => it.id));
+        setAiLoggedNames((prev) => [...prev, ...written.logged]);
+        return;
+      }
+
       // Brief success beat on the button before the sheet dismisses.
       setAiSuccess(true);
       await new Promise((resolve) => setTimeout(resolve, 400));
       setAiSheet(null);
+      setAiRetryIds(null);
+      setAiLoggedNames([]);
       router.back();
     } catch {
       Alert.alert('Could not log food. Please try again.');
@@ -340,6 +390,8 @@ export default function AddFoodScreen() {
       setAiSuccess(false);
     }
   }
+
+  const aiPartialSummary = aiPartial ? partialLogSummary(aiPartial) : null;
 
   // ── Photo ─────────────────────────────────────────────────────────────────
 
@@ -706,16 +758,16 @@ export default function AddFoodScreen() {
         visible={aiSheet !== null}
         transparent
         animationType="slide"
-        onRequestClose={() => { if (!aiLogging) setAiSheet(null); }}
+        onRequestClose={() => { if (!aiLogging) closeAiSheet(); }}
       >
-        <Pressable style={s.overlay} onPress={() => { if (!aiLogging) setAiSheet(null); }}>
+        <Pressable style={s.overlay} onPress={() => { if (!aiLogging) closeAiSheet(); }}>
           <Pressable style={s.aiSheetOuter} onPress={() => undefined}>
             <View style={s.sheetHandle} />
 
             <View style={s.sheetRow}>
               <Text style={s.sheetName}>Ready to log</Text>
               <Pressable
-                onPress={() => { if (!aiLogging) setAiSheet(null); }}
+                onPress={() => { if (!aiLogging) closeAiSheet(); }}
                 hitSlop={12}
                 style={s.closeBtn}
               >
@@ -808,9 +860,19 @@ export default function AddFoodScreen() {
               ) : aiLogging ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={s.logBtnText}>Log all</Text>
+                <Text style={s.logBtnText}>
+                  {aiRetryIds && aiRetryIds.length > 0
+                    ? `Retry ${aiRetryIds.length} item${aiRetryIds.length === 1 ? '' : 's'}`
+                    : 'Log all'}
+                </Text>
               )}
             </AnimatedPressable>
+
+            {/* Partial write — say exactly what landed and what didn't. A failed row
+                is our save problem, never something the user did wrong. */}
+            {aiPartialSummary ? (
+              <Text style={s.aiPartialNote}>{aiPartialSummary}</Text>
+            ) : null}
           </Pressable>
         </Pressable>
       </Modal>
@@ -1540,6 +1602,14 @@ const s = StyleSheet.create({
     ...Shadow.md,
   },
   pressed85: { opacity: 0.85 },
+  aiPartialNote: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: C.inkSoft,
+    marginTop: 8,
+    textAlign: 'center',
+  },
   aiLoggedRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   aiInputDim: { opacity: 0.5 },
   aiStageText: {

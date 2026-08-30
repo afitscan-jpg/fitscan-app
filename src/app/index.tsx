@@ -116,8 +116,24 @@ interface WeekInsight {
   readout: string;
   one_change: string;
   tomorrow_plan: string;
+  /** LIVE count of days logged this week — always current, so the badge can
+   *  never contradict the week strip beside it. */
   days_logged: number;
+  /** The count the narrative was actually written from (may lag days_logged). */
+  insight_days_logged?: number | null;
+  /** True when the stored narrative predates the current day count. */
+  stale?: boolean;
   week_start: string;
+  created_at?: string | null;
+}
+
+/** "as of Monday" — when the narrative was written, so a stale readout reads as
+ *  a dated snapshot rather than a contradiction of the live badge. */
+function insightAsOf(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { weekday: 'long' });
 }
 
 // ─── Calorie ring — gradient + mount animation ───────────────────────────────
@@ -414,7 +430,12 @@ function WeekInsightCard({
       borderColor="rgba(76,124,99,0.16)"
     >
       <View style={wi.header}>
-        <View style={wi.headerLeft}>
+        <AnimatedPressable
+          style={wi.headerLeft}
+          onPress={() => router.push('/insights' as never)}
+          accessibilityRole="button"
+          accessibilityLabel="See your nutrition trends"
+        >
           <View style={wi.aiIcon}>
             <CIcon name="insights" color="#fff" size={16} />
           </View>
@@ -422,13 +443,20 @@ function WeekInsightCard({
           <View style={wi.badge}>
             <Text style={wi.badgeText}>{data.days_logged} of 7 logged</Text>
           </View>
-        </View>
+        </AnimatedPressable>
         <AnimatedPressable onPress={onRefresh} hitSlop={12} style={wi.refreshBtn} disabled={loading}>
           <Icon name="refresh" color={C.inkFaint} size={16} strokeWidth={2} />
         </AnimatedPressable>
       </View>
 
       <Text style={wi.readout}>{data.readout}</Text>
+      {/* The narrative is a snapshot; the badge above is live. Dating it is what
+          stops the two from reading as a contradiction. */}
+      {data.stale && insightAsOf(data.created_at) ? (
+        <Text style={wi.asOf}>
+          Written as of {insightAsOf(data.created_at)} · pull to refresh for an updated readout
+        </Text>
+      ) : null}
 
       <View style={wi.section}>
         <Text style={wi.sectionLabel}>One change to try</Text>
@@ -452,6 +480,13 @@ const wi = StyleSheet.create({
     gap: 10,
   },
   header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  asOf: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 11.5,
+    lineHeight: 15,
+    color: C.inkSoft,
+    marginTop: -4,
+  },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1 },
   aiIcon: {
     width: 30, height: 30, borderRadius: 10, backgroundColor: C.accent,
@@ -1632,6 +1667,25 @@ export default function HomeScreen() {
                 )}
               </StaggerIn>
 
+              {/* Nutrition trends — free, reachable by everyone (not just premium) */}
+              <StaggerIn index={2}>
+                <AnimatedPressable
+                  style={hs.trendsRow}
+                  onPress={() => router.push('/insights' as never)}
+                  accessibilityRole="button"
+                  accessibilityLabel="See your 7-day nutrition trends"
+                >
+                  <View style={hs.trendsIcon}>
+                    <CIcon name="insights" color={C.green} size={16} />
+                  </View>
+                  <View style={hs.trendsText}>
+                    <Text style={hs.trendsTitle}>Your nutrition</Text>
+                    <Text style={hs.trendsSub}>See your 7-day trends</Text>
+                  </View>
+                  <Text style={hs.trendsChev}>›</Text>
+                </AnimatedPressable>
+              </StaggerIn>
+
               {/* Water */}
               <StaggerIn index={3}>
                 <WaterCard glasses={water.glasses} goal={waterGoal} onAdd={handleAddWater} adding={addingWater} />
@@ -1797,6 +1851,12 @@ const hs = StyleSheet.create({
   secLinkWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   secLink:     { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13, color: C.green, fontWeight: '600' },
   empty:       { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkFaint, textAlign: 'center', paddingVertical: Spacing.four },
+  trendsRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: Radius.lg, paddingVertical: 13, paddingHorizontal: 15, ...Shadow.sm },
+  trendsIcon:  { width: 34, height: 34, borderRadius: 11, backgroundColor: C.greenSoft, alignItems: 'center', justifyContent: 'center' },
+  trendsText:  { flex: 1 },
+  trendsTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14.5, fontWeight: '600', color: C.inkStrong },
+  trendsSub:   { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkFaint, marginTop: 1 },
+  trendsChev:  { fontFamily: Fonts?.body ?? 'system', fontSize: 22, color: C.inkFaint, marginTop: -2 },
   targetBasis: { fontFamily: Fonts?.body ?? 'system', fontSize: 11.5, color: C.inkSoft, textAlign: 'center', lineHeight: 16, marginTop: 6 },
   disclaimer:  { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, color: C.inkFaint, textAlign: 'center', lineHeight: 15, marginTop: 8 },
 });

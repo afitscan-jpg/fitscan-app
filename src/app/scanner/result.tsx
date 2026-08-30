@@ -41,10 +41,14 @@ const NUTRIENT_ROWS: Array<{ key: NutrientKey; label: string; unit: string }> = 
 type ScreenState =
   | { phase: 'ok'; data: ScanResponse }
   | { phase: 'not_found' }
+  // Couldn't reach the product database. Distinct from not_found on purpose: we
+  // never learned whether this product exists, so we must not say it doesn't.
+  | { phase: 'unavailable' }
   | { phase: 'error'; message: string };
 
 function initState(outcome: string): ScreenState {
   if (outcome === 'not_found') return { phase: 'not_found' };
+  if (outcome === 'unavailable') return { phase: 'unavailable' };
   const data = scanResultStore.take();
   if (!data?.result) {
     return { phase: 'error', message: 'No result available — go back and scan again.' };
@@ -84,6 +88,28 @@ function NotFoundView() {
         </Pressable>
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Text style={styles.ghostBtnText}>Scan another product</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function UnavailableView() {
+  return (
+    <SafeAreaView style={styles.notFoundContainer}>
+      <Header />
+      <View style={styles.notFoundBody}>
+        <Icon name="refresh" color={C.inkFaint} size={48} strokeWidth={1.5} />
+        <Text style={styles.notFoundTitle}>Couldn&apos;t check right now</Text>
+        <Text style={styles.notFoundSub}>
+          We couldn&apos;t reach the product database, so we don&apos;t know this one yet.
+          Your connection or the service may be having a moment.
+        </Text>
+        <Pressable style={styles.btnSolo} onPress={() => router.back()}>
+          <Text style={styles.primaryBtnText}>Try again</Text>
+        </Pressable>
+        <Pressable onPress={() => router.replace('/add')} hitSlop={8}>
+          <Text style={styles.ghostBtnText}>Describe it in text instead</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -351,6 +377,7 @@ export default function ResultScreen() {
   const [state] = useState<ScreenState>(() => initState(outcome ?? ''));
 
   if (state.phase === 'not_found') return <NotFoundView />;
+  if (state.phase === 'unavailable') return <UnavailableView />;
   if (state.phase === 'error') return <ErrorView message={state.message} />;
   return <OkResultView data={state.data} />;
 }

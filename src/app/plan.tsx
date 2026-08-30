@@ -18,6 +18,14 @@ import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { logFood, type MealType } from '@/lib/db';
 import { authFetch, PaywallError } from '@/lib/api';
+import {
+  hasRetryableFailure,
+  logAllSettled,
+  logButtonLabel,
+  partialLogSummary,
+  type PartialLogResult,
+  type SkipReason,
+} from '@/lib/partial-log';
 import { PaywallSheet } from '@/components/paywall-sheet';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -40,6 +48,14 @@ interface PlanItem {
   carbs_g: number | null;
   fat_g: number | null;
 }
+
+/** An item carries real numbers we can write; anything else is an "idea". */
+function isLoggable(it: PlanItem): it is PlanItem & { kcal: number } {
+  return it.resolved !== false && it.kcal != null;
+}
+
+/** A meal's log outcome plus the rows that failed, so a retry re-sends only those. */
+type MealLogResult = PartialLogResult & { failedItems: (PlanItem & { kcal: number })[] };
 
 interface PlanMeal {
   meal_type: MealType;
@@ -152,17 +168,26 @@ const sk = StyleSheet.create({
 
 function MealCard({
   meal,
-  logged,
+  result,
   onLog,
 }: {
   meal: PlanMeal;
-  logged: boolean;
+  /** Null until this meal has been logged once; then what actually happened. */
+  result: MealLogResult | null;
   onLog: () => Promise<void>;
 }) {
   const [logging, setLogging] = useState(false);
 
+  const total = meal.items.length;
+  const loggable = meal.items.filter(isLoggable).length;
+  const summary = result ? partialLogSummary(result) : null;
+  // A save failure is the one skip the user can act on — keep the button live so
+  // they can retry, and retry ONLY the rows that failed (never the ones that landed).
+  const canRetry = result != null && hasRetryableFailure(result);
+  const done = result != null && !canRetry;
+
   async function handleLog() {
-    if (logged || logging) return;
+    if (done || logging || loggable === 0) return;
     setLogging(true);
     try {
       await onLog();
@@ -217,21 +242,41 @@ function MealCard({
       </View>
 
       <AnimatedPressable
-        style={[mc.logBtn, logged && mc.logBtnDone]}
+        style={[mc.logBtn, done && mc.logBtnDone, loggable === 0 && mc.logBtnIdle]}
         onPress={handleLog}
-        disabled={logged || logging}
+        disabled={done || logging || loggable === 0}
+        accessibilityRole="button"
+        accessibilityLabel={
+          done
+            ? (summary ?? 'Logged')
+            : logButtonLabel(loggable, total)
+        }
       >
         {logging ? (
-          <ActivityIndicator color={logged ? C.greenInk : '#fff'} size="small" />
-        ) : logged ? (
+          <ActivityIndicator color={done ? C.greenInk : '#fff'} size="small" />
+        ) : done ? (
           <View style={mc.logBtnDoneRow}>
             <Icon name="check" color={C.greenInk} size={15} strokeWidth={2.4} />
-            <Text style={[mc.logBtnText, mc.logBtnTextDone]}>Logged</Text>
+            <Text style={[mc.logBtnText, mc.logBtnTextDone]}>
+              {result && result.skipped.length > 0
+                ? `Logged ${result.logged.length} of ${total}`
+                : 'Logged'}
+            </Text>
           </View>
         ) : (
-          <Text style={mc.logBtnText}>Log this meal</Text>
+          <Text style={[mc.logBtnText, loggable === 0 && mc.logBtnTextIdle]}>
+            {canRetry
+              ? `Retry ${result.skipped.filter((s) => s.reason === 'failed').length} item${
+                  result.skipped.filter((s) => s.reason === 'failed').length === 1 ? '' : 's'
+                }`
+              : logButtonLabel(loggable, total)}
+          </Text>
         )}
       </AnimatedPressable>
+
+      {/* What actually happened. A skipped item is our gap or our failure — never
+          framed as something the user got wrong. */}
+      {summary ? <Text style={mc.logSummary}>{summary}</Text> : null}
     </View>
   );
 }
@@ -268,6 +313,15 @@ const mc = StyleSheet.create({
   },
   // Idea (unresolved) item: name column + small amber badge under it.
   itemNameCol: { flex: 1, gap: 4 },
+  logBtnIdle: { backgroundColor: C.greenSoft },
+  logBtnTextIdle: { color: C.inkSoft },
+  logSummary: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: C.inkSoft,
+    marginTop: 2,
+  },
   ideaBadge: {
     alignSelf: 'flex-start',
     backgroundColor: C.amberSoft,
@@ -316,7 +370,7 @@ export default function PlanScreen() {
   const [plan, setPlan]               = useState<Plan | null>(null);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(false);
-  const [loggedMeals, setLoggedMeals] = useState<Set<number>>(new Set());
+  const [loggedMeals, setLoggedMeals] = useState<Map<number, MealLogResult>>(new Map());
   const [dietOverride, setDietOverride] = useState<DietValue | null>(null);
   const [paywall, setPaywall] = useState<PaywallError | null>(null);
 
@@ -390,7 +444,7 @@ export default function PlanScreen() {
     if (loading) return;
     const next = dietOverride === value ? null : value;
     setDietOverride(next);
-    setLoggedMeals(new Set());
+    setLoggedMeals(new Map());
     fetchPlan(true, next);
   }
 
@@ -398,12 +452,20 @@ export default function PlanScreen() {
     const meal = plan?.meals[mealIndex];
     if (!meal) return;
     // Only log resolved items — "idea" items have no verified numbers, so we
-    // never write them to the diary.
-    const resolved = meal.items.filter(
-      (it): it is PlanItem & { kcal: number } => it.resolved !== false && it.kcal != null,
-    );
-    await Promise.all(
-      resolved.map((item) =>
+    // never write them to the diary. They are reported as skipped rather than
+    // silently dropped, so the user is never told a partial log was a full one.
+    const ideas = meal.items.filter((it) => !isLoggable(it));
+    // On a retry, re-send ONLY the rows that failed last time. Re-sending the whole
+    // meal would duplicate every row that already landed.
+    const prior = loggedMeals.get(mealIndex);
+    const resolved = prior ? prior.failedItems : meal.items.filter(isLoggable);
+    if (resolved.length === 0) return;   // nothing writable — button is disabled anyway
+
+    // allSettled, not all: a single failed insert must not discard the rows that
+    // did land, or the retry duplicates them.
+    const written = await logAllSettled(
+      resolved,
+      (item) =>
         logFood({
           name:      item.name,
           kcal:      item.kcal,
@@ -414,10 +476,23 @@ export default function PlanScreen() {
           meal_type: meal.meal_type,
           quantity:  item.amount,
           unit:      item.unit,
-        })
-      )
+        }),
+      (item) => item.name,
     );
-    setLoggedMeals((prev) => new Set([...prev, mealIndex]));
+
+    const result: MealLogResult = {
+      // A retry adds to what already landed rather than replacing the record.
+      logged: [...(prior?.logged ?? []), ...written.logged],
+      skipped: [
+        ...written.skipped,
+        ...ideas.map((it) => ({
+          name: it.name,
+          reason: (it.unavailable ? 'unavailable' : 'gap') as SkipReason,
+        })),
+      ],
+      failedItems: written.failedItems,
+    };
+    setLoggedMeals((prev) => new Map(prev).set(mealIndex, result));
   }
 
   return (
@@ -434,7 +509,7 @@ export default function PlanScreen() {
             <Text style={s.subtitle}>{tomorrowLabel()}</Text>
           </View>
           <Pressable
-            onPress={() => { setLoggedMeals(new Set()); fetchPlan(true, dietOverride); }}
+            onPress={() => { setLoggedMeals(new Map()); fetchPlan(true, dietOverride); }}
             hitSlop={12}
             style={[s.refreshBtn, loading && { opacity: 0.3 }]}
             disabled={loading}
@@ -450,7 +525,7 @@ export default function PlanScreen() {
         >
           {/* Diet chips */}
           <View style={s.dietWrap}>
-            <Text style={s.dietLabel}>Today I want</Text>
+            <Text style={s.dietLabel}>Tomorrow I want</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -523,7 +598,7 @@ export default function PlanScreen() {
                 <MealCard
                   key={i}
                   meal={meal}
-                  logged={loggedMeals.has(i)}
+                  result={loggedMeals.get(i) ?? null}
                   onLog={() => handleLogMeal(i)}
                 />
               ))}

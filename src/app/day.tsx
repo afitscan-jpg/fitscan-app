@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AmbientBackground } from '@/components/ambient-background';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
+import { formatTotalKcal, hasEstimateItem } from '@/lib/format-total';
 import {
   getDailyTotals,
   getLogForDate,
@@ -137,7 +138,13 @@ export default function DayScreen() {
               {/* Totals strip — mirrors the plan/add liveRow */}
               <View style={s.liveRow}>
                 <View style={s.liveStat}>
-                  <Text style={s.liveVal}>{Math.round(totals?.kcal ?? 0)}</Text>
+                  {/* A day total is only as certain as its least certain item —
+                      the same rule the backend applies to meal totals. The app
+                      reads daily_intake straight from Supabase, so it formats
+                      its own via the mirrored helper. */}
+                  <Text style={s.liveVal} numberOfLines={1} adjustsFontSizeToFit>
+                    {formatTotalKcal(totals?.kcal ?? 0, hasEstimateItem(items)).replace(' kcal', '')}
+                  </Text>
                   <Text style={s.liveKey}>kcal</Text>
                 </View>
                 <View style={s.liveStat}>

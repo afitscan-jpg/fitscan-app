@@ -36,13 +36,30 @@ export interface TextLogItem {
   canonical_food_id: string | null;
   needs_clarification: boolean;
   modifier_note: string | null;
+  /** The portion is implausibly large ("500 rotis"). The number is real but
+   *  UNENDORSED: the backend did NOT write it to the diary. Show the prompt and
+   *  let the user confirm or correct — never drop it silently. */
+  requires_confirmation?: boolean;
+  /** Honest prompt for a held item, e.g. "500 pieces of Roti is about 59,800
+   *  kcal — did you mean 5?". Rendered verbatim. */
+  clarification?: string | null;
 }
 
 export interface TextLogTotal {
   kcal: number;
-  display: string;                   // already formatted — render verbatim
-  counted_items: number;
+  /** Already formatted — render VERBATIM. Now a RANGE when any item was an
+   *  estimate ("150–230 kcal · 1 estimate"), and carries "N items need
+   *  confirming" for held items. Never a bare "≈188" over an estimate. */
+  display: string;
+  counted_items: number;             // EXCLUDES items awaiting confirmation
+  /** Was missing from this interface entirely (audit D-28) — the backend has
+   *  always sent it. */
+  estimated_items: number;
   unverified_items: number;
+  /** How many items are held pending the user's confirmation. */
+  needs_confirmation_items?: number;
+  /** True when any counted item was estimate-tier, i.e. `display` is a range. */
+  has_estimate?: boolean;
 }
 
 export interface TextLogResponse {
@@ -67,6 +84,65 @@ function isTextLogResponse(x: unknown): x is TextLogResponse {
   if (!Array.isArray(r.items)) return false;
   const t = r.total as { display?: unknown } | null | undefined;
   return !!t && typeof t.display === 'string';
+}
+
+/** Thrown when /log/confirm refuses a still-absurd quantity (HTTP 409). Carries
+ *  the fresh prompt so the sheet can ask again rather than fail. */
+export class NeedsConfirmationError extends Error {
+  constructor(
+    public readonly clarification: string,
+    public readonly kcal: number | null,
+  ) {
+    super(clarification);
+    this.name = 'NeedsConfirmationError';
+  }
+}
+
+/**
+ * Write a HELD item to the diary — the user either confirmed the amount or
+ * corrected it.
+ *
+ * This is a dedicated endpoint, NOT a re-POST of /log/text: re-posting would
+ * re-run the LLM extraction, costing another AI credit and possibly resolving to
+ * something different from what the user is looking at. /log/confirm makes no
+ * model call, so it is free and deterministic. The numbers are re-derived
+ * server-side from (canonical_food_id, qty, unit) — the client never supplies
+ * kcal, so the server stays the only source of numbers.
+ *
+ * Pass `confirmed: true` for "yes, I really ate that much". Leave it off when
+ * the user EDITED the quantity: a corrected amount is then re-checked normally,
+ * so 5 just logs and 400 asks again.
+ */
+export async function confirmLogItem(opts: {
+  canonicalFoodId: string;
+  qty: number;
+  unit: string;
+  meal: string;
+  confirmed?: boolean;
+}): Promise<{ logged: boolean; food_log_ids: string[] }> {
+  const res = await authFetch('/log/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      canonical_food_id: opts.canonicalFoodId,
+      qty: opts.qty,
+      unit: opts.unit,
+      meal: opts.meal,
+      date: localDate(),
+      confirmed: opts.confirmed === true,
+    }),
+  });
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => ({}))) as {
+      detail?: { clarification?: string; kcal?: number };
+    };
+    throw new NeedsConfirmationError(
+      body.detail?.clarification ?? 'That amount looks unusually large — confirm to log it.',
+      body.detail?.kcal ?? null,
+    );
+  }
+  if (!res.ok) throw new Error(`log/confirm failed: ${res.status}`);
+  return (await res.json()) as { logged: boolean; food_log_ids: string[] };
 }
 
 export async function logTextFood(text: string, meal: string): Promise<TextLogResponse> {

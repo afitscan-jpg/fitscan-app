@@ -7,7 +7,13 @@ import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { PaywallError } from '@/lib/api';
 import { mealTypeForNow, type MealType } from '@/lib/db';
-import { logTextFood, type TextLogItem, type TextLogResponse } from '@/lib/text-log';
+import {
+  confirmLogItem,
+  logTextFood,
+  NeedsConfirmationError,
+  type TextLogItem,
+  type TextLogResponse,
+} from '@/lib/text-log';
 
 // Provenance → pill colours (matches the spec + v3 warm/sage palette).
 type Pill = { bg: string; fg: string; border?: string };
@@ -28,6 +34,115 @@ const MEALS: MealType[] = ['breakfast', 'lunch', 'snack', 'dinner'];
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // ─── One resolved item row ────────────────────────────────────────────────────
+
+/**
+ * A HELD item: the portion was implausibly large, so the backend computed the
+ * number but did NOT write it. It must never just vanish — we show what we
+ * worked out, say plainly that it is not logged yet, and offer both ways out.
+ * Framed as a question about the amount, never as the user getting it wrong.
+ */
+function HeldRow({
+  item,
+  meal,
+  onLogged,
+}: {
+  item: TextLogItem;
+  meal: MealType;
+  onLogged: () => void;
+}) {
+  const [busy, setBusy]   = useState(false);
+  const [done, setDone]   = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState(item.clarification ?? '');
+  const [editing, setEditing] = useState(false);
+  const [qtyDraft, setQtyDraft] = useState(String(item.qty));
+
+  async function send(qty: number, confirmed: boolean) {
+    if (!item.canonical_food_id || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await confirmLogItem({
+        canonicalFoodId: item.canonical_food_id,
+        qty, unit: item.unit, meal, confirmed,
+      });
+      setDone(true);
+      onLogged();
+    } catch (e) {
+      if (e instanceof NeedsConfirmationError) {
+        // The corrected amount is still implausible — ask again with the new number.
+        setPrompt(e.clarification);
+        setEditing(false);
+      } else {
+        setError("Couldn't log that — please try again.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <View style={s.row}>
+        <View style={s.rowTop}>
+          <Text style={s.name} numberOfLines={1}>{item.name}</Text>
+          <Text style={s.heldDone}>Logged</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[s.row, s.heldRow]}>
+      <View style={s.rowTop}>
+        <View style={s.rowLeft}>
+          <Text style={s.name} numberOfLines={1}>{item.name}</Text>
+          <Text style={s.qty}>{item.qty} {item.unit}</Text>
+        </View>
+        <Text style={s.heldTag}>not logged yet</Text>
+      </View>
+
+      <Text style={s.heldPrompt}>{prompt}</Text>
+
+      {editing ? (
+        <View style={s.heldEditRow}>
+          <TextInput
+            style={s.heldInput}
+            value={qtyDraft}
+            onChangeText={setQtyDraft}
+            keyboardType="numeric"
+            autoFocus
+            accessibilityLabel={`Amount of ${item.name}`}
+          />
+          <Text style={s.heldUnit}>{item.unit}</Text>
+          <Pressable
+            style={s.heldBtn}
+            disabled={busy}
+            onPress={() => {
+              const n = parseFloat(qtyDraft);
+              if (!Number.isFinite(n) || n <= 0) { setError('Enter an amount above zero.'); return; }
+              send(n, false);   // corrected amount is re-checked, not force-logged
+            }}
+          >
+            <Text style={s.heldBtnText}>Save</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={s.heldActions}>
+          <Pressable style={s.heldBtn} onPress={() => send(item.qty, true)} disabled={busy}>
+            {busy ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={s.heldBtnText}>Yes, log it</Text>}
+          </Pressable>
+          <Pressable style={s.heldBtnGhost} onPress={() => setEditing(true)} disabled={busy}>
+            <Text style={s.heldBtnGhostText}>Change amount</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {error ? <Text style={s.error}>{error}</Text> : null}
+    </View>
+  );
+}
 
 function ResultRow({ item }: { item: TextLogItem }) {
   const pill = pillFor(item.provenance);
@@ -230,7 +345,18 @@ export function TextLogCard({
           {result.items.length === 0 ? (
             <Text style={s.emptyNote}>No foods recognised — try rephrasing.</Text>
           ) : (
-            result.items.map((item, i) => <ResultRow key={`${item.name}-${i}`} item={item} />)
+            result.items.map((item, i) =>
+              item.requires_confirmation ? (
+                <HeldRow
+                  key={`${item.name}-${i}`}
+                  item={item}
+                  meal={meal}
+                  onLogged={() => onLogged?.()}
+                />
+              ) : (
+                <ResultRow key={`${item.name}-${i}`} item={item} />
+              ),
+            )
           )}
 
           <View style={s.totalRow}>
@@ -249,7 +375,8 @@ export function TextLogCard({
             Every number shows how sure we are — verified, calculated, or estimated.
           </Text>
 
-          {onLogged && result.items.some((it) => it.kcal != null) ? (
+          {onLogged && result.items.some(
+            (it) => it.kcal != null || it.requires_confirmation) ? (
             <AnimatedPressable style={s.done} onPress={handleDone}>
               <Text style={s.doneText}>Done — back to home</Text>
             </AnimatedPressable>
@@ -307,6 +434,46 @@ const s = StyleSheet.create({
   mealTextOn: { color: '#fff' },
 
   error: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.red, marginTop: 10 },
+  // Held item — amber (a question about the amount), never red (not an error).
+  heldRow: {
+    backgroundColor: C.amberSoft,
+    borderRadius: Radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  heldTag: {
+    fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600',
+    color: C.amberInk,
+  },
+  heldPrompt: {
+    fontFamily: Fonts?.body ?? 'system', fontSize: 13, lineHeight: 18,
+    color: C.ink, marginTop: 6,
+  },
+  heldActions: { flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' },
+  heldEditRow: { flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' },
+  heldInput: {
+    fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, color: C.ink,
+    backgroundColor: C.card, borderRadius: Radius.sm, borderWidth: 1,
+    borderColor: C.cardBorder, paddingHorizontal: 12, minWidth: 78, minHeight: 44,
+  },
+  heldUnit: { fontFamily: Fonts?.body ?? 'system', fontSize: 13, color: C.inkSoft },
+  heldBtn: {
+    backgroundColor: C.accent, borderRadius: Radius.md,
+    paddingHorizontal: 16, minHeight: 44, alignItems: 'center', justifyContent: 'center',
+  },
+  heldBtnText: {
+    fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: '#fff',
+  },
+  heldBtnGhost: {
+    paddingHorizontal: 12, minHeight: 44, alignItems: 'center', justifyContent: 'center',
+  },
+  heldBtnGhostText: {
+    fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: C.amberInk,
+  },
+  heldDone: {
+    fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 12.5, fontWeight: '600', color: C.greenInk,
+  },
 
   submit: {
     backgroundColor: C.green,

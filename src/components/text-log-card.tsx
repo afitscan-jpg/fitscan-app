@@ -198,6 +198,12 @@ export function TextLogCard({
   const [listening, setListening] = useState(false);
   const micPulse = useRef(new Animated.Value(1)).current;
 
+  // A REAL log happened only when the response actually resolved items. A zero-item
+  // response ("No foods recognised") is a terminal state too, but it is NOT a log —
+  // it must not lock the card. Gate the "logged" behaviour on this, never on
+  // `result` alone (that wedged the form: button stuck on "Logged", no way to retry).
+  const logged = !!result && result.items.length > 0;
+
   // ── Voice (same wiring the old /ai/parse box used) ──────────────────────────
   useSpeechRecognitionEvent('start', () => setListening(true));
   useSpeechRecognitionEvent('end',   () => setListening(false));
@@ -252,10 +258,11 @@ export function TextLogCard({
 
   async function submit(override?: string) {
     const t = (override ?? text).trim();
-    // A2: once a result exists this meal is logged. Re-enabling the button with
-    // the text still in the box was the duplicate-log path — a second tap wrote
-    // the same rows again AND spent another AI credit. Cleared only by Done.
-    if (!t || loading || result) return;
+    // A2: once items are actually LOGGED this meal is done — re-submitting would
+    // write the same rows again AND spend another AI credit. Blocked until Done.
+    // A zero-item result does NOT block (see `logged`): the user must be able to
+    // edit and retry without leaving the screen.
+    if (!t || loading || logged) return;
     setLoading(true);
     setError(null);
     try {
@@ -306,7 +313,15 @@ export function TextLogCard({
           accessibilityLabel="What did you eat?"
           placeholderTextColor={C.inkFaint}
           value={text}
-          onChangeText={(v) => { setText(v); setError(null); }}
+          // Keyboards auto-capitalise the first letter, and a capitalised bare word
+          // ("Coffee") was false-negativing extraction — so don't capitalise. Editing
+          // after a zero-item result clears that stale "not recognised" message.
+          autoCapitalize="none"
+          onChangeText={(v) => {
+            setText(v);
+            setError(null);
+            if (result && result.items.length === 0) setResult(null);
+          }}
           multiline
           returnKeyType="send"
           onSubmitEditing={() => submit()}
@@ -340,16 +355,16 @@ export function TextLogCard({
       {error ? <Text style={s.error}>{error}</Text> : null}
 
       <AnimatedPressable
-        style={[s.submit, (loading || !text.trim() || !!result) && s.submitDim]}
+        style={[s.submit, (loading || !text.trim() || logged) && s.submitDim]}
         onPress={() => submit()}
-        disabled={loading || !text.trim() || !!result}
+        disabled={loading || !text.trim() || logged}
         accessibilityRole="button"
-        accessibilityLabel={result ? 'Already logged' : 'Log this meal'}
+        accessibilityLabel={logged ? 'Already logged' : 'Log this meal'}
       >
         {loading ? (
           <ActivityIndicator color="#fff" size="small" />
         ) : (
-          <Text style={s.submitText}>{result ? 'Logged' : 'Log this meal'}</Text>
+          <Text style={s.submitText}>{logged ? 'Logged' : 'Log this meal'}</Text>
         )}
       </AnimatedPressable>
 

@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
     ...Shadow.sm,
   },
   cardHi: {
-    backgroundColor: C.redSoft,
+    backgroundColor: C.amberSoft,
   },
   key: {
     fontFamily: Fonts?.body ?? 'system',
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   valueHi: {
-    color: C.red,
+    color: C.amberInk,
   },
   unit: {
     fontFamily: Fonts?.body ?? 'system',

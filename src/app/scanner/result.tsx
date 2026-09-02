@@ -18,11 +18,13 @@ import { FlagChip } from '@/components/scanner/flag-chip';
 import { NutrientCard } from '@/components/scanner/nutrient-card';
 import { VerdictCard } from '@/components/scanner/verdict-card';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
-import { HIGH_SUGAR_G } from '@/constants/verdict';
+import { FactColors, HIGH_SUGAR_G } from '@/constants/verdict';
 import { logScannedFood, mealTypeForNow } from '@/lib/db';
 import { logSuccess } from '@/lib/feedback';
 import { scanResultStore } from '@/lib/scan-result-store';
-import type { ScanNutrients, ScanResponse } from '@/types/scan';
+import type { NutrientFact, ScanNutrients, ScanResponse } from '@/types/scan';
+
+const VALID_GRADES = new Set(['a', 'b', 'c', 'd', 'e']);
 
 // ─── Nutrient grid config ────────────────────────────────────────────────────
 
@@ -197,6 +199,53 @@ function GramsStepper({ grams, unit, onChange }: { grams: number; unit: string; 
   );
 }
 
+// ─── "What's in this" — per-100g fact lines, anti-guilt register ─────────────
+
+function WhatsInThis({ facts }: { facts: NutrientFact[] }) {
+  if (!facts || facts.length === 0) return null;
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionLabel}>What&apos;s in this</Text>
+      <View style={styles.factList}>
+        {facts.map((f, i) => {
+          const c = FactColors[f.tag] ?? FactColors.neutral;
+          const tagged = f.tag === 'high' || f.tag === 'good';
+          return (
+            <View key={`${f.label}-${i}`} style={styles.factRow}>
+              <Text style={styles.factLabel}>{f.label}</Text>
+              <View style={styles.factRight}>
+                <Text style={[styles.factDetail, f.tag === 'missing' && styles.factMissing]}>
+                  {f.detail}
+                </Text>
+                {tagged ? (
+                  <View style={[styles.factTag, { backgroundColor: c.tint }]}>
+                    <Text style={[styles.factTagText, { color: c.text }]}>
+                      {f.tag === 'high' ? 'High' : 'Good'}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+// OFF's own Nutri-Score, shown alongside our verdict when OFF has a valid letter.
+function NutriScoreLine({ grade, attribution }: { grade: string; attribution?: string | null }) {
+  return (
+    <View style={styles.nutriRow}>
+      <Text style={styles.nutriLabel}>Nutri-Score</Text>
+      <View style={styles.nutriBadge}>
+        <Text style={styles.nutriBadgeText}>{grade.toUpperCase()}</Text>
+      </View>
+      <Text style={styles.nutriAttr}>{attribution ?? 'Open Food Facts'}</Text>
+    </View>
+  );
+}
+
 // ─── Main result view ────────────────────────────────────────────────────────
 
 function OkResultView({ data }: { data: ScanResponse }) {
@@ -210,6 +259,13 @@ function OkResultView({ data }: { data: ScanResponse }) {
 
   // Couldn't be graded (insufficient label data) → clean state, no numbers.
   const isUnknown = result.verdict === 'Unknown' || result.grade == null;
+
+  // OFF's own Nutri-Score letter, shown alongside our verdict when valid.
+  const offGrade =
+    typeof data.nutrition_grade === 'string' && VALID_GRADES.has(data.nutrition_grade.toLowerCase())
+      ? data.nutrition_grade
+      : null;
+  const facts = result.nutrient_facts ?? [];
 
   // Beverages are measured by volume — label the stepper and log the row in ml.
   const isVolumetric = result.is_beverage;
@@ -297,6 +353,11 @@ function OkResultView({ data }: { data: ScanResponse }) {
           </Text>
         ) : null}
 
+        {/* OFF Nutri-Score, alongside our verdict when present. */}
+        {offGrade ? (
+          <NutriScoreLine grade={offGrade} attribution={data.grade_attribution} />
+        ) : null}
+
         {/* Flags */}
         {result.flags.length > 0 && (
           <View style={styles.section}>
@@ -308,6 +369,9 @@ function OkResultView({ data }: { data: ScanResponse }) {
             </View>
           </View>
         )}
+
+        {/* What's in this — per-100g context lines (facts, never verdicts). */}
+        <WhatsInThis facts={facts} />
 
         {/* Nutrients */}
         {!isUnknown && visibleNutrients.length > 0 && (
@@ -478,6 +542,94 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
+  },
+
+  // "What's in this" fact lines
+  factList: {
+    backgroundColor: C.card,
+    borderRadius: Radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    ...Shadow.sm,
+  },
+  factRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.hairline,
+  },
+  factLabel: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 14,
+    color: C.ink,
+  },
+  factRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  factDetail: {
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  factMissing: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontWeight: '400',
+    fontSize: 13,
+    color: C.inkFaint,
+    fontStyle: 'italic',
+  },
+  factTag: {
+    borderRadius: 7,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  factTagText: {
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+
+  // OFF Nutri-Score line
+  nutriRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginTop: -Spacing.two + 2,
+  },
+  nutriLabel: {
+    fontFamily: Fonts?.bodySemi ?? 'system',
+    fontSize: 12,
+    fontWeight: '700',
+    color: C.inkSoft,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  nutriBadge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    backgroundColor: C.greenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nutriBadgeText: {
+    fontFamily: Fonts?.displaySemi ?? 'system',
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.greenInk,
+  },
+  nutriAttr: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 12,
+    color: C.inkFaint,
   },
 
   // Portion stepper

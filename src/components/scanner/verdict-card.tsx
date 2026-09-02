@@ -4,23 +4,20 @@ import { Icon, type IconName } from '@/components/Icon';
 import { C, Fonts, Radius, Spacing } from '@/constants/theme';
 import type { ScanResult } from '@/types/scan';
 
-// Map the verdict_color key to solid bg colors matching the v3 accent palette.
+// Solid bg colours for the verdict card — sage and warm amber only. No red:
+// amber is the strongest tone this screen ever shows.
 const VERDICT_BG: Record<string, string> = {
   green: '#4C7C63',
   amber: '#B98438',
-  red:   '#C4553D',
 };
 const VERDICT_SHADOW_COLOR: Record<string, string> = {
   green: 'rgba(76,124,99,0.30)',
   amber: 'rgba(185,132,56,0.30)',
-  red:   'rgba(196,85,61,0.30)',
 };
-// Icon matches the grade/verdict, not a hardcoded warning: good→check, ok→info,
-// avoid→alert-triangle. Keyed off verdict_color so it always agrees with the card.
+// Icon reads calm, never a warning triangle: positives→check, everything else→info.
 const VERDICT_ICON: Record<string, IconName> = {
   green: 'check',
   amber: 'info',
-  red:   'alert',
 };
 
 interface Props { result: ScanResult }
@@ -54,7 +51,7 @@ export function VerdictCard({ result }: Props) {
           <Icon name={VERDICT_ICON[result.verdict_color] ?? 'info'} color="#fff" size={24} strokeWidth={2} />
         </View>
         <View style={styles.body}>
-          <Text style={styles.grade}>{result.grade} · {result.verdict}</Text>
+          <Text style={styles.grade}>Grade {result.grade}</Text>
           <Text style={styles.score}>{result.score}/100</Text>
         </View>
       </View>

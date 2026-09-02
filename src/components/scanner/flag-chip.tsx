@@ -11,22 +11,21 @@ interface Props {
 
 function getSeverity(flag: string): VerdictColorKey {
   const lower = flag.toLowerCase();
-  if (lower.includes('sugar') || lower.includes('cheeni') || lower.includes('processed') || lower.includes('ultra')) {
-    return 'red';
-  }
-  if (lower.includes('protein') || lower.includes('fiber') || lower.includes('fibre') || lower.includes('acha') || lower.includes('good')) {
+  // Positives read sage; everything cautionary reads amber. No red — a "high in
+  // sugar" chip states a fact, it does not scold.
+  if (lower.includes('protein') || lower.includes('fiber') || lower.includes('fibre') || lower.includes('good')) {
     return 'green';
   }
   return 'amber';
 }
 
 export function FlagChip({ label }: Props) {
-  const { tint, text } = FlagColors[getSeverity(label)];
-  const iconColor = text;
+  const severity = getSeverity(label);
+  const { tint, text } = FlagColors[severity];
 
   return (
     <View style={[styles.chip, { backgroundColor: tint }]}>
-      <Icon name="alert" color={iconColor} size={13} strokeWidth={2} />
+      <Icon name={severity === 'green' ? 'check' : 'info'} color={text} size={13} strokeWidth={2} />
       <Text style={[styles.label, { color: text }]}>{label}</Text>
     </View>
   );

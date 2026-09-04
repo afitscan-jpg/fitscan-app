@@ -20,7 +20,7 @@ import Reanimated, {
 } from 'react-native-reanimated';
 
 import { C, Fonts, Spacing } from '@/constants/theme';
-import { fetchScan } from '@/lib/scan';
+import { fetchScan, formatDiag } from '@/lib/scan';
 import { logSuccess } from '@/lib/feedback';
 import { scanResultStore } from '@/lib/scan-result-store';
 
@@ -28,6 +28,9 @@ type ScanState = 'idle' | 'loading' | 'error';
 
 const OVERLAY_COLOR = 'rgba(0,0,0,0.55)';
 const RETICLE_SIZE = 260;
+// C2: how long the camera may sit live with zero decodes before we say something.
+// Long enough not to nag while someone is still lining up the label.
+const NO_DECODE_MS = 8000;
 const CORNER = 24;
 const CORNER_W = 3;
 
@@ -36,6 +39,9 @@ export default function ScanScreen() {
   const [scanState, setScanState] = useState<ScanState>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const isBusy = useRef(false);
+  // C2: has the decoder produced ANY event this session, and should we hint?
+  const [noDecode, setNoDecode] = useState(false);
+  const sawDecode = useRef(false);
 
   // Ask for camera access as soon as Scan opens. Fresh installs (e.g. after a
   // re-signed APK) land here with permission 'undetermined' and, without this,
@@ -72,10 +78,33 @@ export default function ScanScreen() {
       isBusy.current = false;
       setScanState('idle');
       setErrorMsg(null);
+      setNoDecode(false);
+      sawDecode.current = false;
     }, []),
   );
 
+  // ── C2: camera/decoder health ──────────────────────────────────────────────
+  // "It didn't work" splits into two very different failures: the camera never
+  // decoded anything, or the decode was fine and the lookup failed. Without this
+  // they look identical from the user's side. If the camera has been live for
+  // NO_DECODE_MS with zero decode events, we say so and log `no_decode` — which
+  // tells a field report which half to look at.
+  useEffect(() => {
+    if (scanState !== 'idle') return;
+    const t = setTimeout(() => {
+      if (!sawDecode.current) {
+        setNoDecode(true);
+        console.log('[scan]', JSON.stringify({
+          event: 'no_decode', after_ms: NO_DECODE_MS, phase: 'idle',
+        }));
+      }
+    }, NO_DECODE_MS);
+    return () => clearTimeout(t);
+  }, [scanState]);
+
   const handleBarcode = useCallback(async (scan: BarcodeScanningResult) => {
+    sawDecode.current = true;      // C2: the decoder is alive — clear the hint
+    setNoDecode(false);
     if (isBusy.current) return;
     isBusy.current = true;
     setScanState('loading');
@@ -96,7 +125,12 @@ export default function ScanScreen() {
 
     try {
       const outcome = await fetchScan(scan.data);
-      console.log('[Scanner] ← outcome:', outcome.kind);
+      // C1: ONE structured line per scan, always, whatever the outcome. This is
+      // what turns "the scanner isn't working" into something diagnosable.
+      console.log('[scan]', formatDiag(outcome.diag), JSON.stringify(outcome.diag));
+      // Every outcome carries its diag to the result screen — the screens that
+      // need it most are the ones with no result to show.
+      scanResultStore.setDiag(outcome.diag);
 
       if (outcome.kind === 'ok') {
         logSuccess();
@@ -198,7 +232,14 @@ export default function ScanScreen() {
       {/* Status / feedback strip at the bottom */}
       <SafeAreaView style={styles.statusWrap} edges={['bottom']}>
         {scanState === 'idle' && (
-          <Text style={styles.hint}>Point at a barcode</Text>
+          // C2: after NO_DECODE_MS with no decode event, swap the generic prompt
+          // for an actionable one. It also distinguishes the two failure halves
+          // in a field report: this hint means the camera never read anything.
+          <Text style={styles.hint}>
+            {noDecode
+              ? 'Hold steady, fill the frame with the barcode'
+              : 'Point at a barcode'}
+          </Text>
         )}
 
         {scanState === 'loading' && (

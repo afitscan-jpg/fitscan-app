@@ -16,13 +16,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon } from '@/components/Icon';
 import { FlagChip } from '@/components/scanner/flag-chip';
 import { NutrientCard } from '@/components/scanner/nutrient-card';
+import { DiagLine } from '@/components/scanner/diag-line';
 import { VerdictCard } from '@/components/scanner/verdict-card';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { FactColors, HIGH_SUGAR_G } from '@/constants/verdict';
 import { logScannedFood, mealTypeForNow } from '@/lib/db';
 import { logSuccess } from '@/lib/feedback';
 import { scanResultStore } from '@/lib/scan-result-store';
-import type { NutrientFact, ScanNutrients, ScanResponse } from '@/types/scan';
+import type { NutrientFact, ScanDiag, ScanNutrients, ScanResponse } from '@/types/scan';
 
 const VALID_GRADES = new Set(['a', 'b', 'c', 'd', 'e']);
 
@@ -72,31 +73,34 @@ function Header() {
   );
 }
 
-function NotFoundView() {
+function NotFoundView({ diag }: { diag: ScanDiag | null }) {
   return (
     <SafeAreaView style={styles.notFoundContainer}>
       <Header />
       <View style={styles.notFoundBody}>
         <Icon name="search" color={C.inkFaint} size={48} strokeWidth={1.5} />
-        <Text style={styles.notFoundTitle}>Couldn't find this product</Text>
+        <Text style={styles.notFoundTitle}>This one isn&apos;t in the database</Text>
         <Text style={styles.notFoundSub}>
-          You can describe it in text and we'll log it from that.
+          Open Food Facts answered — it just doesn&apos;t have this barcode yet.
+          Scanning again won&apos;t change that, so tell us what it is instead and
+          we&apos;ll log it from the description.
         </Text>
         <Pressable
           style={styles.btnSolo}
           onPress={() => router.replace('/add')}
         >
-          <Text style={styles.primaryBtnText}>Describe it in text</Text>
+          <Text style={styles.primaryBtnText}>Type what it is</Text>
         </Pressable>
         <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
           <Text style={styles.ghostBtnText}>Scan another product</Text>
         </Pressable>
+        <DiagLine diag={diag} />
       </View>
     </SafeAreaView>
   );
 }
 
-function UnavailableView() {
+function UnavailableView({ diag }: { diag: ScanDiag | null }) {
   return (
     <SafeAreaView style={styles.notFoundContainer}>
       <Header />
@@ -104,21 +108,28 @@ function UnavailableView() {
         <Icon name="refresh" color={C.inkFaint} size={48} strokeWidth={1.5} />
         <Text style={styles.notFoundTitle}>Couldn&apos;t check right now</Text>
         <Text style={styles.notFoundSub}>
-          We couldn&apos;t reach the product database, so we don&apos;t know this one yet.
-          Your connection or the service may be having a moment.
+          We couldn&apos;t reach the product database, so we don&apos;t know whether
+          it&apos;s there — this one is on us, not the product. A retry often works.
+          If it keeps failing, type what it is and we&apos;ll log it from that.
         </Text>
         <Pressable style={styles.btnSolo} onPress={() => router.back()}>
-          <Text style={styles.primaryBtnText}>Try again</Text>
+          <Text style={styles.primaryBtnText}>Try the scan again</Text>
         </Pressable>
-        <Pressable onPress={() => router.replace('/add')} hitSlop={8}>
-          <Text style={styles.ghostBtnText}>Describe it in text instead</Text>
+        <Pressable
+          onPress={() => router.replace('/add')}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Type what it is instead"
+        >
+          <Text style={styles.ghostBtnText}>Type what it is instead</Text>
         </Pressable>
+        <DiagLine diag={diag} />
       </View>
     </SafeAreaView>
   );
 }
 
-function ErrorView({ message }: { message: string }) {
+function ErrorView({ message, diag }: { message: string; diag: ScanDiag | null }) {
   return (
     <SafeAreaView style={styles.notFoundContainer}>
       <Header />
@@ -128,6 +139,7 @@ function ErrorView({ message }: { message: string }) {
         <Pressable style={styles.btnSolo} onPress={() => router.back()}>
           <Text style={styles.primaryBtnText}>Go back</Text>
         </Pressable>
+        <DiagLine diag={diag} />
       </View>
     </SafeAreaView>
   );
@@ -439,10 +451,13 @@ function OkResultView({ data }: { data: ScanResponse }) {
 export default function ResultScreen() {
   const { outcome } = useLocalSearchParams<{ outcome: string }>();
   const [state] = useState<ScreenState>(() => initState(outcome ?? ''));
+  // One-shot, same as the result payload — taken once on mount so a re-render
+  // doesn't clear it out from under the view.
+  const [diag] = useState<ScanDiag | null>(() => scanResultStore.takeDiag());
 
-  if (state.phase === 'not_found') return <NotFoundView />;
-  if (state.phase === 'unavailable') return <UnavailableView />;
-  if (state.phase === 'error') return <ErrorView message={state.message} />;
+  if (state.phase === 'not_found') return <NotFoundView diag={diag} />;
+  if (state.phase === 'unavailable') return <UnavailableView diag={diag} />;
+  if (state.phase === 'error') return <ErrorView message={state.message} diag={diag} />;
   return <OkResultView data={state.data} />;
 }
 

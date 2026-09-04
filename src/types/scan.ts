@@ -37,6 +37,19 @@ export interface ScanResult {
   scored_basis?: 'serving' | 'per_100g';
 }
 
+/** C1 — per-scan diagnostics from the backend. Rendered as a one-line monospace
+ *  footer on non-ok screens in dev/preview builds, so a field report carries the
+ *  truth instead of "it didn't work". */
+export interface ScanDiag {
+  barcode: string;
+  status: string;
+  source: string | null;
+  ms: number;
+  off_status: number | null;
+  off_ms: number | null;
+  off_error: string | null;
+}
+
 export interface ScanResponse {
   status: 'ok' | 'not_found' | 'unavailable';
   barcode: string;
@@ -48,4 +61,5 @@ export interface ScanResponse {
   grade_attribution?: string | null;
   grade_basis?: 'nutriscore' | 'label_facts' | 'macros_only' | null;
   result?: ScanResult;
+  diag?: ScanDiag;
 }

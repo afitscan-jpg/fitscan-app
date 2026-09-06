@@ -197,12 +197,18 @@ export function TextLogCard({
   const [error, setError] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const micPulse = useRef(new Animated.Value(1)).current;
+  const inputRef = useRef<TextInput>(null);
 
   // A REAL log happened only when the response actually resolved items. A zero-item
   // response ("No foods recognised") is a terminal state too, but it is NOT a log —
   // it must not lock the card. Gate the "logged" behaviour on this, never on
   // `result` alone (that wedged the form: button stuck on "Logged", no way to retry).
   const logged = !!result && result.items.length > 0;
+
+  // Is there anything to clear? Drives the reset button's enabled state. Held
+  // items live inside `result`, so a non-null result counts (zero-item, held, or
+  // logged). Loading is handled separately — reset never touches an in-flight log.
+  const canReset = text.length > 0 || result != null || error != null;
 
   // ── Voice (same wiring the old /ai/parse box used) ──────────────────────────
   useSpeechRecognitionEvent('start', () => setListening(true));
@@ -289,6 +295,20 @@ export function TextLogCard({
     onLogged?.();
   }
 
+  // Start over — works in every state (idle, zero-result, held, logged): wipe the
+  // input, result, error and any held items, keep the selected meal chip, and
+  // focus the input (clearing `result` re-enables the submit via `logged`). NEVER
+  // runs mid-request — the `loading` guard leaves an in-flight log untouched, and
+  // it does not call onLogged, so it never navigates away like "Done" does.
+  function handleReset() {
+    if (loading) return;
+    setText('');
+    setResult(null);
+    setError(null);
+    // Focus after the clear commits. rAF, not an animation — reduced-motion-safe.
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
   // Auto-submit a handed-off prefill once (assistant "Review & log").
   const autoDone = useRef(false);
   useEffect(() => {
@@ -303,8 +323,23 @@ export function TextLogCard({
 
   return (
     <View style={s.card}>
+      <View style={s.cardHeader}>
+        {/* Always-visible reset. Dimmed only when there's nothing to clear. */}
+        <Pressable
+          onPress={handleReset}
+          disabled={!canReset}
+          hitSlop={10}
+          style={[s.resetBtn, !canReset && s.resetBtnDim]}
+          accessibilityRole="button"
+          accessibilityLabel="Start over"
+          accessibilityState={{ disabled: !canReset }}
+        >
+          <Icon name="refresh" color={C.inkSoft} size={16} strokeWidth={2} />
+        </Pressable>
+      </View>
       <View style={s.inputRow}>
         <TextInput
+          ref={inputRef}
           style={s.input}
           placeholder="e.g. 2 rotis and a katori of dal tadka"
           // C3: the placeholder stays LIGHT on purpose — it is an example, not
@@ -405,9 +440,20 @@ export function TextLogCard({
 
           {onLogged && result.items.some(
             (it) => it.kcal != null || it.requires_confirmation) ? (
-            <AnimatedPressable style={s.done} onPress={handleDone}>
-              <Text style={s.doneText}>Done — back to home</Text>
-            </AnimatedPressable>
+            <View style={s.doneRow}>
+              <AnimatedPressable style={[s.done, s.doneFlex]} onPress={handleDone}>
+                <Text style={s.doneText}>Done — back to home</Text>
+              </AnimatedPressable>
+              {/* Same reset action as the corner button — clears and stays here. */}
+              <AnimatedPressable
+                style={s.logAnother}
+                onPress={handleReset}
+                accessibilityRole="button"
+                accessibilityLabel="Log another"
+              >
+                <Text style={s.logAnotherText}>Log another</Text>
+              </AnimatedPressable>
+            </View>
           ) : null}
         </View>
       ) : null}
@@ -424,6 +470,16 @@ const s = StyleSheet.create({
     padding: 16,
     ...Shadow.sm,
   },
+  cardHeader: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 },
+  resetBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F0ECE3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resetBtnDim: { opacity: 0.4 },
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   input: {
     flex: 1,
@@ -579,6 +635,7 @@ const s = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
   },
+  doneRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
   done: {
     backgroundColor: C.greenSoft,
     borderWidth: 1,
@@ -587,7 +644,17 @@ const s = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
   },
+  doneFlex: { flex: 1 },
   doneText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: C.greenInk },
+  logAnother: {
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logAnotherText: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 14, fontWeight: '600', color: C.inkSoft },
 });

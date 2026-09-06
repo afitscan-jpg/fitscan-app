@@ -6,9 +6,13 @@
 // deliberately ignored — reading it is what made an Indian phone whose system
 // language is English (UK) preselect the United Kingdom.
 //
-// Scan every preferred locale for a supported region, then fall back to India
-// (we're India-first). The fallback is never a language-derived region: if the
-// only signal available is a language's region, we drop it and use India.
+// `regionIsTrustworthy` says whether the region signal is actually independent of
+// language on this platform. It is on iOS and Android 13+ (Regional preferences);
+// on Android < 13 there is no separate region — `regionCode` is derived from the
+// locale, so `en-GB` yields `GB` regardless of where the user is. There we do NOT
+// trust it at all: default straight to India (we're India-first; the user can
+// change it). When trusted, scan every preferred locale for a supported region,
+// then fall back to India — never to a language-derived region.
 
 export interface RegionLocale {
   regionCode?: string | null;
@@ -18,8 +22,10 @@ export interface RegionLocale {
 export function pickCountry(
   locales: ReadonlyArray<RegionLocale> | null | undefined,
   supported: ReadonlySet<string>,
+  regionIsTrustworthy: boolean,
   fallback = 'IN',
 ): string {
+  if (!regionIsTrustworthy) return fallback;
   for (const locale of locales ?? []) {
     const region = locale?.regionCode?.toUpperCase?.();
     if (region && supported.has(region)) return region;

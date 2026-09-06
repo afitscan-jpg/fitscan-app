@@ -599,10 +599,15 @@ function Segmented({
 
 export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<'country' | 'goal'>('country');
-  const [country, setCountry] = useState<string>(() =>
-    // Default from the device REGION, never the language locale. See lib/region.
-    pickCountry(Localization.getLocales(), SUPPORTED_COUNTRY_CODES),
-  );
+  const [country, setCountry] = useState<string>(() => {
+    // The region signal is language-independent only on iOS and Android 13+
+    // (API 33, Regional preferences). On Android < 13 `regionCode` is derived
+    // from the locale (en-GB → GB), so we don't trust it — default to India.
+    const regionIsTrustworthy =
+      Platform.OS === 'ios' ||
+      (Platform.OS === 'android' && Number(Platform.Version) >= 33);
+    return pickCountry(Localization.getLocales(), SUPPORTED_COUNTRY_CODES, regionIsTrustworthy);
+  });
 
   if (step === 'country') {
     return (

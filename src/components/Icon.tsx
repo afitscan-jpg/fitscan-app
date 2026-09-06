@@ -2,7 +2,6 @@ import React from 'react';
 import { Circle, G, Path, Svg } from 'react-native-svg';
 
 export type IconName =
-  | 'leaf'
   | 'search'
   | 'check'
   | 'home'
@@ -41,13 +40,6 @@ export function Icon({ name, color = '#16241D', size = 22, strokeWidth = 1.75 }:
   };
 
   switch (name) {
-    case 'leaf':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24">
-          <Path d="M11 20c-4 0-8-3-8-8 0-5 4-9 9-9 4 0 7 2 8 5-1 6-5 12-12 12-1 0-2-.2-3-.6" {...p} />
-          <Path d="M11 20c0-5 2-9 6-12" {...p} />
-        </Svg>
-      );
     case 'search':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24">

@@ -14,9 +14,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BrandMark } from '@/components/brand/brand-mark';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { updateProfile, type Goal, type Sex } from '@/lib/db';
+import { pickCountry } from '@/lib/region';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -81,6 +83,10 @@ const COUNTRIES: Array<{ code: string; name: string; group: string }> = [
 ];
 
 const COUNTRY_DEFAULT_CODES = ['IN', 'US', 'GB', 'AU', 'CA', 'SG'];
+
+// Every country we can preselect — the region default is only trusted if it's one
+// of these; anything else falls back to India.
+const SUPPORTED_COUNTRY_CODES = new Set(COUNTRIES.map((c) => c.code));
 
 const ACTIVITY_OPTIONS: Array<{ label: string; factor: number; desc: string }> = [
   { label: 'Sedentary',         factor: 1.2,   desc: 'Little or no exercise, mostly sitting' },
@@ -192,7 +198,7 @@ function CountryStep({
         showsVerticalScrollIndicator={false}
       >
         <View style={s.obMark}>
-          <Icon name="leaf" color="#fff" size={26} strokeWidth={1.8} />
+          <BrandMark size={30} color="#fff" />
         </View>
         <Text style={s.eyebrow}>Step 1 of 2 · Country</Text>
         <Text style={s.obHero}>Where are you based?</Text>
@@ -593,10 +599,10 @@ function Segmented({
 
 export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<'country' | 'goal'>('country');
-  const [country, setCountry] = useState<string>(() => {
-    const locales = Localization.getLocales();
-    return locales[0]?.regionCode ?? 'IN';
-  });
+  const [country, setCountry] = useState<string>(() =>
+    // Default from the device REGION, never the language locale. See lib/region.
+    pickCountry(Localization.getLocales(), SUPPORTED_COUNTRY_CODES),
+  );
 
   if (step === 'country') {
     return (

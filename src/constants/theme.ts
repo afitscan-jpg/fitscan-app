@@ -1,8 +1,8 @@
 import '@/global.css';
 import { Platform } from 'react-native';
 
-// ─── FitScan design tokens — PREMIUM v3 (light / warm) direction ───────────────
-// Extracted from design/premium-v3/FitScan Premium v3.dc.html.
+// ─── Calibreta design tokens — PREMIUM v3 (light / warm) direction ─────────────
+// Extracted from design/premium-v3/FitScan Premium v3.dc.html (historical filename).
 // v3 flips the palette back to a light, warm wellness look: a cream ambient
 // background, solid white cards with warm borders/shadows, and a sage-green
 // accent with a mix-derived deep/tint system (the html's CSS-var scheme):

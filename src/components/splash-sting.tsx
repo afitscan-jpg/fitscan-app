@@ -19,20 +19,20 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle, G, Line, Path } from 'react-native-svg';
 
+import {
+  BRAND_ARC_D as ARC_D,
+  BRAND_ARC_LEN as ARC_LEN,
+  BRAND_CX as CX,
+  BRAND_CY as CY,
+  BRAND_NEEDLE_LEN as NEEDLE_LEN,
+} from '@/components/brand/brand-geometry';
 import { C, Fonts } from '@/constants/theme';
 
 const AnimatedPath = RNAnimated.createAnimatedComponent(Path);
 const AnimatedG = RNAnimated.createAnimatedComponent(G);
 
-// Geometry (viewBox 120): gauge C opening right, needle from the centre pivot.
-const CX = 60;
-const CY = 60;
-const R = 38;
-const NEEDLE_LEN = 36;
-const ARC_SPAN = 290; // degrees drawn; ~70° gap on the right forms the C
-const ARC_LEN = 2 * Math.PI * R * (ARC_SPAN / 360);
-// Endpoints at ±35° (right side), major arc (large-arc-flag 1) sweeps through the left.
-const ARC_D = 'M91.13 81.80 A38 38 0 1 0 91.13 38.20';
+// Geometry (viewBox 120) is shared with BrandMark via brand-geometry.ts — the
+// sting animates the exact same dial the static mark renders, so they can't drift.
 
 // cb tokens
 const cbOut = Easing.bezier(0.2, 0.7, 0.2, 1);

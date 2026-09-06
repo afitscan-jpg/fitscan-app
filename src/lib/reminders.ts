@@ -1,5 +1,5 @@
 // src/lib/reminders.ts
-// LOCAL notifications for FitScan — reminders at moments of likely need, never
+// LOCAL notifications for Calibreta — reminders at moments of likely need, never
 // accusations of absence. No push infra, no backend; everything is scheduled
 // on-device with expo-notifications.
 //

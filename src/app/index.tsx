@@ -42,6 +42,7 @@ import { GlassCard } from '@/components/glass-card';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { WeightCard } from '@/components/weight-card';
 import { useCountUp } from '@/hooks/use-count-up';
+import { BrandMark } from '@/components/brand/brand-mark';
 import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Gradients, Radius, RingGradient, Shadow, Spacing } from '@/constants/theme';
@@ -1592,9 +1593,14 @@ export default function HomeScreen() {
 
           {/* Greeting (parallax drift + overscroll stretch) */}
           <Reanimated.View style={[hs.greet, hs.greetOrigin, greetStyle]}>
-            <View style={hs.greetText}>
-              <Text style={hs.eyebrow}>{dayName}</Text>
-              <Text style={hs.greetTitle}>{greeting()}</Text>
+            <View style={hs.greetLeft}>
+              {/* Brand mark — static, reduced-motion-safe; sized to sit level with
+                  the greeting without adding header height or moving the streak. */}
+              <BrandMark size={28} color={C.green} />
+              <View style={hs.greetText}>
+                <Text style={hs.eyebrow}>{dayName}</Text>
+                <Text style={hs.greetTitle}>{greeting()}</Text>
+              </View>
             </View>
             <AnimatedPressable
               onPress={() => router.push('/settings' as never)}
@@ -1833,6 +1839,7 @@ const hs = StyleSheet.create({
 
   greet:      { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingTop: 8, marginBottom: 4 },
   greetOrigin:{ transformOrigin: 'top' },
+  greetLeft:  { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   greetText:  { flex: 1 },
   // Ink-drop ripple: 80px disc centred on the touch point via translate + margin.
   inkRipple: {

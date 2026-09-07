@@ -1,5 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -181,9 +181,14 @@ export default function AddFoodScreen() {
   const params = useLocalSearchParams<{ prefill?: string }>();
   const prefill = typeof params.prefill === 'string' ? params.prefill.trim() : '';
 
-  useEffect(() => {
-    getProfile().then(setProfile).catch(() => {});
-  }, []);
+  // Reload on FOCUS (not just mount) so a country change in Settings re-derives
+  // the quick-add presets (getFoods) and the speech locale (passed to TextLogCard)
+  // the moment the user returns here — no reinstall, no remount required.
+  useFocusEffect(
+    useCallback(() => {
+      getProfile().then(setProfile).catch(() => {});
+    }, []),
+  );
 
   // Staged "the server is waking up" copy so a slow first response feels handled.
   function startStages() {
@@ -580,7 +585,9 @@ export default function AddFoodScreen() {
                 {aiLoading ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={s.aiSendText}>Take a photo</Text>
+                  <Text style={s.aiSendText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                    Take a photo
+                  </Text>
                 )}
               </AnimatedPressable>
               <AnimatedPressable
@@ -588,7 +595,9 @@ export default function AddFoodScreen() {
                 onPress={handleGalleryPress}
                 disabled={aiLoading}
               >
-                <Text style={s.photoBtnAltText}>Choose from gallery</Text>
+                <Text style={s.photoBtnAltText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                  From gallery
+                </Text>
               </AnimatedPressable>
             </View>
             {aiLoading && aiStage != null ? (
@@ -1195,12 +1204,15 @@ const s = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  // Two-up photo actions: primary "Take a photo" + secondary "Choose from gallery".
+  // Two-up photo actions: primary "Take a photo" + secondary "From gallery".
+  // Equal height (minHeight 48) + single-line labels so the two never differ in
+  // height or baseline, even when a narrow screen squeezes the row.
   photoBtnRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  photoBtn: { flex: 1, minWidth: 0, paddingVertical: 13 },
+  photoBtn: { flex: 1, minWidth: 0, minHeight: 48, paddingVertical: 13 },
   photoBtnAlt: {
     flex: 1,
     minWidth: 0,
+    minHeight: 48,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: 'rgba(185,132,56,0.35)',

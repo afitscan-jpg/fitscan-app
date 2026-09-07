@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   DeviceEventEmitter,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -88,6 +89,22 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy]       = useState(false);
   const [soundsOn, setSoundsOn] = useState(isFeedbackEnabled());
+  const [countryOpen, setCountryOpen] = useState(false);
+
+  // Change country without reinstalling. Persists to the profile and updates the
+  // display immediately; the Add screen reloads the profile on focus, so the
+  // quick-add presets and speech locale re-derive as soon as the user goes back.
+  async function selectCountry(code: string) {
+    setCountryOpen(false);
+    if (!profile || code === profile.country) return;
+    try {
+      await updateProfile({ country: code });
+      setProfile((p) => (p ? { ...p, country: code } : p));
+      tap();
+    } catch {
+      Alert.alert('Could not update country', 'Please try again.');
+    }
+  }
 
   function toggleSounds(v: boolean) {
     setSoundsOn(v);
@@ -216,7 +233,19 @@ export default function SettingsScreen() {
 
               <Text style={s.eyebrow}>Your profile</Text>
               <View style={s.card}>
-                <Row first label="Country" value={profile?.country ? (COUNTRY_NAMES[profile.country] ?? profile.country) : '—'} />
+                {/* Country is editable — tap to change without reinstalling. */}
+                <Pressable
+                  style={[s.row, s.rowFirst]}
+                  onPress={() => setCountryOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Country, ${profile?.country ? (COUNTRY_NAMES[profile.country] ?? profile.country) : 'not set'}. Tap to change.`}
+                >
+                  <Text style={s.rowLabel}>Country</Text>
+                  <View style={s.rowValueRow}>
+                    <Text style={s.rowValue}>{profile?.country ? (COUNTRY_NAMES[profile.country] ?? profile.country) : '—'}</Text>
+                    <Icon name="arrow" color={C.inkFaint} size={15} strokeWidth={2} />
+                  </View>
+                </Pressable>
                 <Row label="Goal" value={goalLabel(profile?.goal)} />
                 {diet ? <Row label="Diet" value={diet} /> : null}
                 <Row
@@ -331,6 +360,39 @@ export default function SettingsScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
+
+      {/* Country picker — the only functional split is India vs. not (Indian
+          quick-add presets + en-IN speech), but we list the common set. */}
+      <Modal
+        visible={countryOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCountryOpen(false)}
+      >
+        <Pressable style={s.modalBackdrop} onPress={() => setCountryOpen(false)}>
+          <Pressable style={s.modalSheet} onPress={() => {}}>
+            <Text style={s.modalTitle}>Country</Text>
+            <Text style={s.modalSub}>Sets your quick-add foods and voice language.</Text>
+            <ScrollView style={s.modalList} showsVerticalScrollIndicator={false}>
+              {Object.entries(COUNTRY_NAMES).map(([code, name]) => {
+                const on = profile?.country === code;
+                return (
+                  <Pressable
+                    key={code}
+                    style={s.pickRow}
+                    onPress={() => selectCountry(code)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[s.pickName, on && s.pickNameOn]}>{name}</Text>
+                    {on ? <Icon name="check" color={C.green} size={18} strokeWidth={2.4} /> : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -393,6 +455,47 @@ const s = StyleSheet.create({
     color: C.ink,
     fontVariant: ['tabular-nums'],
   },
+  rowValueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+
+  // Country picker modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: C.card,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 28,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontFamily: Fonts?.displaySemi ?? 'system',
+    fontSize: 18,
+    fontWeight: '700',
+    color: C.ink,
+  },
+  modalSub: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 13,
+    color: C.inkSoft,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  modalList: { flexGrow: 0 },
+  pickRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.line,
+  },
+  pickName: { fontFamily: Fonts?.body ?? 'system', fontSize: 15, color: C.ink },
+  pickNameOn: { fontFamily: Fonts?.bodySemi ?? 'system', fontWeight: '700', color: C.greenInk },
 
   actionBtn: {
     backgroundColor: C.card,

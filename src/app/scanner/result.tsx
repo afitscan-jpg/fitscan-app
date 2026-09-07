@@ -427,19 +427,19 @@ function OkResultView({ data }: { data: ScanResponse }) {
       <SafeAreaView edges={['bottom']} style={styles.buttonRow}>
         {isUnknown ? (
           <Pressable style={styles.primaryBtn} onPress={() => router.replace('/add')}>
-            <Text style={styles.primaryBtnText}>Describe in text</Text>
+            <Text style={styles.primaryBtnText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Describe in text</Text>
           </Pressable>
         ) : (
           <Pressable style={styles.primaryBtn} onPress={handleLog} disabled={logging}>
             {logging ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.primaryBtnText}>Log this</Text>
+              <Text style={styles.primaryBtnText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Log this</Text>
             )}
           </Pressable>
         )}
         <Pressable style={styles.ghostBtn} onPress={() => router.back()}>
-          <Text style={styles.ghostBtnText}>Scan next</Text>
+          <Text style={styles.ghostBtnText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Scan next</Text>
         </Pressable>
       </SafeAreaView>
     </SafeAreaView>
@@ -739,6 +739,7 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     flex: 1,                    // for the side-by-side FOOTER ROW in the OK view
+    minHeight: 48,              // equal height with ghostBtn beside it
     backgroundColor: C.green,
     borderRadius: Radius.md,
     paddingVertical: 14,
@@ -766,10 +767,12 @@ const styles = StyleSheet.create({
   },
   ghostBtn: {
     flex: 1,
+    minHeight: 48,
     backgroundColor: C.bg,
     borderRadius: Radius.md,
     paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   ghostBtnText: {
     color: C.ink,

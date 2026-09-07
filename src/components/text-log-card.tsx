@@ -131,10 +131,10 @@ function HeldRow({
         <View style={s.heldActions}>
           <Pressable style={s.heldBtn} onPress={() => send(item.qty, true)} disabled={busy}>
             {busy ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={s.heldBtnText}>Yes, log it</Text>}
+                  : <Text style={s.heldBtnText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Yes, log it</Text>}
           </Pressable>
           <Pressable style={s.heldBtnGhost} onPress={() => setEditing(true)} disabled={busy}>
-            <Text style={s.heldBtnGhostText}>Change amount</Text>
+            <Text style={s.heldBtnGhostText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Change amount</Text>
           </Pressable>
         </View>
       )}
@@ -442,7 +442,7 @@ export function TextLogCard({
             (it) => it.kcal != null || it.requires_confirmation) ? (
             <View style={s.doneRow}>
               <AnimatedPressable style={[s.done, s.doneFlex]} onPress={handleDone}>
-                <Text style={s.doneText}>Done — back to home</Text>
+                <Text style={s.doneText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Done — back to home</Text>
               </AnimatedPressable>
               {/* Same reset action as the corner button — clears and stays here. */}
               <AnimatedPressable
@@ -451,7 +451,7 @@ export function TextLogCard({
                 accessibilityRole="button"
                 accessibilityLabel="Log another"
               >
-                <Text style={s.logAnotherText}>Log another</Text>
+                <Text style={s.logAnotherText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Log another</Text>
               </AnimatedPressable>
             </View>
           ) : null}

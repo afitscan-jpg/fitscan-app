@@ -257,14 +257,14 @@ function MealCard({
         ) : done ? (
           <View style={mc.logBtnDoneRow}>
             <Icon name="check" color={C.greenInk} size={15} strokeWidth={2.4} />
-            <Text style={[mc.logBtnText, mc.logBtnTextDone]}>
+            <Text style={[mc.logBtnText, mc.logBtnTextDone]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
               {result && result.skipped.length > 0
                 ? `Logged ${result.logged.length} of ${total}`
                 : 'Logged'}
             </Text>
           </View>
         ) : (
-          <Text style={[mc.logBtnText, loggable === 0 && mc.logBtnTextIdle]}>
+          <Text style={[mc.logBtnText, loggable === 0 && mc.logBtnTextIdle]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
             {canRetry
               ? `Retry ${result.skipped.filter((s) => s.reason === 'failed').length} item${
                   result.skipped.filter((s) => s.reason === 'failed').length === 1 ? '' : 's'

@@ -18,6 +18,8 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
+import { Odometer } from '@/components/motion/odometer';
+import { SelectChip } from '@/components/motion/select-chip';
 import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { authFetch, PaywallError } from '@/lib/api';
@@ -667,9 +669,11 @@ export default function AddFoodScreen() {
               {(['breakfast', 'lunch', 'snack', 'dinner'] as MealType[]).map((m) => {
                 const on = sheetMeal === m;
                 return (
-                  <Pressable
+                  <SelectChip
                     key={m}
-                    style={[s.sheetMealChip, on && s.sheetMealChipOn]}
+                    selected={on}
+                    style={s.sheetMealChip}
+                    radius={Radius.pill}
                     onPress={() => setSheetMeal(m)}
                     accessibilityRole="button"
                     accessibilityState={{ selected: on }}
@@ -677,23 +681,24 @@ export default function AddFoodScreen() {
                     <Text style={[s.sheetMealText, on && s.sheetMealTextOn]}>
                       {m.charAt(0).toUpperCase() + m.slice(1)}
                     </Text>
-                  </Pressable>
+                  </SelectChip>
                 );
               })}
             </View>
 
             <View style={s.stepper}>
-              <Pressable
+              <AnimatedPressable
+                pressedScale={0.9}
                 style={[s.stepBtn, amount <= minAmt && s.stepBtnDim]}
                 onPress={() => setAmount((a) => Math.max(minAmt, a - step))}
                 disabled={amount <= minAmt}
                 hitSlop={8}
               >
                 <Text style={[s.stepBtnText, amount <= minAmt && s.stepBtnTextDim]}>−</Text>
-              </Pressable>
+              </AnimatedPressable>
 
               <View style={s.stepQtyWrap}>
-                <Text style={s.stepQty}>{amount}</Text>
+                <Odometer value={amount} height={44} style={s.stepQty} />
                 <Text style={s.stepUnit}>
                   {selected?.unit === 'piece'
                     ? `piece${amount !== 1 ? 's' : ''}`
@@ -701,14 +706,15 @@ export default function AddFoodScreen() {
                 </Text>
               </View>
 
-              <Pressable
+              <AnimatedPressable
+                pressedScale={0.9}
                 style={[s.stepBtn, amount >= maxAmt && s.stepBtnDim]}
                 onPress={() => setAmount((a) => Math.min(maxAmt, a + step))}
                 disabled={amount >= maxAmt}
                 hitSlop={8}
               >
                 <Text style={[s.stepBtnText, amount >= maxAmt && s.stepBtnTextDim]}>+</Text>
-              </Pressable>
+              </AnimatedPressable>
             </View>
 
             {liveNutr && (

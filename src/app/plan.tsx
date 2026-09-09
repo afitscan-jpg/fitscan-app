@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
+import { SelectChip } from '@/components/motion/select-chip';
 import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
@@ -536,14 +537,16 @@ export default function PlanScreen() {
               {DIET_CHIPS.map((chip) => {
                 const on = dietOverride === chip.value;
                 return (
-                  <AnimatedPressable
+                  <SelectChip
                     key={chip.value}
-                    style={[s.chip, on && s.chipOn]}
+                    selected={on}
+                    style={s.chip}
+                    radius={999}
                     onPress={() => selectDiet(chip.value)}
                     disabled={loading}
                   >
                     <Text style={[s.chipText, on && s.chipTextOn]}>{chip.label}</Text>
-                  </AnimatedPressable>
+                  </SelectChip>
                 );
               })}
             </ScrollView>

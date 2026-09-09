@@ -3,6 +3,7 @@ import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, TextInput, Vi
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 
 import { AnimatedPressable } from '@/components/animated-pressable';
+import { SelectChip } from '@/components/motion/select-chip';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { PaywallError } from '@/lib/api';
@@ -380,9 +381,9 @@ export function TextLogCard({
         {MEALS.map((m) => {
           const on = meal === m;
           return (
-            <Pressable key={m} style={[s.mealChip, on && s.mealChipOn]} onPress={() => setMeal(m)} disabled={loading}>
+            <SelectChip key={m} selected={on} onPress={() => setMeal(m)} disabled={loading} style={s.mealChip} radius={Radius.pill}>
               <Text style={[s.mealText, on && s.mealTextOn]}>{cap(m)}</Text>
-            </Pressable>
+            </SelectChip>
           );
         })}
       </View>
@@ -390,7 +391,8 @@ export function TextLogCard({
       {error ? <Text style={s.error}>{error}</Text> : null}
 
       <AnimatedPressable
-        style={[s.submit, (loading || !text.trim() || logged) && s.submitDim]}
+        style={s.submit}
+        disabledOpacity={0.4}
         onPress={() => submit()}
         disabled={loading || !text.trim() || logged}
         accessibilityRole="button"

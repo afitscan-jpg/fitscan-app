@@ -1587,14 +1587,32 @@ export default function HomeScreen() {
   const scrollHandler = useAnimatedScrollHandler((e) => { scrollY.value = e.contentOffset.y; });
 
   // Greeting parallax (drifts ~0.85× scroll) + overscroll header stretch (wave).
+  // v2 §6 — the tall greeting also dissolves as it leaves, handing off to the
+  // pinned compact bar below. Opacity is a fade, so it is kept even under reduced
+  // motion; the parallax/stretch transforms stay gated off.
   const greetStyle = useAnimatedStyle(() => {
-    if (reducedMotion) return {};
+    const fade = 1 - interpolate(scrollY.value, [50, 150], [0, 1], Extrapolation.CLAMP);
+    if (reducedMotion) return { opacity: fade };
     const overscroll = Math.min(0, scrollY.value); // negative when pulled past the top
     return {
+      opacity: fade,
       transform: [
         { translateY: scrollY.value * 0.15 },
         { scaleY: interpolate(overscroll, [-120, 0], [1.055, 1], Extrapolation.CLAMP) },
       ],
+    };
+  });
+
+  // v2 §6 — collapsing compact header: a pinned bar that fades + slides down into
+  // place as the tall greeting scrolls away (transform/opacity via a scroll
+  // handler — the release-safe collapse; never height). Display-only + pointerEvents
+  // none so it can never intercept a touch while faint. Reduced motion: cross-fade
+  // only, no slide.
+  const compactStyle = useAnimatedStyle(() => {
+    const t = interpolate(scrollY.value, [50, 150], [0, 1], Extrapolation.CLAMP);
+    return {
+      opacity: t,
+      transform: reducedMotion ? [] : [{ translateY: -52 * (1 - t) }],
     };
   });
 
@@ -1824,6 +1842,13 @@ export default function HomeScreen() {
           )}
         </Reanimated.View>
         </Reanimated.ScrollView>
+
+        {/* v2 §6 — pinned compact header, fades/slides in as the greeting leaves.
+            Display-only (pointerEvents none) so it never intercepts a touch. */}
+        <Reanimated.View pointerEvents="none" style={[hs.compactBar, compactStyle]}>
+          <BrandMark size={22} color={C.green} />
+          <Text style={hs.compactTitle} numberOfLines={1}>{greeting()}</Text>
+        </Reanimated.View>
       </SafeAreaView>
 
       {/* Ink-drop tap ripple (fluid layer) — sits above content, never blocks it */}
@@ -1891,6 +1916,21 @@ const hs = StyleSheet.create({
   scroll:{ paddingHorizontal: 22, paddingBottom: 120 },
   scrollInner: { gap: 16 },
 
+  compactBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 22,
+    backgroundColor: C.bg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.cardBorder,
+  },
+  compactTitle: { fontFamily: Fonts?.display ?? 'system', fontSize: 17, color: C.ink, letterSpacing: -0.2, flex: 1 },
   greet:      { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingTop: 8, marginBottom: 4 },
   greetOrigin:{ transformOrigin: 'top' },
   greetLeft:  { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },

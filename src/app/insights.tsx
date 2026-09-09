@@ -140,12 +140,12 @@ export default function InsightsScreen() {
             <ChartCard index={0} title="Calories vs target" sub={data.weeklyAvgKcal != null
                 ? `Averaging ${formatTotalKcal(data.weeklyAvgKcal, data.days.some((d) => d.est))} this week`
                 : 'Last 7 days'}>
-              <DailyBars data={kcalBars} target={data.kcalTarget} avg={data.weeklyAvgKcal} yStep={500} />
+              <DailyBars data={kcalBars} target={data.kcalTarget} avg={data.weeklyAvgKcal} yStep={500} unit="kcal" />
             </ChartCard>
             <EduSnippet index={1} tag="Handy to know" body={EDU.target} />
 
             <ChartCard index={2} title="Protein" sub={data.proteinTarget != null ? `Target around ${data.proteinTarget} g/day` : 'Last 7 days'}>
-              <DailyBars data={proteinBars} target={data.proteinTarget} avg={null} yStep={25} />
+              <DailyBars data={proteinBars} target={data.proteinTarget} avg={null} yStep={25} unit="g" />
             </ChartCard>
             <EduSnippet index={3} tag="On protein" body={EDU.protein} />
 

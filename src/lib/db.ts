@@ -2,6 +2,7 @@
 // All reads/writes the app needs. RLS guarantees a user only ever touches
 // their own rows, so we never filter by user manually on reads.
 
+import { emitLogsChanged } from './log-events';
 import { supabase } from './supabase';
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -133,11 +134,13 @@ export async function logFood(entry: FoodEntry): Promise<void> {
     provenance: entry.provenance ?? null,
   });
   if (error) throw error;
+  emitLogsChanged();
 }
 
 export async function deleteFoodLog(id: string): Promise<void> {
   const { error } = await supabase.from('food_logs').delete().eq('id', id);
   if (error) throw error;
+  emitLogsChanged();
 }
 
 /** Edit an existing entry (used by the Home "tap a row to edit" sheet). */
@@ -161,6 +164,7 @@ export async function updateFoodLog(
   if (fields.fat_g !== undefined) patch.fat_g = fields.fat_g;
   const { error } = await supabase.from('food_logs').update(patch).eq('id', id);
   if (error) throw error;
+  emitLogsChanged();
 }
 
 /** Convenience: log an item that came from a scan result. A packaged scan carries

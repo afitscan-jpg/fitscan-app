@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Reanimated, {
@@ -18,6 +18,7 @@ import { MealTypeBar, VerifiedShare } from '@/components/insights/HorizontalBars
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { formatTotalKcal } from '@/lib/format-total';
 import { getInsights7d, type InsightsData } from '@/lib/insights';
+import { useLogsChanged } from '@/hooks/use-logs-changed';
 
 // ── "Handy to know" education snippets — static, non-medical, anti-guilt ────────
 const EDU = {
@@ -75,14 +76,29 @@ export default function InsightsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
+  const mounted = useRef(true);
   useEffect(() => {
-    let alive = true;
-    getInsights7d()
-      .then((d) => { if (alive) setData(d); })
-      .catch(() => { if (alive) setError(true); })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
+    mounted.current = true;
+    return () => { mounted.current = false; };
   }, []);
+
+  // `silent` refetch keeps the current bars on screen and lets them settle to the
+  // new values — used when a log mutation fires elsewhere while this screen is
+  // alive. The initial load shows the skeleton and can surface an error.
+  const load = useCallback((silent = false) => {
+    if (!silent) { setLoading(true); setError(false); }
+    getInsights7d()
+      .then((d) => { if (mounted.current) setData(d); })
+      .catch(() => { if (mounted.current && !silent) setError(true); })
+      .finally(() => { if (mounted.current && !silent) setLoading(false); });
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // React to add/delete/edit anywhere in the app — not just to a fresh mount.
+  // The charts settle to the new numbers without replaying their entrance
+  // stagger (that is gated to screen focus, not to data changes).
+  useLogsChanged(() => load(true));
 
   const kcalBars: BarDatum[] = (data?.days ?? []).map((d, i, arr) => ({
     value: d.kcal, hasData: d.hasData, est: d.est, isToday: i === arr.length - 1, label: dayLabel(d.date, i === arr.length - 1),

@@ -18,6 +18,11 @@ create extension if not exists pgcrypto;
 
 -- ---------- enums ----------
 create type sex_type        as enum ('male','female','other');
+-- NOTE (2026-09-09): the LIVE enum also contains 'build_muscle' and 'recomp',
+-- added by an out-of-repo migration (verified via `select 'build_muscle'::goal_type`).
+-- This baseline file predates them. The app's Goal type and onboarding offer both;
+-- migration_021 teaches the compute_targets() trigger their goal offsets
+-- (build_muscle +250, recomp 0). Do NOT re-add them here as new values.
 create type goal_type       as enum ('lose','maintain','gain');
 create type meal_type       as enum ('breakfast','lunch','dinner','snack');
 create type log_source      as enum ('scan','search','ai_estimate','quick_add','manual');

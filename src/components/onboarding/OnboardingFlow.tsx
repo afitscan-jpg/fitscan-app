@@ -454,12 +454,13 @@ function GoalStep({
               <View style={s.maintCard}>
                 <Text style={s.maintEyebrow}>Maintenance calories</Text>
                 <Text style={s.maintN}>
-                  {result.maintenanceKcal.toLocaleString()}{' '}
+                  ≈ {result.maintenanceKcal.toLocaleString()}{' '}
                   <Text style={s.maintUnit}>kcal/day</Text>
                 </Text>
                 <Text style={s.maintSub}>
-                  What your body needs just to stay the same. This is your honest baseline —
-                  everything from here is your choice, not a punishment.
+                  What your body needs just to stay the same — an estimate, so most people
+                  land within 10–15% of this. It’s your honest baseline; everything from here
+                  is your choice, not a punishment.
                 </Text>
               </View>
 

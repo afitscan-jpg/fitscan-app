@@ -147,6 +147,11 @@ const RING_STROKE = 13;
 const RING_CIRCUM = 2 * Math.PI * RING_R; // ≈ 389.6
 const GRADIENT_ID = 'calRingGrad';
 
+// cb-out easing as a REANIMATED worklet easing. Using RN's Easing inside a
+// Reanimated withTiming would capture a non-worklet fn (release-crash class #1),
+// so the ring's Reanimated moments (glow ramp, number pulse) use this one.
+const CB_OUT_RE = REasing.bezier(0.2, 0.7, 0.2, 1);
+
 // react-native-svg circle doesn't directly accept Animated values via
 // Animated.createAnimatedComponent in all RN versions, so we animate a wrapper
 // View's scale as a glow and drive the dashoffset via a JS-animated value
@@ -169,6 +174,42 @@ function CalorieRing({ eaten, target }: { eaten: number; target: number }) {
 
   // Count the centre "kcal left/over" number when it changes (e.g. after a log).
   const displayDiff = useCountUp(diff, 350);
+
+  // v2 §17 — warm glow + number pulse, both on Reanimated useAnimatedStyle
+  // (transform/opacity only). The legacy Animated stroke above is untouched.
+  const pulse = useSharedValue(1); // number scale, one soft pulse on change
+  const glow = useSharedValue(0); // amber halo opacity, ramps near/over target
+  const firstPulse = useRef(true);
+  const roundedDiff = Math.round(diff);
+
+  // Warm glow: an amber halo behind the ring that ramps in as intake approaches
+  // and passes the target — amber is the strongest tone, never red, and the ring
+  // itself stays sage / the number stays neutral over target (anti-guilt). Below
+  // 80% there is no amber; the base sage glow (rs.glow) always shows. Opacity is a
+  // fade, so it ramps in reduced-motion too (no gating).
+  useEffect(() => {
+    const pctRaw = target > 0 ? eaten / target : 0;
+    const amber =
+      pctRaw <= 0.8 ? 0 : pctRaw >= 1 ? 0.35 : ((pctRaw - 0.8) / 0.2) * 0.35;
+    glow.value = withTiming(amber, { duration: 420, easing: CB_OUT_RE });
+  }, [eaten, target, glow]);
+
+  // Number pulse: one soft scale bump when the kcal figure changes (after a log).
+  // Skips the first mount and reduced-motion (transform-only moment).
+  useEffect(() => {
+    if (firstPulse.current) {
+      firstPulse.current = false;
+      return;
+    }
+    if (reduceMotion) return;
+    pulse.value = withSequence(
+      withTiming(1.08, { duration: 180, easing: CB_OUT_RE }),
+      withTiming(1, { duration: 240, easing: CB_OUT_RE }),
+    );
+  }, [roundedDiff, reduceMotion, pulse]);
+
+  const glowStyle = useAnimatedStyle(() => ({ opacity: glow.value }));
+  const numStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled()
@@ -198,7 +239,7 @@ function CalorieRing({ eaten, target }: { eaten: number; target: number }) {
       Animated.spring(animOffset, {
         toValue: targetOffset,
         damping: 12,
-        stiffness: 120,
+        stiffness: 150, // v2 §17 "find level" overshoot + single wobble
         mass: 1,
         useNativeDriver: false,
       }).start();
@@ -207,8 +248,10 @@ function CalorieRing({ eaten, target }: { eaten: number; target: number }) {
 
   return (
     <View style={rs.wrap}>
-      {/* Soft green glow behind the ring */}
+      {/* Soft green glow behind the ring (always present) */}
       <View style={rs.glow} />
+      {/* Warm amber halo — ramps in near/over target (opacity, never red) */}
+      <Reanimated.View pointerEvents="none" style={[rs.glowAmber, glowStyle]} />
       <Svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}>
         <Defs>
           <SvgLinearGradient id={GRADIENT_ID} x1="0" y1="0" x2="1" y2="1">
@@ -241,7 +284,9 @@ function CalorieRing({ eaten, target }: { eaten: number; target: number }) {
         />
       </Svg>
       <View style={rs.center}>
-        <Text style={rs.num}>{Math.abs(Math.round(displayDiff)).toLocaleString()}</Text>
+        <Reanimated.Text style={[rs.num, numStyle]}>
+          {Math.abs(Math.round(displayDiff)).toLocaleString()}
+        </Reanimated.Text>
         <Text style={rs.label}>{over ? 'kcal over' : 'kcal left'}</Text>
       </View>
     </View>
@@ -263,6 +308,15 @@ const rs = StyleSheet.create({
     right: 10,
     borderRadius: RING_SIZE / 2,
     backgroundColor: 'rgba(76,124,99,0.08)',
+  },
+  glowAmber: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    left: 4,
+    right: 4,
+    borderRadius: RING_SIZE / 2,
+    backgroundColor: C.amber,
   },
   center: {
     position: 'absolute',

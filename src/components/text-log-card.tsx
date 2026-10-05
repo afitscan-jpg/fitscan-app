@@ -5,7 +5,7 @@ import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-spe
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
-import { PaywallError } from '@/lib/api';
+import { PaywallError, RequestRefusedError } from '@/lib/api';
 import { mealTypeForNow, type MealType } from '@/lib/db';
 import {
   confirmLogItem,
@@ -176,6 +176,9 @@ function ResultRow({ item }: { item: TextLogItem }) {
 
 // ─── The card: input + meal chips + resolved results ──────────────────────────
 
+/** Same cap the server enforces on /log/text (audit m3). */
+const MAX_TEXT_CHARS = 500;
+
 export function TextLogCard({
   onPaywall,
   onLogged,
@@ -276,6 +279,9 @@ export function TextLogCard({
       setResult(res);
     } catch (e) {
       if (e instanceof PaywallError) onPaywall(e);
+      // Rate limit / daily ceiling / too long: the server says which and when it
+      // clears. "Please try again" would be wrong advice for all three.
+      else if (e instanceof RequestRefusedError) setError(e.message);
       else setError("Couldn't log that — please try again.");
     } finally {
       setLoading(false);
@@ -347,6 +353,9 @@ export function TextLogCard({
           // title ever moves, so the hint never has to double as the name.
           accessibilityLabel="What did you eat?"
           placeholderTextColor={C.inkFaint}
+          // m3: the server refuses anything longer; stop at the same number here
+          // so nobody types a paragraph only to be told it was too long.
+          maxLength={MAX_TEXT_CHARS}
           value={text}
           // Keyboards auto-capitalise the first letter, and a capitalised bare word
           // ("Coffee") was false-negativing extraction — so don't capitalise. Editing

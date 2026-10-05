@@ -20,7 +20,7 @@ import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
-import { authFetch, PaywallError } from '@/lib/api';
+import { authFetch, PaywallError, RequestRefusedError, TimeoutError } from '@/lib/api';
 import { PaywallSheet } from '@/components/paywall-sheet';
 import { TextLogCard } from '@/components/text-log-card';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
@@ -452,13 +452,16 @@ export default function AddFoodScreen() {
         }),
       });
       if (!res.ok) {
-        console.warn('[AI photo] status', res.status, await res.text());
+        if (__DEV__) console.warn('[AI photo] status', res.status, await res.text());
         throw new Error(`Server error ${res.status}`);
       }
       applyAiParseResponse(await res.json());
     } catch (e) {
       if (e instanceof PaywallError) setPaywall(e);
-      else setAiInlineMsg("Couldn't reach the server — is the backend running?");
+      else if (e instanceof RequestRefusedError) setAiInlineMsg(e.message);
+      // m5: this used to ask the user "is the backend running?".
+      else if (e instanceof TimeoutError) setAiInlineMsg('That took too long — please try again.');
+      else setAiInlineMsg("Couldn't read that photo right now — please try again, or type what you ate.");
     } finally {
       stopStages();
       setAiLoading(false);

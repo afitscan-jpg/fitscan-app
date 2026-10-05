@@ -106,6 +106,15 @@ export async function listPhotos(): Promise<ProgressPhoto[]> {
   return list.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
+/**
+ * Remove EVERY progress photo and the index (used when the account is deleted).
+ * The whole directory goes, so nothing is left even if the index was stale.
+ */
+export async function deleteAllPhotos(): Promise<void> {
+  const dir = photosDir();
+  if (dir.exists) dir.delete();
+}
+
 /** Remove a photo's file and its index entry. */
 export async function deletePhoto(id: string): Promise<void> {
   const dir = photosDir();

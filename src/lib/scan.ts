@@ -1,6 +1,7 @@
 import type { ScanDiag, ScanResponse } from '@/types/scan';
 
-import { ApiError, apiFetch } from './api';
+import { ApiError, RequestRefusedError, authFetch } from './api';
+import { getBackendState, WAKE_BUDGET_MS } from './backend-health';
 
 export type ScanOutcome =
   | { kind: 'ok'; data: ScanResponse; diag: ScanDiag }
@@ -20,6 +21,25 @@ export type ScanOutcome =
  */
 const SCAN_TIMEOUT_MS = 10_000;
 
+/**
+ * B3 — the one exception: when the server is waking from sleep, 10 s guarantees
+ * a failure. The "waking up" banner is on screen telling the user why this is
+ * slow, so wait for it rather than resolve to a wrong "unavailable".
+ */
+function scanDeadlineMs(): number {
+  return getBackendState() === 'awake' ? SCAN_TIMEOUT_MS : WAKE_BUDGET_MS;
+}
+
+/** GET /scan/{barcode} as the signed-in user (the route requires auth — M2). */
+async function requestScan(barcode: string): Promise<ScanResponse> {
+  const res = await authFetch(`/scan/${barcode}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new ApiError(res.status, text);
+  }
+  return (await res.json()) as ScanResponse;
+}
+
 /** Local fallback diag when we never got a response to read one from. */
 function localDiag(barcode: string, status: string, ms: number, err: string | null): ScanDiag {
   return {
@@ -34,9 +54,9 @@ export async function fetchScan(barcode: string): Promise<ScanOutcome> {
     // Race the request against the scan-specific deadline. Whichever settles
     // first wins; a late response is simply ignored.
     const data = await Promise.race([
-      apiFetch<ScanResponse>(`/scan/${barcode}`),
+      requestScan(barcode),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('SCAN_TIMEOUT')), SCAN_TIMEOUT_MS),
+        setTimeout(() => reject(new Error('SCAN_TIMEOUT')), scanDeadlineMs()),
       ),
     ]);
     const diag: ScanDiag =
@@ -50,6 +70,10 @@ export async function fetchScan(barcode: string): Promise<ScanOutcome> {
       // Not "not found" — we never got an answer. Same honest state as an OFF
       // outage, and it carries the same escape.
       return { kind: 'unavailable', diag: localDiag(barcode, 'timeout', ms, 'client_timeout') };
+    }
+    if (e instanceof RequestRefusedError) {
+      // 30 scans a minute. Not a miss and not an outage — say "try again".
+      return { kind: 'unavailable', diag: localDiag(barcode, 'rate_limited', ms, 'http_429') };
     }
     if (e instanceof ApiError) {
       if (e.status === 400) return { kind: 'invalid', diag: localDiag(barcode, 'invalid', ms, 'http_400') };

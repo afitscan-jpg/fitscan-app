@@ -31,6 +31,8 @@ SplashScreen.preventAutoHideAsync();
 // Emitted by the Settings screen to send the user back through onboarding
 // (Restart setup / Sign out & start fresh). Onboarding is rendered by state
 // here, not a route, so a DeviceEventEmitter signal is the clean way to flip it.
+import { WakingBanner } from '@/components/waking-banner';
+
 export const REONBOARD_EVENT = 'fitscan:reonboard';
 
 type AppState = 'loading' | 'onboarding' | 'ready';
@@ -125,6 +127,9 @@ export default function RootLayout() {
       <View style={styles.appRoot}>
         <StatusBar style="dark" />
         <AppTabs />
+        {/* B3: "Waking up — a moment" while the server boots; pings /health on
+            launch and on every return to the foreground. */}
+        <WakingBanner />
         {/* Single global instance — persists across all tabs (never per-screen). */}
         <AssistantFab />
         {showSting && <SplashSting onDone={() => setShowSting(false)} />}

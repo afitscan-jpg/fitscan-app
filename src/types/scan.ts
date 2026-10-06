@@ -48,6 +48,9 @@ export interface ScanDiag {
   off_status: number | null;
   off_ms: number | null;
   off_error: string | null;
+  /** HTTP status of OUR backend's reply, or null when no reply was received
+   *  (timeout, no network). Set by the app, not the server. */
+  http_status: number | null;
 }
 
 export interface ScanResponse {

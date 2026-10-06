@@ -47,11 +47,14 @@ type ScreenState =
   // Couldn't reach the product database. Distinct from not_found on purpose: we
   // never learned whether this product exists, so we must not say it doesn't.
   | { phase: 'unavailable' }
+  // The backend would not accept the session (401/403 after a refresh and retry).
+  | { phase: 'auth' }
   | { phase: 'error'; message: string };
 
 function initState(outcome: string): ScreenState {
   if (outcome === 'not_found') return { phase: 'not_found' };
   if (outcome === 'unavailable') return { phase: 'unavailable' };
+  if (outcome === 'auth') return { phase: 'auth' };
   const data = scanResultStore.take();
   if (!data?.result) {
     return { phase: 'error', message: 'No result available — go back and scan again.' };
@@ -122,6 +125,36 @@ function UnavailableView({ diag }: { diag: ScanDiag | null }) {
           accessibilityLabel="Type what it is instead"
         >
           <Text style={styles.ghostBtnText}>Type what it is instead</Text>
+        </Pressable>
+        <DiagLine diag={diag} />
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function AuthView({ diag }: { diag: ScanDiag | null }) {
+  return (
+    <SafeAreaView style={styles.notFoundContainer}>
+      <Header />
+      <View style={styles.notFoundBody}>
+        <Icon name="refresh" color={C.inkFaint} size={48} strokeWidth={1.5} />
+        <Text style={styles.notFoundTitle}>Your session needs a fresh start</Text>
+        <Text style={styles.notFoundSub}>
+          The server didn&apos;t accept this app&apos;s sign-in, even after refreshing
+          it. The product database is fine and so is the barcode — scanning again
+          won&apos;t help. Close the app fully and open it again; if you have an
+          account, sign in from Settings → Account.
+        </Text>
+        <Pressable style={styles.btnSolo} onPress={() => router.replace('/settings' as never)}>
+          <Text style={styles.primaryBtnText}>Open Settings</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Text style={styles.ghostBtnText}>Back</Text>
         </Pressable>
         <DiagLine diag={diag} />
       </View>
@@ -457,6 +490,7 @@ export default function ResultScreen() {
 
   if (state.phase === 'not_found') return <NotFoundView diag={diag} />;
   if (state.phase === 'unavailable') return <UnavailableView diag={diag} />;
+  if (state.phase === 'auth') return <AuthView diag={diag} />;
   if (state.phase === 'error') return <ErrorView message={state.message} diag={diag} />;
   return <OkResultView data={state.data} />;
 }

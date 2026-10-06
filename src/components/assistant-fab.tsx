@@ -9,6 +9,11 @@ import { C, Gradients } from '@/constants/theme';
 // Height the tab dock reserves at the bottom (bar height + its top padding).
 // Mirrors app-tabs.tsx so the FAB always clears the floating bar.
 const DOCK_HEIGHT = 66 + 6;
+// The scan-result screen pins "Log this / Scan next" to the bottom edge
+// (result.tsx `buttonRow`: paddingTop 8 + 48 button + paddingBottom 16, above the
+// bottom inset). The FAB sat on top of "Scan next"; on that screen it lifts
+// above the row instead. Keep in step with result.tsx if that row changes.
+const RESULT_BUTTON_ROW_HEIGHT = 8 + 48 + 16;
 
 /**
  * Global floating assistant button. Rendered ONCE at the app root (around
@@ -20,7 +25,10 @@ const DOCK_HEIGHT = 66 + 6;
 export function AssistantFab() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const bottom = Math.max(insets.bottom, 12) + DOCK_HEIGHT + 16;
+  const onScanResult = pathname === '/scanner/result';
+  const bottom = onScanResult
+    ? insets.bottom + RESULT_BUTTON_ROW_HEIGHT + 12
+    : Math.max(insets.bottom, 12) + DOCK_HEIGHT + 16;
 
   // Don't overlay the button on the assistant screen itself (avoids re-pushing it).
   if (pathname === '/assistant') return null;

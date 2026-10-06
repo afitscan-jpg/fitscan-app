@@ -146,6 +146,10 @@ export default function ScanScreen() {
       } else if (outcome.kind === 'unavailable') {
         // Reachability problem, not a missing product — keep the copy temporary.
         router.push({ pathname: '/scanner/result', params: { outcome: 'unavailable' } });
+      } else if (outcome.kind === 'auth') {
+        // The backend rejected the session after a refresh and retry. Say so —
+        // "try the scan again" would be the wrong advice.
+        router.push({ pathname: '/scanner/result', params: { outcome: 'auth' } });
       } else if (outcome.kind === 'upstream_error') {
         setErrorMsg('Server error — please try again.');
         setScanState('error');

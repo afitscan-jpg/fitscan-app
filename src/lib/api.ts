@@ -168,8 +168,8 @@ async function currentAccessToken(): Promise<string> {
 /**
  * fetch() for the authenticated backend endpoints (/ai/parse, /insights/*).
  * Attaches the Supabase access token as `Authorization: Bearer <jwt>`; the
- * backend derives the user id from it. On a 401 it refreshes the session once
- * and retries once. Returns the raw Response so callers keep their own
+ * backend derives the user id from it. On a 401 or 403 it refreshes the session
+ * once and retries once. Returns the raw Response so callers keep their own
  * res.ok / res.json() handling.
  */
 export async function authFetch(path: string, options: RequestInit = {}): Promise<Response> {
@@ -184,7 +184,7 @@ export async function authFetch(path: string, options: RequestInit = {}): Promis
 
   let res = await run(await currentAccessToken());
 
-  if (res.status === 401) {
+  if (res.status === 401 || res.status === 403) {
     const { data } = await supabase.auth.refreshSession();
     const refreshed = data.session?.access_token;
     if (refreshed) res = await run(refreshed);

@@ -47,15 +47,10 @@ const TAB_CICON: Record<RouteName, CIconName> = {
   explore: 'news',
 };
 
-// Only these routes get a button in the bar, IN THIS ORDER (the bar sorts by
-// it, not by route order). Any other route is navigable but never rendered as
-// a tab. Scan stays in the centre slot: the assistant FAB is right-anchored on
-// the assumption that nothing else sits there.
-//
-// 1.0 ships three tabs. News ('explore') is hidden, not removed — the route,
-// the ingest cron and the screen all stay — until launch usage says whether
-// it earns a slot back.
-const VISIBLE: RouteName[] = ['index', 'scanner', 'add'];
+// Only these routes get a button in the bar, in this order. Any other route
+// (plan, settings, …) is navigable but never rendered as a tab — this keeps
+// the five slots evenly spaced with Scan centered.
+const VISIBLE: RouteName[] = ['index', 'add', 'scanner', 'explore'];
 
 // A standard tab: the icon does a small bounce-settle when it becomes active.
 function TabButton({ name, label, isFocused, onPress }: {
@@ -132,8 +127,7 @@ function CustomTabBar({ state, navigation }: TabBarProps) {
 
   const tabs = state.routes
     .map((route, index) => ({ route, index }))
-    .filter(({ route }) => (VISIBLE as string[]).includes(route.name))
-    .sort((a, b) => VISIBLE.indexOf(a.route.name as RouteName) - VISIBLE.indexOf(b.route.name as RouteName));
+    .filter(({ route }) => (VISIBLE as string[]).includes(route.name));
 
   return (
     <View style={[styles.dock, { paddingBottom: Math.max(insets.bottom, 12) }]} pointerEvents="box-none">

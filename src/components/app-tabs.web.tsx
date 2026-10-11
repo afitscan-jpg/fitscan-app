@@ -24,13 +24,15 @@ export default function AppTabs() {
           <TabTrigger name="home" href="/" asChild>
             <TabButton>Home</TabButton>
           </TabTrigger>
-          <TabTrigger name="scanner" href="/scanner" asChild>
-            <TabButton>Scan</TabButton>
-          </TabTrigger>
           <TabTrigger name="add" href="/add" asChild>
             <TabButton>Log</TabButton>
           </TabTrigger>
-          {/* News ('/explore') is hidden for 1.0 — route and screen kept. */}
+          <TabTrigger name="scanner" href="/scanner" asChild>
+            <TabButton>Scan</TabButton>
+          </TabTrigger>
+          <TabTrigger name="explore" href="/explore" asChild>
+            <TabButton>News</TabButton>
+          </TabTrigger>
         </CustomTabList>
       </TabList>
     </Tabs>

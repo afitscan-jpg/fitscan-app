@@ -151,12 +151,27 @@ export default function SettingsScreen() {
     );
   }
 
+  // Anonymous users have server-side data too (every log is stored under their
+  // anonymous id), so deletion is offered to everyone — but the words differ: an
+  // anonymous user never made an "account" and must not be told they are
+  // deleting one.
+  const anon = auth?.isAnonymous !== false;
+  const deleteLabel = anon ? 'Delete all my data' : 'Delete account';
+  const deleteSub = anon
+    ? "Permanently delete everything you've logged"
+    : 'Permanently delete your account and every log';
+
   function handleSignOutFresh() {
     Alert.alert(
       'Sign out & start fresh?',
-      'This starts a brand-new anonymous profile. Your current logs and history will no longer be visible on this device.',
+      'This starts a brand-new profile on this device. It does NOT delete anything from our servers — ' +
+        (anon
+          ? "what you've logged stays stored under your old anonymous id, just no longer visible here."
+          : 'your account and its logs stay exactly as they are; sign in again to see them.') +
+        (anon ? '\n\nTo erase it for good, use "Delete all my data" instead.' : '\n\nTo erase it for good, use "Delete account" instead.'),
       [
         { text: 'Cancel', style: 'cancel' },
+        { text: anon ? 'Delete all my data instead' : 'Delete account instead', onPress: () => handleDeleteAccount() },
         {
           text: 'Start fresh',
           style: 'destructive',
@@ -184,8 +199,11 @@ export default function SettingsScreen() {
   //   partial → account gone, some rows left: reported, with what to do
   function handleDeleteAccount() {
     Alert.alert(
-      'Delete your account?',
-      "This deletes your account and every log permanently. There is no undo.\n\nWe'll tell you whether it worked. If it can't be completed, nothing is deleted.",
+      anon ? 'Delete all your data?' : 'Delete your account?',
+      (anon
+        ? "This permanently deletes everything you've logged. There is no undo."
+        : 'This deletes your account and every log permanently. There is no undo.') +
+        "\n\nWe'll tell you whether it worked. If it can't be completed, nothing is deleted.",
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -208,11 +226,13 @@ export default function SettingsScreen() {
             await resetDeviceAfterDeletion();
             DeviceEventEmitter.emit(REONBOARD_EVENT);
             if (outcome.kind === 'partial') {
-              Alert.alert('Account deleted — one thing left', outcome.message);
+              Alert.alert(anon ? 'Data deleted — one thing left' : 'Account deleted — one thing left', outcome.message);
             } else {
               Alert.alert(
-                'Account deleted',
-                "Your account and all of its data have been permanently deleted. You're starting again with a fresh anonymous profile.",
+                anon ? 'Data deleted' : 'Account deleted',
+                anon
+                  ? "Everything you logged has been permanently deleted. You're starting again with a fresh profile."
+                  : "Your account and all of its data have been permanently deleted. You're starting again with a fresh anonymous profile.",
               );
             }
           },
@@ -391,7 +411,7 @@ export default function SettingsScreen() {
                 disabled={busy}
               >
                 <Text style={[s.actionText, s.danger]}>Sign out &amp; start fresh</Text>
-                <Text style={s.actionSub}>Begin a new anonymous profile</Text>
+                <Text style={s.actionSub}>New profile on this device — nothing is deleted from our servers</Text>
               </Pressable>
 
               <Pressable
@@ -399,10 +419,10 @@ export default function SettingsScreen() {
                 onPress={handleDeleteAccount}
                 disabled={busy}
                 accessibilityRole="button"
-                accessibilityLabel="Delete account"
+                accessibilityLabel={deleteLabel}
               >
-                <Text style={[s.actionText, s.danger]}>Delete account</Text>
-                <Text style={s.actionSub}>Permanently delete your account and every log</Text>
+                <Text style={[s.actionText, s.danger]}>{deleteLabel}</Text>
+                <Text style={s.actionSub}>{deleteSub}</Text>
               </Pressable>
 
               {busy ? (

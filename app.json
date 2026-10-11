@@ -73,7 +73,26 @@
           "color": "#4C7C63"
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "CalibretaToday",
+              "label": "Calibreta \u2014 Today",
+              "description": "Today's calories at a glance, with one-tap Log and Scan.",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "previewImage": "./assets/images/widget-today-preview.png",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

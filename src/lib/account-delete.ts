@@ -19,6 +19,7 @@ import * as Notifications from 'expo-notifications';
 
 import { authFetch } from './api';
 import { deleteAllPhotos } from './progress-photos';
+import { clearTodayWidget } from './widget';
 import { ensureSession, supabase } from './supabase';
 
 export type DeleteOutcome =
@@ -130,6 +131,8 @@ export async function resetDeviceAfterDeletion(): Promise<void> {
   } catch {
     // best-effort
   }
+  // The home-screen widget must not keep showing the deleted account's day.
+  await clearTodayWidget();
   try {
     await ensureSession();
   } catch {

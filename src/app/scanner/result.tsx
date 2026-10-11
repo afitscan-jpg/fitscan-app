@@ -23,6 +23,7 @@ import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { FactColors, HIGH_SUGAR_G } from '@/constants/verdict';
 import { logScannedFood, mealTypeForNow } from '@/lib/db';
 import { logSuccess } from '@/lib/feedback';
+import { afterLogSuccess } from '@/lib/success-moments';
 import { scanResultStore } from '@/lib/scan-result-store';
 import type { NutrientFact, ScanDiag, ScanNutrients, ScanResponse } from '@/types/scan';
 
@@ -348,6 +349,7 @@ function OkResultView({ data }: { data: ScanResponse }) {
         unit: portionUnit,
       });
       logSuccess();
+      void afterLogSuccess();
       router.replace('/');
     } catch {
       Alert.alert('Could not log food. Please try again.');

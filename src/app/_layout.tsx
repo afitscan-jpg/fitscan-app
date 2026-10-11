@@ -24,6 +24,7 @@ import { C } from '@/constants/theme';
 import { getProfile } from '@/lib/db';
 import { initFeedback } from '@/lib/feedback';
 import { onRemindersAppActive } from '@/lib/reminders';
+import { noteAppOpened } from '@/lib/review-prompt';
 import { ensureSession } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
@@ -79,6 +80,8 @@ export default function RootLayout() {
   // Preload the tick sound + load the "Sounds & haptics" preference + set the
   // audio mode (respect the silent switch). Fire-and-forget; never blocks.
   useEffect(() => { void initFeedback(); }, []);
+  // Review prompt: "day 3+" counts from the first open, so record it once.
+  useEffect(() => { void noteAppOpened(); }, []);
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener(REONBOARD_EVENT, () => {

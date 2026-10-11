@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,6 +32,7 @@ import {
   type PartialLogResult,
 } from '@/lib/partial-log';
 import { syncReminders } from '@/lib/reminders';
+import { pickSheetHeight } from '@/lib/sheet-snap';
 import { logSuccess, tap } from '@/lib/feedback';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -157,6 +159,19 @@ export default function AddFoodScreen() {
   const [aiInlineMsg, setAiInlineMsg] = useState<string | null>(null);
   const stageTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [aiSheet,     setAiSheet]     = useState<AiSheet | null>(null);
+  // Photo sheet sizing — see sheet-snap.ts for why the sheet gets a DEFINITE
+  // height. Three measurements: the chrome above the list, the list's content,
+  // and the pinned footer (which overlays the list, so the list pads by it).
+  const { height: winH } = useWindowDimensions();
+  const [aiTopH,     setAiTopH]     = useState(0);
+  const [aiContentH, setAiContentH] = useState(0);
+  const [aiFooterH,  setAiFooterH]  = useState(0);
+  const AI_SHEET_PAD_TOP = 16;    // aiSheetOuter paddingTop
+  const AI_LIST_GAP = 12;         // aiScrollWrap marginTop
+  // aiContentH already includes the list's bottom padding (= footer height), so
+  // the footer is not added again here.
+  const aiNeededH = aiContentH > 0 ? AI_SHEET_PAD_TOP + aiTopH + AI_LIST_GAP + aiContentH : 0;
+  const aiSheetH = pickSheetHeight(aiNeededH, winH, aiSheet?.items.length ?? 0);
   const [aiLogging,    setAiLogging]    = useState(false);
   const [aiSuccess,    setAiSuccess]    = useState(false);
   // Partial-write bookkeeping: what landed, what didn't, and which rows a retry
@@ -794,7 +809,8 @@ export default function AddFoodScreen() {
         onRequestClose={() => { if (!aiLogging) closeAiSheet(); }}
       >
         <Pressable style={s.overlay} onPress={() => { if (!aiLogging) closeAiSheet(); }}>
-          <Pressable style={s.aiSheetOuter} onPress={() => undefined}>
+          <Pressable style={[s.aiSheetOuter, { height: aiSheetH }]} onPress={() => undefined}>
+            <View onLayout={(e) => setAiTopH(e.nativeEvent.layout.height)}>
             <View style={s.sheetHandle} />
 
             <View style={s.sheetRow}>
@@ -812,11 +828,16 @@ export default function AddFoodScreen() {
                 ? `${aiSheet!.items.length} food${aiSheet!.items.length === 1 ? '' : 's'} found — edit anything before logging.`
                 : 'Check what I found — edit anything before logging.'}
             </Text>
+            </View>
 
             <View style={s.aiScrollWrap}>
             <ScrollView
               style={s.aiSheetScroll}
-              contentContainerStyle={s.aiScrollContent}
+              // The footer is pinned OVER the bottom of this list, so the list
+              // pads by the footer's measured height: scrolled to the end, the
+              // TOTAL sits fully above "Log all", never beneath it.
+              contentContainerStyle={[s.aiScrollContent, { paddingBottom: aiFooterH + 12 }]}
+              onContentSizeChange={(_w, h) => setAiContentH(h)}
               showsVerticalScrollIndicator
               keyboardShouldPersistTaps="handled"
             >
@@ -896,15 +917,16 @@ export default function AddFoodScreen() {
                 </>
               ) : null}
             </ScrollView>
-            {(aiSheet?.items.length ?? 0) > 3 ? (
+            {aiNeededH > aiSheetH ? (
               <LinearGradient
                 pointerEvents="none"
                 colors={['rgba(255,255,255,0)', C.card]}
-                style={s.aiScrollFade}
+                style={[s.aiScrollFade, { bottom: aiFooterH }]}
               />
             ) : null}
-            </View>
 
+            {/* Pinned footer: absolute over the list's bottom edge, opaque, measured. */}
+            <View style={s.aiFooter} onLayout={(e) => setAiFooterH(e.nativeEvent.layout.height)}>
             <AnimatedPressable
               style={[
                 s.aiLogBtn,
@@ -934,6 +956,8 @@ export default function AddFoodScreen() {
             {aiPartialSummary ? (
               <Text style={s.aiPartialNote}>{aiPartialSummary}</Text>
             ) : null}
+            </View>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1500,33 +1524,41 @@ const s = StyleSheet.create({
   },
 
   // ── AI confirm sheet ───────────────────────────────────────────────────────
+  // Height is set inline from pickSheetHeight (a snap point), never maxHeight:
+  // with a definite height the scroll region below is a plain flex: 1 box that
+  // Android lays out and scrolls reliably. Padding: top only — the bottom edge
+  // belongs to the pinned footer.
   aiSheetOuter: {
     backgroundColor: C.card,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 32,
-    maxHeight: '82%',
   },
-  // The scroll region shrinks within the capped sheet so the list scrolls while
-  // the header and the Log CTA stay fixed and reachable. flexShrink (not flex:1)
-  // because the sheet has a maxHeight, not a fixed height; minHeight:0 lets Yoga
-  // actually shrink it below content height on Android (without it the ScrollView
-  // can keep its full content height and refuse to scroll).
+  // Fills whatever the snap height leaves after the top chrome. The footer is
+  // layered over its bottom edge (aiFooter), and the list pads by the footer's
+  // measured height so the last content — the TOTAL — clears "Log all".
   aiScrollWrap: {
-    flexShrink: 1,
+    flex: 1,
     minHeight: 0,
     position: 'relative',
     marginTop: 12,
-    marginBottom: 12,
   },
   aiSheetScroll: {
-    flexShrink: 1,
-    minHeight: 0,
+    flex: 1,
   },
   aiScrollContent: {
-    paddingBottom: 8,
+    paddingTop: 0,
+  },
+  // Inside aiScrollWrap, which already sits within the sheet's 16 px gutters.
+  aiFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 10,
+    paddingBottom: 32,
+    backgroundColor: C.card,
   },
   // Soft white fade at the bottom edge — a calm cue that more items are below.
   aiScrollFade: {

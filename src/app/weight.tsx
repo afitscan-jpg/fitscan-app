@@ -398,7 +398,14 @@ export default function WeightScreen() {
             <>
               {/* Current + Target cards */}
               <View style={s.cardsRow}>
-                <View style={s.statCardWrap}>
+                {/* Both cards are tappable. Current opens the same weigh-in sheet
+                    as the + button and "Log weight" — pre-filled with the latest
+                    weight for a new entry, or empty with "Tap to log". */}
+                <AnimatedPressable
+                  style={s.statCardWrap}
+                  onPress={() => setSheetOpen(true)}
+                  accessibilityLabel={current == null ? 'Log weight' : 'Log a new weight'}
+                >
                   <GlassCard contentStyle={s.statCard}>
                     <Text style={s.statLabel}>Current</Text>
                     {current != null ? (
@@ -406,7 +413,9 @@ export default function WeightScreen() {
                     ) : (
                       <Text style={s.statDash}>—</Text>
                     )}
-                    {hasData && Math.abs(delta) >= 0.1 ? (
+                    {current == null ? (
+                      <Text style={s.statLink}>Tap to log</Text>
+                    ) : hasData && Math.abs(delta) >= 0.1 ? (
                       <Text style={s.statTrend}>
                         {delta < 0 ? '↓' : '↑'} {fmt1(Math.abs(delta))} kg this {period === 'all' ? 'range' : period}
                       </Text>
@@ -414,7 +423,7 @@ export default function WeightScreen() {
                       <Text style={s.statTrendMuted}>No change yet</Text>
                     )}
                   </GlassCard>
-                </View>
+                </AnimatedPressable>
 
                 <AnimatedPressable
                   style={s.statCardWrap}

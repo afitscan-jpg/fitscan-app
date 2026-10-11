@@ -12,9 +12,12 @@ import { authFetch } from './api';
 
 export type Provenance =
   | 'expert_verified'
-  | 'verified'
+  | 'verified'            // USDA FoodData Central
+  | 'ifct_verified'       // Indian Food Composition Tables 2017 (NIN)
   | 'verified_packaged'
   | 'composed'
+  | 'user_entry'          // the user's own food, private
+  | 'user_recipe'         // the user's own recipe, private
   | 'analog_estimate'
   | 'ai_estimate';
 

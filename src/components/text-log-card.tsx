@@ -20,8 +20,11 @@ type Pill = { bg: string; fg: string; border?: string };
 const NEUTRAL_PILL: Pill = { bg: C.card, fg: C.inkSoft, border: C.cardBorder };
 const PROV_PILL: Record<string, Pill> = {
   verified:          { bg: C.greenSoft, fg: C.greenInk },
+  ifct_verified:     { bg: C.greenSoft, fg: C.greenInk },   // same tier as USDA: a measured source
   expert_verified:   { bg: C.greenSoft, fg: C.greenInk },
   composed:          { bg: C.waterBlueSoft, fg: C.waterBlueInk },
+  user_entry:        { bg: C.waterBlueSoft, fg: C.waterBlueInk },   // the user's own numbers
+  user_recipe:       { bg: C.waterBlueSoft, fg: C.waterBlueInk },
   verified_packaged: NEUTRAL_PILL,
   ai_estimate:       { bg: C.amberSoft, fg: C.amberInk },
   analog_estimate:   { bg: C.amberSoft, fg: C.amberInk },

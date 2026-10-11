@@ -33,6 +33,8 @@ import {
 } from '@/lib/partial-log';
 import { syncReminders } from '@/lib/reminders';
 import { pickSheetHeight } from '@/lib/sheet-snap';
+import { LogAgain } from '@/components/log-again';
+import { afterLogSuccess } from '@/lib/success-moments';
 import { logSuccess, tap } from '@/lib/feedback';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -259,6 +261,7 @@ export default function AddFoodScreen() {
       });
       void syncReminders(); // logged this meal → drop today's now-satisfied nudge
       logSuccess();
+      void afterLogSuccess();
       setSelected(null);
       router.back();
     } catch {
@@ -394,6 +397,7 @@ export default function AddFoodScreen() {
       if (written.logged.length > 0) {
         void syncReminders(); // something landed → re-apply meal suppression
         logSuccess();
+        void afterLogSuccess();
       }
 
       // A3: mark every row with what actually happened to it.
@@ -582,7 +586,7 @@ export default function AddFoodScreen() {
 
           {/* Log with sources — the single text-logging path (→ /log/text) */}
           <Text style={s.sectionLabel}>Log with sources</Text>
-          <TextLogCard onPaywall={setPaywall} onLogged={() => { logSuccess(); router.back(); }} initialText={prefill || undefined} country={profile?.country} />
+          <TextLogCard onPaywall={setPaywall} onLogged={() => { logSuccess(); void afterLogSuccess(); router.back(); }} initialText={prefill || undefined} country={profile?.country} />
 
           {/* Photo logger (scan/photo flow, unchanged — /ai/parse vision) */}
           <View style={s.aiBox}>
@@ -622,6 +626,12 @@ export default function AddFoodScreen() {
               <Text style={s.aiStageText}>{aiStage}</Text>
             ) : null}
           </View>
+
+          {/* Log again — favourites, recents, saved meals, repeat yesterday */}
+          <LogAgain
+            meal={sheetMeal}
+            onLogged={() => { logSuccess(); void afterLogSuccess(); router.back(); }}
+          />
 
           {/* Quick add */}
           <Text style={s.sectionLabel}>Quick add</Text>

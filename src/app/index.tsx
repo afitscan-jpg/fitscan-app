@@ -62,11 +62,15 @@ import {
   type Goal,
   type Profile,
   type Streak,
+  type LogSource,
 } from '@/lib/db';
 import { authFetch, PaywallError } from '@/lib/api';
 import { getEntitlement, trialDaysLeft, type Entitlement } from '@/lib/entitlement';
 import { getAuthState } from '@/lib/auth';
 import { celebrate, logSuccess } from '@/lib/feedback';
+import { PickFoodsSheet, type PickableFood } from '@/components/pick-foods-sheet';
+import { addFavorite, getFavorites, isFavorite, removeFavorite, saveMeal, type FavoriteFood } from '@/lib/quick-log';
+import { afterWeeklyInsight, syncWidgetFromDiary } from '@/lib/success-moments';
 import { getExerciseLogs, type ExerciseLog } from '@/lib/exercises';
 import { getAdaptiveTdee, type AdaptiveTdee } from '@/lib/me';
 import {
@@ -113,6 +117,7 @@ function StaggerIn({ index, children }: { index: number; children: ReactNode }) 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type TodayEntry = Awaited<ReturnType<typeof getTodayLog>>[number];
+type MealTypeLocal = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 type WaterData = { ml: number; glasses: number };
 
 interface WeekInsight {
@@ -972,7 +977,49 @@ function EditLogBody({ entry, onClose, onSaved }: {
         <Pressable style={[es.saveBtn, saving && es.saveDim]} onPress={handleSave} disabled={saving}>
           {saving ? <ActivityIndicator color="#fff" /> : <Text style={es.saveTxt}>Save changes</Text>}
         </Pressable>
+
+        <FavoriteToggle entry={entry} />
       </Pressable>
+    </Pressable>
+  );
+}
+
+/** Sprint 3: star / un-star this food from the edit sheet. Stores the row's
+ *  current amount and numbers so "log again" repeats exactly this. */
+function FavoriteToggle({ entry }: { entry: TodayEntry }) {
+  const [fav, setFav] = useState<FavoriteFood | null | undefined>(undefined);  // undefined = loading
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    getFavorites().then((all) => { if (alive) setFav(isFavorite(all, entry.name) ?? null); }).catch(() => { if (alive) setFav(null); });
+    return () => { alive = false; };
+  }, [entry.name]);
+  if (fav === undefined) return null;
+  async function toggle() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (fav) { await removeFavorite(fav.id); setFav(null); }
+      else {
+        await addFavorite({
+          name: entry.name, quantity: entry.quantity == null ? null : Number(entry.quantity), unit: entry.unit,
+          kcal: Number(entry.kcal) || 0, protein_g: Number(entry.protein_g) || 0, carbs_g: Number(entry.carbs_g) || 0,
+          fat_g: Number(entry.fat_g) || 0, sugar_g: 0, source: (entry.source as LogSource | null) ?? null, provenance: entry.provenance ?? null,
+        });
+        const all = await getFavorites();
+        setFav(isFavorite(all, entry.name) ?? null);
+      }
+    } catch {
+      Alert.alert("Couldn't update favourites — please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Pressable style={es.favRow} onPress={toggle} disabled={busy} accessibilityRole="button"
+      accessibilityLabel={fav ? 'Remove from favourites' : 'Add to favourites'}>
+      <Icon name="star" color={fav ? C.amber : C.inkFaint} size={16} strokeWidth={2} />
+      <Text style={[es.favTxt, fav && es.favTxtOn]}>{fav ? 'In your favourites — tap to remove' : 'Add to favourites for one-tap logging'}</Text>
     </Pressable>
   );
 }
@@ -1022,6 +1069,9 @@ const es = StyleSheet.create({
   saveBtn: { backgroundColor: C.green, borderRadius: Radius.md, height: 52, alignItems: 'center', justifyContent: 'center', ...Shadow.md },
   saveDim: { opacity: 0.7 },
   saveTxt: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: '#fff' },
+  favRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14 },
+  favTxt: { fontFamily: Fonts?.bodyMed ?? 'system', fontSize: 13.5, fontWeight: '500', color: C.inkSoft },
+  favTxtOn: { color: C.amberInk },
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1349,6 +1399,8 @@ export default function HomeScreen() {
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightLocked,  setInsightLocked]  = useState(false);
   const [editing,        setEditing]        = useState<TodayEntry | null>(null);
+  // Sprint 3: "Save as meal" from today's list.
+  const [saveMealOpen,   setSaveMealOpen]   = useState(false);
   const [ent,            setEnt]            = useState<Entitlement | null>(null);
   const [paywall,        setPaywall]        = useState<PaywallError | null>(null);
   const [nudgeVisible,   setNudgeVisible]   = useState(false);
@@ -1379,6 +1431,7 @@ export default function HomeScreen() {
       setLoadError(true);
     } finally {
       setLoading(false);
+      void syncWidgetFromDiary();   // Home has the freshest numbers; mirror them to the widget
       // Re-apply reminder suppression after a refresh (e.g. returning to Home
       // post-log cancels today's now-satisfied meal/weigh-in nudge). Serialized.
       void syncReminders();
@@ -1397,6 +1450,10 @@ export default function HomeScreen() {
       const json: { insight: WeekInsight } = await res.json();
       setInsightData(json.insight);
       setInsightLocked(false);
+      // A weekly insight was just shown — a success moment for the review
+      // prompt (review-prompt.ts decides; this only reports the moment). Not
+      // on a stale narrative: that is the same text the user has seen before.
+      if (json.insight && !json.insight.stale) void afterWeeklyInsight();
     } catch (e) {
       if (e instanceof PaywallError) {
         // Insights are premium-only (limit_reached shouldn't occur, but treat it
@@ -1734,10 +1791,22 @@ export default function HomeScreen() {
               <View>
                 <View style={hs.secHeader}>
                   <Text style={hs.secTitle}>Today</Text>
-                  <AnimatedPressable style={hs.secLinkWrap} onPress={() => router.push('/add')}>
-                    <Icon name="plus" color={C.green} size={15} strokeWidth={2.2} />
-                    <Text style={hs.secLink}>Add food</Text>
-                  </AnimatedPressable>
+                  <View style={hs.secActions}>
+                    {log.length > 0 ? (
+                      <AnimatedPressable
+                        style={hs.secLinkWrap}
+                        onPress={() => setSaveMealOpen(true)}
+                        accessibilityLabel="Save today's foods as a meal"
+                      >
+                        <Icon name="bookmark" color={C.green} size={15} strokeWidth={2.2} />
+                        <Text style={hs.secLink}>Save as meal</Text>
+                      </AnimatedPressable>
+                    ) : null}
+                    <AnimatedPressable style={hs.secLinkWrap} onPress={() => router.push('/add')}>
+                      <Icon name="plus" color={C.green} size={15} strokeWidth={2.2} />
+                      <Text style={hs.secLink}>Add food</Text>
+                    </AnimatedPressable>
+                  </View>
                 </View>
                 {log.length === 0 ? (
                   <Text style={hs.empty}>Nothing logged yet — scan or add your first food.</Text>
@@ -1787,10 +1856,30 @@ export default function HomeScreen() {
             key={editing.id}
             entry={editing}
             onClose={() => setEditing(null)}
-            onSaved={() => { setEditing(null); load(); }}
+            onSaved={() => { setEditing(null); load(); void syncWidgetFromDiary(); }}
           />
         ) : null}
       </Modal>
+
+      {/* Sprint 3: bundle today's foods into a saved meal (logged again from Add). */}
+      <PickFoodsSheet
+        visible={saveMealOpen}
+        title="Save as meal"
+        subtitle="Untick anything that isn't part of the meal, give it a name, and it's one tap to log from now on."
+        foods={log.map((i): PickableFood => ({
+          key: i.id, name: i.name, quantity: i.quantity == null ? null : Number(i.quantity), unit: i.unit,
+          kcal: Number(i.kcal) || 0, protein_g: Number(i.protein_g) || 0, carbs_g: Number(i.carbs_g) || 0,
+          fat_g: Number(i.fat_g) || 0, sugar_g: 0, source: (i.source as LogSource | null) ?? null, provenance: i.provenance ?? null,
+          meal_type: i.meal_type as MealTypeLocal,
+        }))}
+        onSaveMeal={async (name, sel) => {
+          const items = sel.map(({ key: _k, meal_type: _m, ...food }) => food);
+          await saveMeal(name, items, null);
+          setSaveMealOpen(false);
+          toast(`Saved "${name.trim()}" — find it under Log again`);
+        }}
+        onClose={() => setSaveMealOpen(false)}
+      />
 
       <PaywallSheet error={paywall} onClose={() => setPaywall(null)} />
     </View>
@@ -1883,6 +1972,7 @@ const hs = StyleSheet.create({
 
   secHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 0 },
   secTitle:    { fontFamily: Fonts?.displaySemi ?? 'system', fontSize: 17, color: C.ink, letterSpacing: -0.2 },
+  secActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   secLinkWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   secLink:     { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13, color: C.green, fontWeight: '600' },
   empty:       { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft, textAlign: 'center', paddingVertical: Spacing.four },

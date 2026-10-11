@@ -21,6 +21,8 @@ export type IconName =
   | 'gear'
   | 'pencil'
   | 'refresh'
+  | 'star'
+  | 'bookmark'
   | 'dumbbell';
 
 interface IconProps {
@@ -168,6 +170,18 @@ export function Icon({ name, color = '#16241D', size = 22, strokeWidth = 1.75 }:
         <Svg width={size} height={size} viewBox="0 0 24 24">
           <Path d="M1 4v6h6" {...p} />
           <Path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" {...p} />
+        </Svg>
+      );
+    case 'star':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24">
+          <Path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8L12 2.5z" {...p} fill={color} />
+        </Svg>
+      );
+    case 'bookmark':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24">
+          <Path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" {...p} />
         </Svg>
       );
     case 'dumbbell':

@@ -39,6 +39,17 @@ export interface RegistryFood {
   fat_100g: number;
   fiber_100g: number | null;
   provenance: string;
+  /** Its grams are the cooked weight (the row is a cooked food). */
+  cooked: boolean;
+  dish: boolean;
+}
+
+/** The server's 4/4/9 check disagreed by 10-25%: it may be saved anyway. */
+export class NumbersDisagreeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NumbersDisagreeError';
+  }
 }
 
 /** Thrown for a 4xx the server explained in words (422 / 409 / 404). `message`
@@ -66,7 +77,17 @@ async function detailOf(res: Response, fallback: string): Promise<string> {
 
 async function expectOk<T>(res: Response, fallback: string): Promise<T> {
   if (res.ok) return (await res.json()) as T;
-  if (res.status === 422 || res.status === 409 || res.status === 404) {
+  if (res.status === 422) {
+    let body: { detail?: unknown } = {};
+    try { body = (await res.clone().json()) as { detail?: unknown }; } catch { /* non-JSON */ }
+    const d = body.detail;
+    if (d && typeof d === 'object' && (d as { can_force?: unknown }).can_force === true) {
+      const m = (d as { message?: unknown }).message;
+      throw new NumbersDisagreeError(typeof m === 'string' ? m : 'The numbers don\u2019t quite add up. Save anyway?');
+    }
+    throw new FoodInputError(422, await detailOf(res, fallback));
+  }
+  if (res.status === 409 || res.status === 404) {
     throw new FoodInputError(res.status, await detailOf(res, fallback));
   }
   throw new Error(`${fallback} (${res.status})`);
@@ -78,11 +99,11 @@ export async function listMyFoods(): Promise<UserFood[]> {
   return body.foods;
 }
 
-export async function searchRegistry(q: string): Promise<RegistryFood[]> {
+export async function searchRegistry(q: string, purpose: 'any' | 'recipe' = 'any'): Promise<RegistryFood[]> {
   const term = q.trim();
   if (!term) return [];
   try {
-    const res = await authFetch(`/foods/search?q=${encodeURIComponent(term)}`);
+    const res = await authFetch(`/foods/search?q=${encodeURIComponent(term)}&purpose=${purpose}`);
     const body = await expectOk<{ foods: RegistryFood[] }>(res, 'Search failed');
     return body.foods;
   } catch (e) {
@@ -102,14 +123,15 @@ export interface EntryInput {
   fat_g: number;
   fiber_g: number | null;
   source_note: string | null;
+  /** Save even though the 4/4/9 check disagrees (only honoured within 25%). */
+  force?: boolean;
 }
 
-export async function createEntry(input: EntryInput): Promise<UserFood> {
+export async function createEntry(input: EntryInput): Promise<{ food: UserFood; warning: string | null }> {
   const res = await authFetch('/me/foods', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
   });
-  const body = await expectOk<{ food: UserFood }>(res, "Couldn't save that food");
-  return body.food;
+  return expectOk<{ food: UserFood; warning: string | null }>(res, "Couldn't save that food");
 }
 
 export interface RecipeInput {
@@ -121,11 +143,20 @@ export interface RecipeInput {
   serving_label: string;
 }
 
-export async function createRecipe(input: RecipeInput): Promise<{ food: UserFood; has_estimate: boolean }> {
+export interface RecipeSaved {
+  food: UserFood;
+  has_estimate: boolean;
+  /** e.g. "Cooked white rice is a cooked row: 150 g is read as the COOKED weight…" */
+  warnings: string[];
+  /** The server's working, one line per ingredient and a total. */
+  arithmetic: string[];
+}
+
+export async function createRecipe(input: RecipeInput): Promise<RecipeSaved> {
   const res = await authFetch('/me/recipes', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
   });
-  return expectOk<{ food: UserFood; has_estimate: boolean }>(res, "Couldn't save that recipe");
+  return expectOk<RecipeSaved>(res, "Couldn't save that recipe");
 }
 
 export async function deleteMyFood(id: string): Promise<void> {

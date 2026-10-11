@@ -27,8 +27,8 @@ import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { tap, logSuccess } from '@/lib/feedback';
 import { pickSheetHeight } from '@/lib/sheet-snap';
 import {
-  createEntry, createRecipe, deleteMyFood, FoodInputError, listMyFoods, searchRegistry, servingKcal,
-  type RegistryFood, type UserFood,
+  createEntry, createRecipe, deleteMyFood, FoodInputError, listMyFoods, NumbersDisagreeError, searchRegistry,
+  servingKcal, type RegistryFood, type UserFood,
 } from '@/lib/user-foods';
 
 const SERVING_LABELS = ['serving', 'piece', 'bar', 'scoop', 'katori', 'cup', 'bowl', 'plate', 'slice', 'tbsp', 'packet'] as const;
@@ -168,19 +168,29 @@ function EntrySheet({ visible, onClose, onSaved }: { visible: boolean; onClose: 
   const g = num(servingG), k = num(kcal);
   const ready = name.trim().length > 0 && g != null && g > 0 && k != null && k >= 0;
 
-  async function save() {
+  async function save(force = false) {
     if (!ready || busy) return;
     setBusy(true); setError(null);
     try {
-      await createEntry({
+      const { warning } = await createEntry({
         name: name.trim(),
         aliases: aliases.split(',').map((a) => a.trim()).filter(Boolean),
         serving_label: label, serving_g: g!, kcal: k!,
         protein_g: num(protein) ?? 0, carb_g: num(carb) ?? 0, fat_g: num(fat) ?? 0,
-        fiber_g: fiber.trim() ? num(fiber) : null, source_note: note,
+        fiber_g: fiber.trim() ? num(fiber) : null, source_note: note, force,
       });
       onSaved();
+      if (warning) Alert.alert('Saved, with a note', warning);
     } catch (e) {
+      if (e instanceof NumbersDisagreeError) {
+        // 10-25% off the 4/4/9 sum: the user's call. Beyond that the server
+        // refuses outright and this branch is never reached.
+        Alert.alert('The numbers don\u2019t quite add up', e.message, [
+          { text: 'Check them', style: 'cancel' },
+          { text: 'Save anyway', onPress: () => void save(true) },
+        ]);
+        return;
+      }
       setError(errorText(e, "Couldn't save that — please try again."));
     } finally {
       setBusy(false);
@@ -192,7 +202,7 @@ function EntrySheet({ visible, onClose, onSaved }: { visible: boolean; onClose: 
       footer={
         <>
           {error ? <Text style={f.error}>{error}</Text> : null}
-          <AnimatedPressable style={[f.primary, (!ready || busy) && f.dim]} onPress={save} disabled={!ready || busy}>
+          <AnimatedPressable style={[f.primary, (!ready || busy) && f.dim]} onPress={() => void save()} disabled={!ready || busy}>
             {busy ? <ActivityIndicator color="#fff" /> : <Text style={f.primaryTxt}>{'Save as \u201cYour entry\u201d'}</Text>}
           </AnimatedPressable>
         </>
@@ -254,7 +264,7 @@ function RecipeSheet({ visible, onClose, onSaved }: { visible: boolean; onClose:
     const t = setTimeout(async () => {
       if (seq !== searchSeq.current) return;
       setSearching(true);
-      const found = await searchRegistry(term).catch(() => []);
+      const found = await searchRegistry(term, 'recipe').catch(() => []);
       if (seq === searchSeq.current) { setResults(found); setSearching(false); }
     }, 300);
     return () => clearTimeout(t);
@@ -276,16 +286,20 @@ function RecipeSheet({ visible, onClose, onSaved }: { visible: boolean; onClose:
     if (!ready || busy) return;
     setBusy(true); setError(null);
     try {
-      const { has_estimate } = await createRecipe({
+      const saved = await createRecipe({
         name: name.trim(),
         aliases: aliases.split(',').map((a) => a.trim()).filter(Boolean),
         ingredients: lines.map((l) => ({ canonical_food_id: l.food.id, grams: num(l.grams)! })),
         total_weight_g: tot!, servings: sv!, serving_label: label,
       });
       onSaved();
-      if (has_estimate) {
-        Alert.alert('Saved — with a note', 'One or more ingredients are estimates, so this recipe will show as an estimate too.');
-      }
+      // Show the working: the user can see exactly how the number was made.
+      const notes = [
+        ...saved.arithmetic,
+        ...(saved.warnings.length ? ['', ...saved.warnings] : []),
+        ...(saved.has_estimate ? ['', 'One or more ingredients are estimates, so this recipe shows as an estimate too.'] : []),
+      ];
+      Alert.alert('Saved', notes.join('\n'));
     } catch (e) {
       setError(errorText(e, "Couldn't save that — please try again."));
     } finally {
@@ -306,12 +320,15 @@ function RecipeSheet({ visible, onClose, onSaved }: { visible: boolean; onClose:
       <Field label="Name"><TextInput style={f.input} value={name} onChangeText={setName} placeholder="e.g. Mom's dal" placeholderTextColor={C.inkFaint} maxLength={60} /></Field>
       <Field label="Other names (optional, comma-separated)"><TextInput style={f.input} value={aliases} onChangeText={setAliases} placeholder="dal, ghar ki dal" placeholderTextColor={C.inkFaint} maxLength={200} /></Field>
 
-      <Text style={f.label}>Ingredients</Text>
+      <Text style={f.label}>Ingredients · raw weight (g)</Text>
       {lines.map((l, i) => (
         <View key={l.food.id} style={f.line}>
           <View style={f.lineBody}>
             <Text style={f.lineName} numberOfLines={1}>{l.food.name}</Text>
-            <Text style={f.lineMeta}>{Math.round(l.food.kcal_100g)} kcal / 100 g · {l.food.provenance === 'ai_estimate' || l.food.provenance === 'analog_estimate' ? 'estimate' : l.food.provenance.replace('_', ' ')}</Text>
+            <Text style={f.lineMeta}>
+              {Math.round(l.food.kcal_100g)} kcal / 100 g · {l.food.provenance === 'ai_estimate' || l.food.provenance === 'analog_estimate' ? 'estimate' : l.food.provenance.replace('_', ' ')}
+              {l.food.cooked ? ' · cooked row — enter the cooked weight you used' : ''}
+            </Text>
           </View>
           <NumInput value={l.grams} onChange={(v) => setLines((prev) => prev.map((x, j) => (j === i ? { ...x, grams: v } : x)))} placeholder="g" compact />
           <Text style={f.unit}>g</Text>
@@ -329,15 +346,15 @@ function RecipeSheet({ visible, onClose, onSaved }: { visible: boolean; onClose:
           {visibleResults.slice(0, 8).map((r) => (
             <Pressable key={r.id} style={f.result} onPress={() => addLine(r)} accessibilityRole="button" accessibilityLabel={`Add ${r.name}`}>
               <Text style={f.resultName} numberOfLines={1}>{r.name}</Text>
-              <Text style={f.resultMeta}>{Math.round(r.kcal_100g)} kcal/100 g</Text>
+              <Text style={f.resultMeta}>{Math.round(r.kcal_100g)} kcal/100 g{r.cooked ? ' · cooked' : ''}</Text>
             </Pressable>
           ))}
         </View>
       ) : query.trim().length >= 2 && !searching ? (
-        <Text style={f.noResult}>{`Nothing in the registry for \u201c${query.trim()}\u201d. Add it as a food first, or try another name.`}</Text>
+        <Text style={f.noResult}>{`No ingredient in the registry for \u201c${query.trim()}\u201d (dishes are left out — a recipe is built from what a dish is made of). Add it as a food first, or try another name.`}</Text>
       ) : null}
 
-      {lines.length > 0 ? <Text style={f.sum}>Ingredients: {Math.round(rawTotal)} g raw</Text> : null}
+      {lines.length > 0 ? <Text style={f.sum}>Ingredients: {Math.round(rawTotal)} g as entered</Text> : null}
       <View style={f.grid}>
         <Field label="Cooked weight of the whole batch (g)" half><NumInput value={totalG} onChange={setTotalG} placeholder={rawTotal ? String(Math.round(rawTotal * 2.5)) : '900'} /></Field>
         <Field label="Servings it makes" half><NumInput value={servings} onChange={setServings} placeholder="6" /></Field>

@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/Icon';
+import { ReservedBottomAction } from '@/components/reserved-bottom-action';
 import { FlagChip } from '@/components/scanner/flag-chip';
 import { NutrientCard } from '@/components/scanner/nutrient-card';
 import { DiagLine } from '@/components/scanner/diag-line';
@@ -456,7 +457,8 @@ function OkResultView({ data }: { data: ScanResponse }) {
         <View style={styles.buttonSpacer} />
       </ScrollView>
 
-      {/* Fixed bottom buttons */}
+      {/* Fixed bottom buttons. Reserved so the assistant FAB stacks above them. */}
+      <ReservedBottomAction style={styles.buttonRowWrap}>
       <SafeAreaView edges={['bottom']} style={styles.buttonRow}>
         {isUnknown ? (
           <Pressable style={styles.primaryBtn} onPress={() => router.replace('/add')}>
@@ -475,6 +477,7 @@ function OkResultView({ data }: { data: ScanResponse }) {
           <Text style={styles.ghostBtnText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Scan next</Text>
         </Pressable>
       </SafeAreaView>
+      </ReservedBottomAction>
     </SafeAreaView>
   );
 }
@@ -758,11 +761,8 @@ const styles = StyleSheet.create({
   },
 
   buttonSpacer: { height: Spacing.six + Spacing.four },
+  buttonRowWrap: { bottom: 0, left: 0, right: 0 },
   buttonRow: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,

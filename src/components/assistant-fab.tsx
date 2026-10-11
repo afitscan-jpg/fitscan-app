@@ -1,19 +1,19 @@
 import { router, usePathname } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CIcon } from '@/components/CalibretaIcon';
 import { C, Gradients } from '@/constants/theme';
+import { highestBottomRightReservation, subscribeBottomRight } from '@/lib/bottom-right-action';
 
 // Height the tab dock reserves at the bottom (bar height + its top padding).
 // Mirrors app-tabs.tsx so the FAB always clears the floating bar.
 const DOCK_HEIGHT = 66 + 6;
-// The scan-result screen pins "Log this / Scan next" to the bottom edge
-// (result.tsx `buttonRow`: paddingTop 8 + 48 button + paddingBottom 16, above the
-// bottom inset). The FAB sat on top of "Scan next"; on that screen it lifts
-// above the row instead. Keep in step with result.tsx if that row changes.
-const RESULT_BUTTON_ROW_HEIGHT = 8 + 48 + 16;
+// Gap kept between the FAB and any control a screen has reserved below it
+// (see lib/bottom-right-action.ts). Screens never offset the FAB themselves.
+const RESERVED_GAP = 12;
 
 /**
  * Global floating assistant button. Rendered ONCE at the app root (around
@@ -25,16 +25,36 @@ const RESULT_BUTTON_ROW_HEIGHT = 8 + 48 + 16;
 export function AssistantFab() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const onScanResult = pathname === '/scanner/result';
-  const bottom = onScanResult
-    ? insets.bottom + RESULT_BUTTON_ROW_HEIGHT + 12
-    : Math.max(insets.bottom, 12) + DOCK_HEIGHT + 16;
+  const defaultBottom = Math.max(insets.bottom, 12) + DOCK_HEIGHT + 16;
+
+  // Where the window's bottom edge is, in the same coordinates the screens
+  // measure their controls in (measureInWindow). Derived from our own wrapper:
+  // its top + height + the `bottom` it was laid out with.
+  const wrapRef = useRef<View>(null);
+  const [windowBottomY, setWindowBottomY] = useState<number | null>(null);
+  const [reservedTopY, setReservedTopY] = useState<number | null>(highestBottomRightReservation());
+  useEffect(() => subscribeBottomRight(() => setReservedTopY(highestBottomRightReservation())), []);
+
+  const bottom =
+    reservedTopY != null && windowBottomY != null
+      ? Math.max(defaultBottom, windowBottomY - reservedTopY + RESERVED_GAP)
+      : defaultBottom;
 
   // Don't overlay the button on the assistant screen itself (avoids re-pushing it).
   if (pathname === '/assistant') return null;
 
   return (
-    <View style={[styles.wrap, { bottom }]} pointerEvents="box-none">
+    <View
+      ref={wrapRef}
+      style={[styles.wrap, { bottom }]}
+      pointerEvents="box-none"
+      onLayout={() => {
+        wrapRef.current?.measureInWindow((_x, y, _w, h) => {
+          const edge = y + h + bottom;
+          setWindowBottomY((prev) => (prev === edge ? prev : edge));
+        });
+      }}
+    >
       <Pressable
         onPress={() => router.push('/assistant' as never)}
         accessibilityRole="button"

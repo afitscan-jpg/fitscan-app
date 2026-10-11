@@ -646,6 +646,19 @@ export default function AddFoodScreen() {
             ))}
           </View>
 
+          {/* Your own foods and recipes (Sprint 4) */}
+          <Text style={s.sectionLabel}>Your foods</Text>
+          <AnimatedPressable style={s.workoutCard} onPress={() => router.push('/my-foods' as never)} accessibilityLabel="Your foods and recipes">
+            <View style={s.workoutIcon}>
+              <Icon name="bookmark" color={C.greenInk} size={20} strokeWidth={2} />
+            </View>
+            <View style={s.workoutBody}>
+              <Text style={s.workoutTitle}>Your foods &amp; recipes</Text>
+              <Text style={s.workoutSub}>Add a food from its label, or build a dish from ingredients — then just type its name</Text>
+            </View>
+            <Icon name="arrow" color={C.green} size={18} strokeWidth={2} />
+          </AnimatedPressable>
+
           {/* Workout entry point */}
           <Text style={s.sectionLabel}>Movement</Text>
           <AnimatedPressable style={s.workoutCard} onPress={() => router.push('/exercises' as never)}>

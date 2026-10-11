@@ -61,12 +61,13 @@ function HeldRow({
   const [qtyDraft, setQtyDraft] = useState(String(item.qty));
 
   async function send(qty: number, confirmed: boolean) {
-    if (!item.canonical_food_id || busy) return;
+    if (!(item.canonical_food_id || item.user_food_id) || busy) return;
     setBusy(true);
     setError(null);
     try {
       await confirmLogItem({
         canonicalFoodId: item.canonical_food_id,
+        userFoodId: item.user_food_id ?? null,
         qty, unit: item.unit, meal, confirmed,
       });
       setDone(true);

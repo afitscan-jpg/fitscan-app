@@ -11,8 +11,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 /**
- * v2 §13 — warm skeleton shimmer. A sage-tinted highlight band sweeps across the
- * block via translateX (transform only — NOT background-position, which does not
+ * v2 §13 — warm skeleton shimmer. A white highlight band sweeps across the block
+ * via translateX (transform only — NOT background-position, which does not
  * animate on native). RELEASE-FRAGILITY: useAnimatedStyle on transform/opacity;
  * the sweep rides a regular native view (expo-linear-gradient), never SVG /
  * useAnimatedProps / entering-exiting. Reduced motion: no sweep — a slow, warm
@@ -54,7 +54,9 @@ export function SkeletonPulse({ style, children }: { style?: StyleProp<ViewStyle
       {!reduce && w > 0 ? (
         <Animated.View pointerEvents="none" style={[sk.band, { width: bandW }, bandStyle]}>
           <LinearGradient
-            colors={['rgba(233,236,230,0)', 'rgba(233,236,230,0.85)', 'rgba(233,236,230,0)']}
+            // White, not a sage tint: the skeleton fills (#EFEAE1, C.line over cream)
+            // sit within ~5/255 of a sage band, which made the sweep invisible on device.
+            colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={StyleSheet.absoluteFill}

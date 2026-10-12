@@ -91,12 +91,12 @@ export default function MyFoodsScreen() {
             <AnimatedPressable style={s.actionCard} onPress={() => { tap(); setEntryOpen(true); }}>
               <View style={s.actionIcon}><Icon name="plus" color={C.greenInk} size={20} strokeWidth={2.2} /></View>
               <Text style={s.actionTitle}>Add a food</Text>
-              <Text style={s.actionSub}>From its label — calories and macros per serving</Text>
+              <Text style={s.actionSub}>From a label: enter the numbers on the pack</Text>
             </AnimatedPressable>
             <AnimatedPressable style={s.actionCard} onPress={() => { tap(); setRecipeOpen(true); }}>
               <View style={s.actionIcon}><Icon name="bookmark" color={C.greenInk} size={20} strokeWidth={2.2} /></View>
               <Text style={s.actionTitle}>Build a recipe</Text>
-              <Text style={s.actionSub}>Ingredients, grams and servings — we do the maths</Text>
+              <Text style={s.actionSub}>Home-cooked: we calculate it from your ingredients</Text>
             </AnimatedPressable>
           </View>
 
@@ -109,7 +109,7 @@ export default function MyFoodsScreen() {
           ) : loadError && foods.length === 0 ? (
             <Text style={s.empty}>{"Couldn't load your foods — check your connection and come back."}</Text>
           ) : foods.length === 0 ? (
-            <Text style={s.empty}>Nothing saved yet.</Text>
+            <Text style={s.empty}>Nothing saved yet. Add a food from a label, or build a home-cooked recipe from your ingredients.</Text>
           ) : (
             foods.map((f) => {
               const sv = servingKcal(f);
@@ -443,7 +443,7 @@ const s = StyleSheet.create({
   actionCard: { flex: 1, backgroundColor: C.card, borderRadius: Radius.lg, padding: 14, gap: 6, borderWidth: 1, borderColor: C.cardBorder, ...Shadow.sm },
   actionIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: C.greenSoft, alignItems: 'center', justifyContent: 'center' },
   actionTitle: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 15, fontWeight: '600', color: C.ink },
-  actionSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, lineHeight: 17 },
+  actionSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft },
   hint: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft, lineHeight: 18 },
   empty: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft, textAlign: 'center', marginTop: 16 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.card, borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: C.cardBorder, ...Shadow.sm },

@@ -14,6 +14,7 @@
 
 import { supabase } from './supabase';
 import { logFood, mealTypeForNow, type FoodEntry, type LogSource, type MealType } from './db';
+import { sumShownKcal } from './kcal';
 
 /** A food as it was logged once: everything needed to log it again. */
 export interface LoggedFood {
@@ -248,5 +249,5 @@ export function logSavedMeal(meal: SavedMeal, mealOverride?: MealType): Promise<
 
 /** Total kcal of a set of foods, for chips and sheets. */
 export function sumKcal(items: LoggedFood[]): number {
-  return Math.round(items.reduce((n, i) => n + (Number(i.kcal) || 0), 0));
+  return sumShownKcal(items.map((i) => i.kcal));
 }

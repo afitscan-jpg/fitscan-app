@@ -28,6 +28,7 @@ import { PaywallSheet } from '@/components/paywall-sheet';
 import { TextLogCard } from '@/components/text-log-card';
 import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { getProfile, logFood, mealTypeForNow, type MealType, type Profile } from '@/lib/db';
+import { sumShownKcal } from '@/lib/kcal';
 import {
   logAllSettled,
   partialLogSummary,
@@ -549,18 +550,25 @@ export default function AddFoodScreen() {
       : `Log ${amount} ${selected.unit} ${selected.name}`
     : 'Log';
 
-  const aiTotal = aiSheet?.items.reduce(
-    (acc, item) => {
-      const n = computeAiNutr(item);
-      return {
-        kcal:      acc.kcal      + n.kcal,
-        protein_g: acc.protein_g + n.protein_g,
-        carbs_g:   acc.carbs_g   + n.carbs_g,
-        fat_g:     acc.fat_g     + n.fat_g,
-      };
-    },
-    { kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0 }
-  ) ?? null;
+  // kcal: the sum of what each row SHOWS (AiItemRow rounds per row), so the
+  // total can never read one less than its only row. Macros show one decimal
+  // and are summed unrounded.
+  const aiTotal = aiSheet
+    ? {
+        ...aiSheet.items.reduce(
+          (acc, item) => {
+            const n = computeAiNutr(item);
+            return {
+              protein_g: acc.protein_g + n.protein_g,
+              carbs_g:   acc.carbs_g   + n.carbs_g,
+              fat_g:     acc.fat_g     + n.fat_g,
+            };
+          },
+          { protein_g: 0, carbs_g: 0, fat_g: 0 }
+        ),
+        kcal: sumShownKcal(aiSheet.items.map((item) => computeAiNutr(item).kcal)),
+      }
+    : null;
 
   return (
     <View style={s.root}>
@@ -924,7 +932,7 @@ export default function AddFoodScreen() {
                   <Text style={s.aiTotalEyebrow}>Total</Text>
                   <View style={s.liveRow}>
                     <View style={s.liveStat}>
-                      <Text style={s.liveVal}>{Math.round(aiTotal.kcal)}</Text>
+                      <Text style={s.liveVal}>{aiTotal.kcal}</Text>
                       <Text style={s.liveKey}>kcal</Text>
                     </View>
                     <View style={s.liveStat}>

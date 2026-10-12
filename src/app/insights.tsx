@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Reanimated, {
   Easing,
@@ -13,6 +13,9 @@ import Reanimated, {
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { Icon } from '@/components/Icon';
+import { SkeletonPulse } from '@/components/skeleton-pulse';
+import { ErrorSettle } from '@/components/motion/error-settle';
+import { BreathingDial } from '@/components/motion/breathing-dial';
 import { DailyBars, type BarDatum } from '@/components/insights/DailyBars';
 import { MealTypeBar, VerifiedShare } from '@/components/insights/HorizontalBars';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
@@ -120,14 +123,18 @@ export default function InsightsScreen() {
         </View>
 
         {loading ? (
-          <View style={s.center}><ActivityIndicator color={C.green} /></View>
+          <View style={s.scroll}>
+            <SkeletonPulse style={s.skCard} />
+            <SkeletonPulse style={s.skCard} />
+          </View>
         ) : error ? (
-          <View style={s.center}>
+          <ErrorSettle style={s.center}>
             <Text style={s.stateTitle}>Couldn’t load your insights</Text>
             <Text style={s.stateSub}>Please try again in a moment.</Text>
-          </View>
+          </ErrorSettle>
         ) : !data || data.loggedDays === 0 ? (
           <View style={s.center}>
+            <BreathingDial size={60} />
             <Text style={s.stateTitle}>Not much logged yet</Text>
             <Text style={s.stateSub}>Log a few meals and your week will start to take shape here — no pressure, just a picture.</Text>
           </View>
@@ -178,6 +185,7 @@ const s = StyleSheet.create({
   stateSub: { fontFamily: Fonts?.body ?? 'system', fontSize: 14.5, color: C.inkSoft, textAlign: 'center', lineHeight: 21 },
 
   scroll: { paddingHorizontal: 18, paddingBottom: 60, gap: 14 },
+  skCard: { height: 210, borderRadius: Radius.lg, backgroundColor: '#EFEAE1' },
   lede: { fontFamily: Fonts?.body ?? 'system', fontSize: 14, color: C.inkSoft, lineHeight: 20, marginTop: 4, marginBottom: 2 },
 
   card: { backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: Radius.lg, padding: 16, ...Shadow.sm },

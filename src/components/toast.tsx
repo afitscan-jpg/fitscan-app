@@ -32,7 +32,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const opacity = useRef(new Animated.Value(0)).current;
+  // v2 §16 — the toast rises from below the tab bar and settles. translateY only
+  // (transform), spring in / timing out. Reduced motion: opacity only, no rise.
+  const translateY = useRef(new Animated.Value(60)).current;
+  const reduce = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled?.().then((r) => { reduce.current = r; }).catch(() => {});
+  }, []);
 
   const show = useCallback<ShowToast>((next) => {
     setMessage(next);
@@ -42,17 +50,30 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!message) return;
-    Animated.timing(opacity, {
-      toValue: 1, duration: 180, easing: Easing.out(Easing.quad), useNativeDriver: true,
-    }).start();
+    translateY.setValue(reduce.current ? 0 : 60);
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1, duration: 180, easing: Easing.out(Easing.quad), useNativeDriver: true,
+      }),
+      reduce.current
+        ? Animated.timing(translateY, { toValue: 0, duration: 1, useNativeDriver: true })
+        : Animated.spring(translateY, {
+            toValue: 0, damping: 14, stiffness: 180, mass: 1, useNativeDriver: true,
+          }),
+    ]).start();
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      Animated.timing(opacity, {
-        toValue: 0, duration: 220, easing: Easing.in(Easing.quad), useNativeDriver: true,
-      }).start(({ finished }) => { if (finished) setMessage(null); });
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 0, duration: 220, easing: Easing.in(Easing.quad), useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: reduce.current ? 0 : 40, duration: 220, easing: Easing.in(Easing.quad), useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => { if (finished) setMessage(null); });
     }, VISIBLE_MS);
     return () => { if (timer.current) clearTimeout(timer.current); };
-  }, [message, opacity]);
+  }, [message, opacity, translateY]);
 
   return (
     <ToastContext.Provider value={show}>
@@ -60,7 +81,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {message ? (
         <Animated.View
           pointerEvents="none"
-          style={[s.wrap, { opacity, bottom: insets.bottom + 96 }]}
+          style={[s.wrap, { opacity, transform: [{ translateY }], bottom: insets.bottom + 96 }]}
           accessibilityLiveRegion="polite"
         >
           <View style={s.card}>

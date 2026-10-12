@@ -36,6 +36,7 @@ import { pickSheetHeight } from '@/lib/sheet-snap';
 import { LogAgain } from '@/components/log-again';
 import { afterLogSuccess } from '@/lib/success-moments';
 import { logSuccess, tap } from '@/lib/feedback';
+import { KeyboardSheet } from '@/components/keyboard-sheet';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -824,15 +825,11 @@ export default function AddFoodScreen() {
         </View>
       </Modal>
 
-      {/* AI confirm sheet */}
-      <Modal
-        visible={aiSheet !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => { if (!aiLogging) closeAiSheet(); }}
-      >
+      {/* AI confirm sheet — its rows hold editable numbers, so it lifts with the keyboard */}
+      <KeyboardSheet visible={aiSheet !== null} onClose={() => { if (!aiLogging) closeAiSheet(); }}>
+        {({ maxHeight }) => (
         <Pressable style={s.overlay} onPress={() => { if (!aiLogging) closeAiSheet(); }}>
-          <Pressable style={[s.aiSheetOuter, { height: aiSheetH }]} onPress={() => undefined}>
+          <Pressable style={[s.aiSheetOuter, { height: Math.min(aiSheetH, maxHeight) }]} onPress={() => undefined}>
             <View onLayout={(e) => setAiTopH(e.nativeEvent.layout.height)}>
             <View style={s.sheetHandle} />
 
@@ -983,7 +980,8 @@ export default function AddFoodScreen() {
             </View>
           </Pressable>
         </Pressable>
-      </Modal>
+        )}
+      </KeyboardSheet>
 
       <PaywallSheet error={paywall} onClose={() => setPaywall(null)} />
     </View>

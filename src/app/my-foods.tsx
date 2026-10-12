@@ -15,14 +15,14 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView,
-  StyleSheet, Text, TextInput, View, useWindowDimensions,
+  ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { Icon } from '@/components/Icon';
+import { KeyboardSheet } from '@/components/keyboard-sheet';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { tap, logSuccess } from '@/lib/feedback';
 import { pickSheetHeight } from '@/lib/sheet-snap';
@@ -384,10 +384,11 @@ function Sheet({ visible, title, subtitle, children, footer, onClose }: {
   const needed = contentH > 0 ? 16 + topH + 12 + contentH : 0;
   const sheetH = pickSheetHeight(needed, winH, 6);
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={f.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardSheet visible={visible} onClose={onClose}>
+      {({ maxHeight }) => (
+      <View style={f.overlay}>
         <Pressable style={f.overlayTap} onPress={onClose} />
-        <View style={[f.sheet, { height: sheetH }]}>
+        <View style={[f.sheet, { height: Math.min(sheetH, maxHeight) }]}>
           <View onLayout={(e) => setTopH(e.nativeEvent.layout.height)}>
             <View style={f.handle} />
             <View style={f.headerRow}>
@@ -403,8 +404,9 @@ function Sheet({ visible, title, subtitle, children, footer, onClose }: {
             <View style={f.footer} onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}>{footer}</View>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </Modal>
+      </View>
+      )}
+    </KeyboardSheet>
   );
 }
 

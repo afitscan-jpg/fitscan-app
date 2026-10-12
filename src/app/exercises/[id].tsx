@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Animated as RNAnimated,
   Easing as RNEasing,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,6 +35,7 @@ import { useToast } from '@/components/toast';
 import { getScienceNote } from '@/data/exercise-science';
 import { logExercise, type Exercise } from '@/lib/exercises';
 import { logSuccess } from '@/lib/feedback';
+import { KeyboardSheet } from '@/components/keyboard-sheet';
 
 function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -408,22 +408,19 @@ export default function ExerciseDetailScreen() {
       </SafeAreaView>
 
       {/* Logging sheet */}
-      <Modal
-        visible={sheetOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSheetOpen(false)}
-      >
-        <LogSheet
-          exercise={exercise}
-          isCardio={isCardio}
-          onClose={() => setSheetOpen(false)}
-          onLogged={() => {
-            setSheetOpen(false);
-            setToast(true);
-          }}
-        />
-      </Modal>
+      <KeyboardSheet visible={sheetOpen} onClose={() => setSheetOpen(false)}>
+        {() => (
+          <LogSheet
+            exercise={exercise}
+            isCardio={isCardio}
+            onClose={() => setSheetOpen(false)}
+            onLogged={() => {
+              setSheetOpen(false);
+              setToast(true);
+            }}
+          />
+        )}
+      </KeyboardSheet>
 
       <Toast visible={toast} onDone={() => setToast(false)} />
     </View>

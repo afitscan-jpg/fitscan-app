@@ -5,7 +5,6 @@ import {
   Alert,
   Animated as RNAnimated,
   Easing as RNEasing,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -42,6 +41,7 @@ import {
 } from '@/lib/weight';
 import { syncReminders } from '@/lib/reminders';
 import { logSuccess } from '@/lib/feedback';
+import { KeyboardSheet } from '@/components/keyboard-sheet';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -524,21 +524,25 @@ export default function WeightScreen() {
         </ScrollView>
       </SafeAreaView>
 
-      <Modal visible={sheetOpen} transparent animationType="slide" onRequestClose={() => setSheetOpen(false)}>
-        <LogWeightSheet
-          current={current}
-          onClose={() => setSheetOpen(false)}
-          onSaved={() => { setSheetOpen(false); load(period); }}
-        />
-      </Modal>
+      <KeyboardSheet visible={sheetOpen} onClose={() => setSheetOpen(false)}>
+        {() => (
+          <LogWeightSheet
+            current={current}
+            onClose={() => setSheetOpen(false)}
+            onSaved={() => { setSheetOpen(false); load(period); }}
+          />
+        )}
+      </KeyboardSheet>
 
-      <Modal visible={targetSheetOpen} transparent animationType="slide" onRequestClose={() => setTargetSheetOpen(false)}>
-        <TargetWeightSheet
-          current={target}
-          onClose={() => setTargetSheetOpen(false)}
-          onSaved={(v) => { setTarget(v); setTargetSheetOpen(false); }}
-        />
-      </Modal>
+      <KeyboardSheet visible={targetSheetOpen} onClose={() => setTargetSheetOpen(false)}>
+        {() => (
+          <TargetWeightSheet
+            current={target}
+            onClose={() => setTargetSheetOpen(false)}
+            onSaved={(v) => { setTarget(v); setTargetSheetOpen(false); }}
+          />
+        )}
+      </KeyboardSheet>
     </View>
   );
 }

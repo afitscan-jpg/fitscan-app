@@ -10,14 +10,15 @@
 // (sheet-snap.ts), the list scrolls, the footer is pinned and the list pads by
 // its measured height so the last row clears the button.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   useWindowDimensions,
 } from 'react-native';
 
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { Icon } from '@/components/Icon';
+import { KeyboardSheet } from '@/components/keyboard-sheet';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { type MealType } from '@/lib/db';
 import { sumKcal, type LoggedFood } from '@/lib/quick-log';
@@ -49,6 +50,11 @@ export function PickFoodsSheet({ visible, title, subtitle, foods, primaryLabel, 
   const [mealName, setMealName] = useState('');
   const [busy, setBusy] = useState<'primary' | 'save' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const nameRef = useRef<TextInput>(null);
+  // Save-as-meal (no primary action): naming comes first, so the field sits at
+  // the top and takes focus once the sheet has finished opening. Repeat
+  // yesterday keeps it below the list as the optional second action.
+  const nameOnTop = !!onSaveMeal && !onPrimary;
 
   const { height: winH } = useWindowDimensions();
   const [topH, setTopH] = useState(0);
@@ -86,12 +92,35 @@ export function PickFoodsSheet({ visible, title, subtitle, foods, primaryLabel, 
     }
   }
 
-  let lastMeal: string | undefined;
+  // Meal headers: a row shows its meal when it differs from the row before.
+  // Computed up front so nothing is mutated inside the render prop.
+  const rows = ordered.map((f, i) => ({ f, showMeal: !!f.meal_type && f.meal_type !== ordered[i - 1]?.meal_type }));
+
+  const nameField = onSaveMeal ? (
+    <View style={[s.nameWrap, nameOnTop && s.nameWrapTop]}>
+      <Text style={s.nameLabel}>{nameOnTop ? 'Meal name' : 'Save these as a meal'}</Text>
+      <TextInput
+        ref={nameRef}
+        style={s.nameInput}
+        placeholder="e.g. Usual breakfast"
+        placeholderTextColor={C.inkFaint}
+        value={mealName}
+        onChangeText={setMealName}
+        maxLength={40}
+        returnKeyType="done"
+      />
+    </View>
+  ) : null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={() => { if (!busy) onClose(); }}>
+    <KeyboardSheet
+      visible={visible}
+      onClose={() => { if (!busy) onClose(); }}
+      onShown={() => { if (nameOnTop) nameRef.current?.focus(); }}
+    >
+      {({ maxHeight }) => (
       <Pressable style={s.overlay} onPress={() => { if (!busy) onClose(); }}>
-        <Pressable style={[s.sheet, { height: sheetH }]} onPress={() => undefined}>
+        <Pressable style={[s.sheet, { height: Math.min(sheetH, maxHeight) }]} onPress={() => undefined}>
           <View onLayout={(e) => setTopH(e.nativeEvent.layout.height)}>
             <View style={s.handle} />
             <View style={s.headerRow}>
@@ -101,6 +130,7 @@ export function PickFoodsSheet({ visible, title, subtitle, foods, primaryLabel, 
               </Pressable>
             </View>
             {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
+            {nameOnTop ? nameField : null}
           </View>
 
           <View style={s.scrollWrap}>
@@ -111,10 +141,8 @@ export function PickFoodsSheet({ visible, title, subtitle, foods, primaryLabel, 
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator
             >
-              {ordered.map((f) => {
+              {rows.map(({ f, showMeal }) => {
                 const on = !excluded.has(f.key);
-                const showMeal = f.meal_type && f.meal_type !== lastMeal;
-                lastMeal = f.meal_type;
                 return (
                   <View key={f.key}>
                     {showMeal ? (
@@ -141,20 +169,7 @@ export function PickFoodsSheet({ visible, title, subtitle, foods, primaryLabel, 
                   </View>
                 );
               })}
-              {onSaveMeal ? (
-                <View style={s.nameWrap}>
-                  <Text style={s.nameLabel}>Save these as a meal</Text>
-                  <TextInput
-                    style={s.nameInput}
-                    placeholder="e.g. Usual breakfast"
-                    placeholderTextColor={C.inkFaint}
-                    value={mealName}
-                    onChangeText={setMealName}
-                    maxLength={40}
-                    returnKeyType="done"
-                  />
-                </View>
-              ) : null}
+              {!nameOnTop ? nameField : null}
             </ScrollView>
 
             <View style={s.footer} onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}>
@@ -190,7 +205,8 @@ export function PickFoodsSheet({ visible, title, subtitle, foods, primaryLabel, 
           </View>
         </Pressable>
       </Pressable>
-    </Modal>
+      )}
+    </KeyboardSheet>
   );
 }
 
@@ -223,6 +239,7 @@ const s = StyleSheet.create({
   rowName: { fontFamily: Fonts?.bodyMed ?? 'system', fontSize: 15, fontWeight: '500', color: C.ink },
   rowMeta: { fontFamily: Fonts?.body ?? 'system', fontSize: 12.5, color: C.inkSoft },
   nameWrap: { marginTop: 16, gap: 6 },
+  nameWrapTop: { marginTop: 12, marginBottom: 2 },
   nameLabel: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13, fontWeight: '600', color: C.inkSoft },
   nameInput: {
     backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: Radius.sm,

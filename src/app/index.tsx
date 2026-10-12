@@ -7,7 +7,6 @@ import {
   Animated,
   Easing,
   type GestureResponderEvent,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -80,6 +79,7 @@ import {
   syncReminders,
 } from '@/lib/reminders';
 import { PaywallSheet } from '@/components/paywall-sheet';
+import { KeyboardSheet } from '@/components/keyboard-sheet';
 
 // TRIAL kill-switch (fluid layer): a single spring follower gives the whole Home
 // content a tiny weight-in-water trail on fast flicks only. Flip to false to
@@ -1845,13 +1845,8 @@ export default function HomeScreen() {
       <Reanimated.View pointerEvents="none" style={[hs.inkRipple, inkStyle]} />
 
       {/* Edit a logged entry */}
-      <Modal
-        visible={editing !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setEditing(null)}
-      >
-        {editing ? (
+      <KeyboardSheet visible={editing !== null} onClose={() => setEditing(null)}>
+        {() => editing ? (
           <EditLogBody
             key={editing.id}
             entry={editing}
@@ -1859,7 +1854,7 @@ export default function HomeScreen() {
             onSaved={() => { setEditing(null); load(); void syncWidgetFromDiary(); }}
           />
         ) : null}
-      </Modal>
+      </KeyboardSheet>
 
       {/* Sprint 3: bundle today's foods into a saved meal (logged again from Add). */}
       <PickFoodsSheet

@@ -25,6 +25,7 @@ import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { addPhoto, deletePhoto, listPhotos, type ProgressPhoto } from '@/lib/progress-photos';
+import { KeyboardSheet } from '@/components/keyboard-sheet';
 
 type Tab = 'timeline' | 'compare';
 
@@ -278,8 +279,8 @@ export default function ProgressPhotosScreen() {
       </Modal>
 
       {/* Add details sheet */}
-      <Modal visible={draftUri !== null} transparent animationType="slide" onRequestClose={() => { if (!saving) setDraftUri(null); }}>
-        {draftUri ? (
+      <KeyboardSheet visible={draftUri !== null} onClose={() => { if (!saving) setDraftUri(null); }}>
+        {() => draftUri ? (
           <DetailsSheet
             uri={draftUri}
             date={draftDate}
@@ -290,7 +291,7 @@ export default function ProgressPhotosScreen() {
             onSave={handleSaveDraft}
           />
         ) : null}
-      </Modal>
+      </KeyboardSheet>
     </View>
   );
 }

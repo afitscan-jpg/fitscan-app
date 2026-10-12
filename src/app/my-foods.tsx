@@ -217,13 +217,13 @@ function EntrySheet({ visible, onClose, onSaved }: { visible: boolean; onClose: 
           </Pressable>
         ))}
       </View>
-      <Field label={`Weight of one ${label} (g)`}><NumInput value={servingG} onChange={setServingG} placeholder="45" /></Field>
+      <Field label={`Weight of one ${label} (g)`}><NumInput value={servingG} onChange={setServingG} placeholder="e.g. 45" /></Field>
       <View style={f.grid}>
-        <Field label="Calories (kcal)" half><NumInput value={kcal} onChange={setKcal} placeholder="210" /></Field>
-        <Field label="Protein (g)" half><NumInput value={protein} onChange={setProtein} placeholder="15" /></Field>
-        <Field label="Carbs (g)" half><NumInput value={carb} onChange={setCarb} placeholder="20" /></Field>
-        <Field label="Fat (g)" half><NumInput value={fat} onChange={setFat} placeholder="7.5" /></Field>
-        <Field label="Fibre (g, optional)" half><NumInput value={fiber} onChange={setFiber} placeholder="—" /></Field>
+        <Field label="Calories (kcal)" half><NumInput value={kcal} onChange={setKcal} placeholder="e.g. 210" /></Field>
+        <Field label="Protein (g)" half><NumInput value={protein} onChange={setProtein} placeholder="e.g. 15" /></Field>
+        <Field label="Carbs (g)" half><NumInput value={carb} onChange={setCarb} placeholder="e.g. 20" /></Field>
+        <Field label="Fat (g)" half><NumInput value={fat} onChange={setFat} placeholder="e.g. 7.5" /></Field>
+        <Field label="Fibre (g)" half><NumInput value={fiber} onChange={setFiber} placeholder="optional" /></Field>
       </View>
       <Text style={f.label}>Where these numbers are from</Text>
       <View style={f.chips}>
@@ -356,9 +356,10 @@ function RecipeSheet({ visible, onClose, onSaved }: { visible: boolean; onClose:
 
       {lines.length > 0 ? <Text style={f.sum}>Ingredients: {Math.round(rawTotal)} g as entered</Text> : null}
       <View style={f.grid}>
-        <Field label="Cooked weight of the whole batch (g)" half><NumInput value={totalG} onChange={setTotalG} placeholder={rawTotal ? String(Math.round(rawTotal * 2.5)) : '900'} /></Field>
-        <Field label="Servings it makes" half><NumInput value={servings} onChange={setServings} placeholder="6" /></Field>
+        <Field label="Cooked weight (g)" half><NumInput value={totalG} onChange={setTotalG} placeholder="e.g. 900" /></Field>
+        <Field label="Servings" half><NumInput value={servings} onChange={setServings} placeholder="e.g. 6" /></Field>
       </View>
+      <Text style={f.rowHint}>Weigh the whole pot after cooking</Text>
       {tot && sv ? <Text style={f.sum}>One serving ≈ {Math.round(tot / sv)} g</Text> : null}
       <Text style={f.label}>Call one serving a…</Text>
       <View style={f.chips}>
@@ -475,8 +476,11 @@ const f = StyleSheet.create({
   scrollWrap: { flex: 1, minHeight: 0, position: 'relative', marginTop: 12 },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 10, paddingBottom: 28, backgroundColor: C.card, gap: 8 },
   field: { marginBottom: 12 },
-  half: { width: '48%' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  half: { width: '48%', justifyContent: 'flex-end' },
+  // alignItems flex-end: each cell is label-over-input, so aligning cells to
+  // the bottom keeps the INPUTS level even when one label wraps.
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end' },
+  rowHint: { fontFamily: Fonts?.body ?? 'system', fontSize: 12, color: C.inkFaint, marginTop: -6, marginBottom: 10 },
   label: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 12.5, fontWeight: '600', color: C.inkSoft, marginBottom: 6 },
   input: { backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: Radius.sm, paddingVertical: 10, paddingHorizontal: 12, fontFamily: Fonts?.body ?? 'system', fontSize: 15, color: C.ink },
   inputCompact: { width: 76, paddingVertical: 8, textAlign: 'center' },

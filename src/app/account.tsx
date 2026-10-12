@@ -28,6 +28,7 @@ import {
   signOutToAnonymous,
   type AuthState,
 } from '@/lib/auth';
+import { openLegal, PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 
 type Mode = 'create' | 'signin';
 
@@ -289,6 +290,18 @@ function AuthForms() {
             comes with you.
           </Text>
         )}
+
+        <Text style={s.legalNote}>
+          By continuing you agree to the{' '}
+          <Text style={s.legalLink} onPress={() => void openLegal(TERMS_URL)} accessibilityRole="link">
+            Terms of use
+          </Text>{' '}
+          and{' '}
+          <Text style={s.legalLink} onPress={() => void openLegal(PRIVACY_URL)} accessibilityRole="link">
+            Privacy policy
+          </Text>
+          .
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -386,6 +399,16 @@ const s = StyleSheet.create({
 
   forgotWrap: { alignSelf: 'center', paddingVertical: 14 },
   forgot: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 13.5, fontWeight: '600', color: C.green },
+
+  legalNote: {
+    fontFamily: Fonts?.body ?? 'system',
+    fontSize: 12.5,
+    color: C.inkSoft,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: 18,
+  },
+  legalLink: { color: C.green, fontFamily: Fonts?.bodySemi ?? 'system', fontWeight: '600' },
 
   warnNote: {
     fontFamily: Fonts?.body ?? 'system',

@@ -5,7 +5,6 @@ import {
   Alert,
   Animated as RNAnimated,
   Easing as RNEasing,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -42,6 +41,7 @@ import {
 } from '@/lib/weight';
 import { syncReminders } from '@/lib/reminders';
 import { logSuccess } from '@/lib/feedback';
+import { KeyboardSheet } from '@/components/keyboard-sheet';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -398,7 +398,14 @@ export default function WeightScreen() {
             <>
               {/* Current + Target cards */}
               <View style={s.cardsRow}>
-                <View style={s.statCardWrap}>
+                {/* Both cards are tappable. Current opens the same weigh-in sheet
+                    as the + button and "Log weight" — pre-filled with the latest
+                    weight for a new entry, or empty with "Tap to log". */}
+                <AnimatedPressable
+                  style={s.statCardWrap}
+                  onPress={() => setSheetOpen(true)}
+                  accessibilityLabel={current == null ? 'Log weight' : 'Log a new weight'}
+                >
                   <GlassCard contentStyle={s.statCard}>
                     <Text style={s.statLabel}>Current</Text>
                     {current != null ? (
@@ -406,7 +413,9 @@ export default function WeightScreen() {
                     ) : (
                       <Text style={s.statDash}>—</Text>
                     )}
-                    {hasData && Math.abs(delta) >= 0.1 ? (
+                    {current == null ? (
+                      <Text style={s.statLink}>Tap to log</Text>
+                    ) : hasData && Math.abs(delta) >= 0.1 ? (
                       <Text style={s.statTrend}>
                         {delta < 0 ? '↓' : '↑'} {fmt1(Math.abs(delta))} kg this {period === 'all' ? 'range' : period}
                       </Text>
@@ -414,7 +423,7 @@ export default function WeightScreen() {
                       <Text style={s.statTrendMuted}>No change yet</Text>
                     )}
                   </GlassCard>
-                </View>
+                </AnimatedPressable>
 
                 <AnimatedPressable
                   style={s.statCardWrap}
@@ -515,21 +524,25 @@ export default function WeightScreen() {
         </ScrollView>
       </SafeAreaView>
 
-      <Modal visible={sheetOpen} transparent animationType="slide" onRequestClose={() => setSheetOpen(false)}>
-        <LogWeightSheet
-          current={current}
-          onClose={() => setSheetOpen(false)}
-          onSaved={() => { setSheetOpen(false); load(period); }}
-        />
-      </Modal>
+      <KeyboardSheet visible={sheetOpen} onClose={() => setSheetOpen(false)}>
+        {() => (
+          <LogWeightSheet
+            current={current}
+            onClose={() => setSheetOpen(false)}
+            onSaved={() => { setSheetOpen(false); load(period); }}
+          />
+        )}
+      </KeyboardSheet>
 
-      <Modal visible={targetSheetOpen} transparent animationType="slide" onRequestClose={() => setTargetSheetOpen(false)}>
-        <TargetWeightSheet
-          current={target}
-          onClose={() => setTargetSheetOpen(false)}
-          onSaved={(v) => { setTarget(v); setTargetSheetOpen(false); }}
-        />
-      </Modal>
+      <KeyboardSheet visible={targetSheetOpen} onClose={() => setTargetSheetOpen(false)}>
+        {() => (
+          <TargetWeightSheet
+            current={target}
+            onClose={() => setTargetSheetOpen(false)}
+            onSaved={(v) => { setTarget(v); setTargetSheetOpen(false); }}
+          />
+        )}
+      </KeyboardSheet>
     </View>
   );
 }

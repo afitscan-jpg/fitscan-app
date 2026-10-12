@@ -20,7 +20,12 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://fitscan-backend.onrender.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://txfpuaxgjdnsepkopsfn.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_3RCaKOIZGB7LFBFXZR1rfw_C1PVWDi8"
+      }
     }
   },
   "submit": {

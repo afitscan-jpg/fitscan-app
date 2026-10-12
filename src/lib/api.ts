@@ -1,3 +1,4 @@
+import { markBackendAwake, pingBackend, requestBudgetMs } from './backend-health';
 import { ensureSession, supabase } from './supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
@@ -21,23 +22,71 @@ export class TimeoutError extends Error {
   }
 }
 
-// 45s covers a Render free-tier cold start (~30-50s). Drop to 15s once on a paid
-// instance that doesn't sleep.
+// The normal ceiling for a request to a server that is known to be up.
 const REQUEST_TIMEOUT_MS = 45000;
 
 // fetch() with a hard timeout via AbortController. On timeout, throws TimeoutError
 // (a slow/hung backend no longer freezes the screen). Other fetch errors pass through.
+//
+// B3: while the server is not known to be awake (first request after launch, or
+// after a /health ping went unanswered) the request gets the full cold-start
+// budget instead — a measured cold start was 102 s, and a 45 s limit turned
+// every one of them into an error. See backend-health.ts.
 async function fetchWithTimeout(input: string, init: RequestInit = {}): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), requestBudgetMs(REQUEST_TIMEOUT_MS));
   try {
-    return await fetch(input, { ...init, signal: controller.signal });
+    const res = await fetch(input, { ...init, signal: controller.signal });
+    markBackendAwake();          // any answer at all means the server is up
+    return res;
   } catch (e) {
+    // No answer. Find out whether it is waking or gone, so the NEXT request (and
+    // the banner) know — without making this one wait any longer.
+    void pingBackend();
     if (e instanceof Error && e.name === 'AbortError') throw new TimeoutError();
     throw e;
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Thrown by authFetch when the server refused the request for a reason the user
+ * should be told in the server's own words: too many requests (429) or input
+ * that is too long (413). `message` is safe to show as-is.
+ */
+export class RequestRefusedError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly retryAfterS: number | null = null,
+  ) {
+    super(message);
+    this.name = 'RequestRefusedError';
+  }
+}
+
+async function refusedFromResponse(res: Response): Promise<RequestRefusedError> {
+  let message =
+    res.status === 429
+      ? 'Too many requests — give it a moment and try again.'
+      : "That's too long — please shorten it and try again.";
+  try {
+    const body: unknown = await res.json();
+    const d =
+      body && typeof body === 'object' && 'detail' in body
+        ? (body as { detail: unknown }).detail
+        : null;
+    if (typeof d === 'string' && d.trim()) message = d;
+    else if (d && typeof d === 'object') {
+      const m = (d as { message?: unknown }).message;
+      if (typeof m === 'string' && m.trim()) message = m;
+    }
+  } catch {
+    // non-JSON body — keep the default wording
+  }
+  const ra = Number(res.headers.get('Retry-After'));
+  return new RequestRefusedError(res.status, message, Number.isFinite(ra) && ra > 0 ? ra : null);
 }
 
 export type PaywallKind = 'limit' | 'premium';
@@ -119,8 +168,8 @@ async function currentAccessToken(): Promise<string> {
 /**
  * fetch() for the authenticated backend endpoints (/ai/parse, /insights/*).
  * Attaches the Supabase access token as `Authorization: Bearer <jwt>`; the
- * backend derives the user id from it. On a 401 it refreshes the session once
- * and retries once. Returns the raw Response so callers keep their own
+ * backend derives the user id from it. On a 401 or 403 it refreshes the session
+ * once and retries once. Returns the raw Response so callers keep their own
  * res.ok / res.json() handling.
  */
 export async function authFetch(path: string, options: RequestInit = {}): Promise<Response> {
@@ -135,7 +184,7 @@ export async function authFetch(path: string, options: RequestInit = {}): Promis
 
   let res = await run(await currentAccessToken());
 
-  if (res.status === 401) {
+  if (res.status === 401 || res.status === 403) {
     const { data } = await supabase.auth.refreshSession();
     const refreshed = data.session?.access_token;
     if (refreshed) res = await run(refreshed);
@@ -145,6 +194,12 @@ export async function authFetch(path: string, options: RequestInit = {}): Promis
   // rather than treating it as a network failure.
   if (res.status === 402) {
     throw await paywallFromResponse(res);
+  }
+
+  // Rate limit / daily ceiling / over-long input: the server's message says
+  // exactly what happened and when it clears, so carry it to the screen.
+  if (res.status === 429 || res.status === 413) {
+    throw await refusedFromResponse(res);
   }
 
   return res;

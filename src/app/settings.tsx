@@ -21,7 +21,9 @@ import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { getProfile, updateProfile, type Goal, type Profile } from '@/lib/db';
 import { isFeedbackEnabled, setFeedbackEnabled, tap } from '@/lib/feedback';
 import { getEntitlement, trialDaysLeft, type Entitlement } from '@/lib/entitlement';
+import { deleteAccount, resetDeviceAfterDeletion } from '@/lib/account-delete';
 import { getAuthState, type AuthState } from '@/lib/auth';
+import { openLegal, PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 import { ensureSession, supabase } from '@/lib/supabase';
 
 // ─── Display helpers ────────────────────────────────────────────────────────────
@@ -149,12 +151,27 @@ export default function SettingsScreen() {
     );
   }
 
+  // Anonymous users have server-side data too (every log is stored under their
+  // anonymous id), so deletion is offered to everyone — but the words differ: an
+  // anonymous user never made an "account" and must not be told they are
+  // deleting one.
+  const anon = auth?.isAnonymous !== false;
+  const deleteLabel = anon ? 'Delete all my data' : 'Delete account';
+  const deleteSub = anon
+    ? "Permanently delete everything you've logged"
+    : 'Permanently delete your account and every log';
+
   function handleSignOutFresh() {
     Alert.alert(
       'Sign out & start fresh?',
-      'This starts a brand-new anonymous profile. Your current logs and history will no longer be visible on this device.',
+      'This starts a brand-new profile on this device. It does NOT delete anything from our servers — ' +
+        (anon
+          ? "what you've logged stays stored under your old anonymous id, just no longer visible here."
+          : 'your account and its logs stay exactly as they are; sign in again to see them.') +
+        (anon ? '\n\nTo erase it for good, use "Delete all my data" instead.' : '\n\nTo erase it for good, use "Delete account" instead.'),
       [
         { text: 'Cancel', style: 'cancel' },
+        { text: anon ? 'Delete all my data instead' : 'Delete account instead', onPress: () => handleDeleteAccount() },
         {
           text: 'Start fresh',
           style: 'destructive',
@@ -167,6 +184,56 @@ export default function SettingsScreen() {
             } catch {
               setBusy(false);
               Alert.alert('Could not sign out — please try again.');
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  // B4 — permanent deletion. The confirmation says what will happen; the result
+  // says what DID happen. Four outcomes, never collapsed into "done":
+  //   deleted → the device is cleared and the app restarts on a fresh profile
+  //   failed  → nothing was deleted, and we say so
+  //   unknown → we could not find out, and we say that instead of guessing
+  //   partial → account gone, some rows left: reported, with what to do
+  function handleDeleteAccount() {
+    Alert.alert(
+      anon ? 'Delete all your data?' : 'Delete your account?',
+      (anon
+        ? "This permanently deletes everything you've logged. There is no undo."
+        : 'This deletes your account and every log permanently. There is no undo.') +
+        "\n\nWe'll tell you whether it worked. If it can't be completed, nothing is deleted.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete permanently',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(true);
+            const outcome = await deleteAccount();
+            if (outcome.kind === 'failed') {
+              setBusy(false);
+              Alert.alert('Not deleted', outcome.message);
+              return;
+            }
+            if (outcome.kind === 'unknown') {
+              setBusy(false);
+              Alert.alert("Couldn't confirm", outcome.message);
+              return;
+            }
+            // 'deleted' or 'partial': the account no longer exists either way.
+            await resetDeviceAfterDeletion();
+            DeviceEventEmitter.emit(REONBOARD_EVENT);
+            if (outcome.kind === 'partial') {
+              Alert.alert(anon ? 'Data deleted — one thing left' : 'Account deleted — one thing left', outcome.message);
+            } else {
+              Alert.alert(
+                anon ? 'Data deleted' : 'Account deleted',
+                anon
+                  ? "Everything you logged has been permanently deleted. You're starting again with a fresh profile."
+                  : "Your account and all of its data have been permanently deleted. You're starting again with a fresh anonymous profile.",
+              );
             }
           },
         },
@@ -344,7 +411,18 @@ export default function SettingsScreen() {
                 disabled={busy}
               >
                 <Text style={[s.actionText, s.danger]}>Sign out &amp; start fresh</Text>
-                <Text style={s.actionSub}>Begin a new anonymous profile</Text>
+                <Text style={s.actionSub}>New profile on this device — nothing is deleted from our servers</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [s.actionBtn, pressed && s.pressed]}
+                onPress={handleDeleteAccount}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityLabel={deleteLabel}
+              >
+                <Text style={[s.actionText, s.danger]}>{deleteLabel}</Text>
+                <Text style={s.actionSub}>{deleteSub}</Text>
               </Pressable>
 
               {busy ? (
@@ -352,6 +430,24 @@ export default function SettingsScreen() {
                   <ActivityIndicator color={C.green} size="small" />
                 </View>
               ) : null}
+
+              <Text style={s.eyebrow}>Legal</Text>
+              <Pressable
+                style={({ pressed }) => [s.actionBtn, s.linkRow, pressed && s.pressed]}
+                onPress={() => void openLegal(PRIVACY_URL)}
+                accessibilityRole="link"
+              >
+                <Text style={s.actionText}>Privacy policy</Text>
+                <Icon name="arrow" color={C.inkDim} size={18} strokeWidth={2} />
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [s.actionBtn, s.linkRow, pressed && s.pressed]}
+                onPress={() => void openLegal(TERMS_URL)}
+                accessibilityRole="link"
+              >
+                <Text style={s.actionText}>Terms of use</Text>
+                <Icon name="arrow" color={C.inkDim} size={18} strokeWidth={2} />
+              </Pressable>
 
               <Text style={s.footnote}>
                 Calibreta keeps you anonymous by default — no account needed.

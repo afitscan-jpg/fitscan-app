@@ -6,7 +6,7 @@ import { AnimatedPressable } from '@/components/animated-pressable';
 import { SelectChip } from '@/components/motion/select-chip';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
-import { PaywallError } from '@/lib/api';
+import { PaywallError, RequestRefusedError } from '@/lib/api';
 import { mealTypeForNow, type MealType } from '@/lib/db';
 import {
   confirmLogItem,
@@ -21,8 +21,11 @@ type Pill = { bg: string; fg: string; border?: string };
 const NEUTRAL_PILL: Pill = { bg: C.card, fg: C.inkSoft, border: C.cardBorder };
 const PROV_PILL: Record<string, Pill> = {
   verified:          { bg: C.greenSoft, fg: C.greenInk },
+  ifct_verified:     { bg: C.greenSoft, fg: C.greenInk },   // same tier as USDA: a measured source
   expert_verified:   { bg: C.greenSoft, fg: C.greenInk },
   composed:          { bg: C.waterBlueSoft, fg: C.waterBlueInk },
+  user_entry:        { bg: C.waterBlueSoft, fg: C.waterBlueInk },   // the user's own numbers
+  user_recipe:       { bg: C.waterBlueSoft, fg: C.waterBlueInk },
   verified_packaged: NEUTRAL_PILL,
   ai_estimate:       { bg: C.amberSoft, fg: C.amberInk },
   analog_estimate:   { bg: C.amberSoft, fg: C.amberInk },
@@ -59,12 +62,13 @@ function HeldRow({
   const [qtyDraft, setQtyDraft] = useState(String(item.qty));
 
   async function send(qty: number, confirmed: boolean) {
-    if (!item.canonical_food_id || busy) return;
+    if (!(item.canonical_food_id || item.user_food_id) || busy) return;
     setBusy(true);
     setError(null);
     try {
       await confirmLogItem({
         canonicalFoodId: item.canonical_food_id,
+        userFoodId: item.user_food_id ?? null,
         qty, unit: item.unit, meal, confirmed,
       });
       setDone(true);
@@ -177,6 +181,9 @@ function ResultRow({ item }: { item: TextLogItem }) {
 
 // ─── The card: input + meal chips + resolved results ──────────────────────────
 
+/** Same cap the server enforces on /log/text (audit m3). */
+const MAX_TEXT_CHARS = 500;
+
 export function TextLogCard({
   onPaywall,
   onLogged,
@@ -277,6 +284,9 @@ export function TextLogCard({
       setResult(res);
     } catch (e) {
       if (e instanceof PaywallError) onPaywall(e);
+      // Rate limit / daily ceiling / too long: the server says which and when it
+      // clears. "Please try again" would be wrong advice for all three.
+      else if (e instanceof RequestRefusedError) setError(e.message);
       else setError("Couldn't log that — please try again.");
     } finally {
       setLoading(false);
@@ -348,6 +358,9 @@ export function TextLogCard({
           // title ever moves, so the hint never has to double as the name.
           accessibilityLabel="What did you eat?"
           placeholderTextColor={C.inkFaint}
+          // m3: the server refuses anything longer; stop at the same number here
+          // so nobody types a paragraph only to be told it was too long.
+          maxLength={MAX_TEXT_CHARS}
           value={text}
           // Keyboards auto-capitalise the first letter, and a capitalised bare word
           // ("Coffee") was false-negativing extraction — so don't capitalise. Editing

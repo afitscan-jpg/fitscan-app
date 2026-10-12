@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/Icon';
+import { ReservedBottomAction } from '@/components/reserved-bottom-action';
 import { FlagChip } from '@/components/scanner/flag-chip';
 import { NutrientCard } from '@/components/scanner/nutrient-card';
 import { DiagLine } from '@/components/scanner/diag-line';
@@ -22,6 +23,7 @@ import { C, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { FactColors, HIGH_SUGAR_G } from '@/constants/verdict';
 import { logScannedFood, mealTypeForNow } from '@/lib/db';
 import { logSuccess } from '@/lib/feedback';
+import { afterLogSuccess } from '@/lib/success-moments';
 import { scanResultStore } from '@/lib/scan-result-store';
 import type { NutrientFact, ScanDiag, ScanNutrients, ScanResponse } from '@/types/scan';
 
@@ -47,11 +49,14 @@ type ScreenState =
   // Couldn't reach the product database. Distinct from not_found on purpose: we
   // never learned whether this product exists, so we must not say it doesn't.
   | { phase: 'unavailable' }
+  // The backend would not accept the session (401/403 after a refresh and retry).
+  | { phase: 'auth' }
   | { phase: 'error'; message: string };
 
 function initState(outcome: string): ScreenState {
   if (outcome === 'not_found') return { phase: 'not_found' };
   if (outcome === 'unavailable') return { phase: 'unavailable' };
+  if (outcome === 'auth') return { phase: 'auth' };
   const data = scanResultStore.take();
   if (!data?.result) {
     return { phase: 'error', message: 'No result available — go back and scan again.' };
@@ -122,6 +127,36 @@ function UnavailableView({ diag }: { diag: ScanDiag | null }) {
           accessibilityLabel="Type what it is instead"
         >
           <Text style={styles.ghostBtnText}>Type what it is instead</Text>
+        </Pressable>
+        <DiagLine diag={diag} />
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function AuthView({ diag }: { diag: ScanDiag | null }) {
+  return (
+    <SafeAreaView style={styles.notFoundContainer}>
+      <Header />
+      <View style={styles.notFoundBody}>
+        <Icon name="refresh" color={C.inkFaint} size={48} strokeWidth={1.5} />
+        <Text style={styles.notFoundTitle}>Your session needs a fresh start</Text>
+        <Text style={styles.notFoundSub}>
+          The server didn&apos;t accept this app&apos;s sign-in, even after refreshing
+          it. The product database is fine and so is the barcode — scanning again
+          won&apos;t help. Close the app fully and open it again; if you have an
+          account, sign in from Settings → Account.
+        </Text>
+        <Pressable style={styles.btnSolo} onPress={() => router.replace('/settings' as never)}>
+          <Text style={styles.primaryBtnText}>Open Settings</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Text style={styles.ghostBtnText}>Back</Text>
         </Pressable>
         <DiagLine diag={diag} />
       </View>
@@ -314,6 +349,7 @@ function OkResultView({ data }: { data: ScanResponse }) {
         unit: portionUnit,
       });
       logSuccess();
+      void afterLogSuccess();
       router.replace('/');
     } catch {
       Alert.alert('Could not log food. Please try again.');
@@ -423,7 +459,8 @@ function OkResultView({ data }: { data: ScanResponse }) {
         <View style={styles.buttonSpacer} />
       </ScrollView>
 
-      {/* Fixed bottom buttons */}
+      {/* Fixed bottom buttons. Reserved so the assistant FAB stacks above them. */}
+      <ReservedBottomAction style={styles.buttonRowWrap}>
       <SafeAreaView edges={['bottom']} style={styles.buttonRow}>
         {isUnknown ? (
           <Pressable style={styles.primaryBtn} onPress={() => router.replace('/add')}>
@@ -442,6 +479,7 @@ function OkResultView({ data }: { data: ScanResponse }) {
           <Text style={styles.ghostBtnText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Scan next</Text>
         </Pressable>
       </SafeAreaView>
+      </ReservedBottomAction>
     </SafeAreaView>
   );
 }
@@ -457,6 +495,7 @@ export default function ResultScreen() {
 
   if (state.phase === 'not_found') return <NotFoundView diag={diag} />;
   if (state.phase === 'unavailable') return <UnavailableView diag={diag} />;
+  if (state.phase === 'auth') return <AuthView diag={diag} />;
   if (state.phase === 'error') return <ErrorView message={state.message} diag={diag} />;
   return <OkResultView data={state.data} />;
 }
@@ -724,11 +763,8 @@ const styles = StyleSheet.create({
   },
 
   buttonSpacer: { height: Spacing.six + Spacing.four },
+  buttonRowWrap: { bottom: 0, left: 0, right: 0 },
   buttonRow: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,

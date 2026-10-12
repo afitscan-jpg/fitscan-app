@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Animated as RNAnimated,
   Easing as RNEasing,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,6 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
+import { ReservedBottomAction } from '@/components/reserved-bottom-action';
 import { ExerciseDemo } from '@/components/exercise-demo';
 import { GlassCard } from '@/components/glass-card';
 import { CIcon } from '@/components/CalibretaIcon';
@@ -35,6 +35,7 @@ import { useToast } from '@/components/toast';
 import { getScienceNote } from '@/data/exercise-science';
 import { logExercise, type Exercise } from '@/lib/exercises';
 import { logSuccess } from '@/lib/feedback';
+import { KeyboardSheet } from '@/components/keyboard-sheet';
 
 function cap(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -396,32 +397,30 @@ export default function ExerciseDetailScreen() {
           <ScienceNotes name={exercise.name} />
         </ScrollView>
 
-        {/* Log CTA */}
-        <View style={s.ctaBar}>
+        {/* Log CTA. Reserved so the assistant FAB stacks above the bar instead
+            of covering its right end. */}
+        <ReservedBottomAction style={s.ctaBar}>
           <AnimatedPressable style={s.cta} onPress={() => setSheetOpen(true)}>
             <CIcon name="workout" color="#fff" size={18} />
             <Text style={s.ctaText}>Log this exercise</Text>
           </AnimatedPressable>
-        </View>
+        </ReservedBottomAction>
       </SafeAreaView>
 
       {/* Logging sheet */}
-      <Modal
-        visible={sheetOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSheetOpen(false)}
-      >
-        <LogSheet
-          exercise={exercise}
-          isCardio={isCardio}
-          onClose={() => setSheetOpen(false)}
-          onLogged={() => {
-            setSheetOpen(false);
-            setToast(true);
-          }}
-        />
-      </Modal>
+      <KeyboardSheet visible={sheetOpen} onClose={() => setSheetOpen(false)}>
+        {() => (
+          <LogSheet
+            exercise={exercise}
+            isCardio={isCardio}
+            onClose={() => setSheetOpen(false)}
+            onLogged={() => {
+              setSheetOpen(false);
+              setToast(true);
+            }}
+          />
+        )}
+      </KeyboardSheet>
 
       <Toast visible={toast} onDone={() => setToast(false)} />
     </View>
@@ -645,7 +644,7 @@ const s = StyleSheet.create({
   stepText: { flex: 1, fontFamily: Fonts?.body ?? 'system', fontSize: 14.5, color: C.inkSoft, lineHeight: 22 },
 
   ctaBar: {
-    position: 'absolute', left: 0, right: 0, bottom: 0,
+    left: 0, right: 0, bottom: 0,
     paddingHorizontal: 22, paddingTop: 10, paddingBottom: 30,
     backgroundColor: 'transparent',
   },

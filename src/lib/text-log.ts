@@ -12,9 +12,12 @@ import { authFetch } from './api';
 
 export type Provenance =
   | 'expert_verified'
-  | 'verified'
+  | 'verified'            // USDA FoodData Central
+  | 'ifct_verified'       // Indian Food Composition Tables 2017 (NIN)
   | 'verified_packaged'
   | 'composed'
+  | 'user_entry'          // the user's own food, private
+  | 'user_recipe'         // the user's own recipe, private
   | 'analog_estimate'
   | 'ai_estimate';
 
@@ -34,6 +37,9 @@ export interface TextLogItem {
   band: string;
   display_kcal: string;              // already formatted — render verbatim
   canonical_food_id: string | null;
+  /** Set instead of canonical_food_id when the match was the user's own food
+   *  or recipe (Sprint 4). Private to this user. */
+  user_food_id?: string | null;
   needs_clarification: boolean;
   modifier_note: string | null;
   /** The portion is implausibly large ("500 rotis"). The number is real but
@@ -114,7 +120,8 @@ export class NeedsConfirmationError extends Error {
  * so 5 just logs and 400 asks again.
  */
 export async function confirmLogItem(opts: {
-  canonicalFoodId: string;
+  canonicalFoodId: string | null;
+  userFoodId?: string | null;
   qty: number;
   unit: string;
   meal: string;
@@ -125,6 +132,7 @@ export async function confirmLogItem(opts: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       canonical_food_id: opts.canonicalFoodId,
+      user_food_id: opts.userFoodId ?? null,
       qty: opts.qty,
       unit: opts.unit,
       meal: opts.meal,

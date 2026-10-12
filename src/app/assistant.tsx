@@ -28,7 +28,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
 import { PaywallSheet } from '@/components/paywall-sheet';
-import { PaywallError } from '@/lib/api';
+import { PaywallError, RequestRefusedError } from '@/lib/api';
 import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
@@ -283,7 +283,9 @@ export default function AssistantScreen() {
         setMessages((prev) => [...prev, {
           id: nextId(),
           role: 'assistant',
-          content: "Couldn't reach the assistant — try again.",
+          content: e instanceof RequestRefusedError
+            ? e.message
+            : "Couldn't reach the assistant — try again.",
           error: true,
         }]);
       }

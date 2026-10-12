@@ -24,6 +24,7 @@ import { C } from '@/constants/theme';
 import { getProfile } from '@/lib/db';
 import { initFeedback } from '@/lib/feedback';
 import { onRemindersAppActive } from '@/lib/reminders';
+import { noteAppOpened } from '@/lib/review-prompt';
 import { ensureSession } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
@@ -31,6 +32,8 @@ SplashScreen.preventAutoHideAsync();
 // Emitted by the Settings screen to send the user back through onboarding
 // (Restart setup / Sign out & start fresh). Onboarding is rendered by state
 // here, not a route, so a DeviceEventEmitter signal is the clean way to flip it.
+import { WakingBanner } from '@/components/waking-banner';
+
 export const REONBOARD_EVENT = 'fitscan:reonboard';
 
 type AppState = 'loading' | 'onboarding' | 'ready';
@@ -77,6 +80,8 @@ export default function RootLayout() {
   // Preload the tick sound + load the "Sounds & haptics" preference + set the
   // audio mode (respect the silent switch). Fire-and-forget; never blocks.
   useEffect(() => { void initFeedback(); }, []);
+  // Review prompt: "day 3+" counts from the first open, so record it once.
+  useEffect(() => { void noteAppOpened(); }, []);
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener(REONBOARD_EVENT, () => {
@@ -125,6 +130,9 @@ export default function RootLayout() {
       <View style={styles.appRoot}>
         <StatusBar style="dark" />
         <AppTabs />
+        {/* B3: "Waking up — a moment" while the server boots; pings /health on
+            launch and on every return to the foreground. */}
+        <WakingBanner />
         {/* Single global instance — persists across all tabs (never per-screen). */}
         <AssistantFab />
         {showSting && <SplashSting onDone={() => setShowSting(false)} />}

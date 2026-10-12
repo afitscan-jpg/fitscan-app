@@ -26,6 +26,11 @@ import { scanResultStore } from '@/lib/scan-result-store';
 
 type ScanState = 'idle' | 'loading' | 'error';
 
+// m17: per-scan diagnostics are for development. In a release build these
+// printed every barcode a user scanned, and every request URL, to the device log.
+const devLog: typeof console.log = __DEV__ ? console.log : () => {};
+const devWarn: typeof console.warn = __DEV__ ? console.warn : () => {};
+
 const OVERLAY_COLOR = 'rgba(0,0,0,0.55)';
 const RETICLE_SIZE = 260;
 // C2: how long the camera may sit live with zero decodes before we say something.
@@ -94,7 +99,7 @@ export default function ScanScreen() {
     const t = setTimeout(() => {
       if (!sawDecode.current) {
         setNoDecode(true);
-        console.log('[scan]', JSON.stringify({
+        devLog('[scan]', JSON.stringify({
           event: 'no_decode', after_ms: NO_DECODE_MS, phase: 'idle',
         }));
       }
@@ -110,24 +115,24 @@ export default function ScanScreen() {
     setScanState('loading');
     setErrorMsg(null);
 
-    console.log('[Scanner] barcode detected:', scan.data, '| type:', scan.type);
+    devLog('[Scanner] barcode detected:', scan.data, '| type:', scan.type);
 
     const apiUrl = process.env.EXPO_PUBLIC_API_URL;
     if (!apiUrl) {
-      console.warn('[Scanner] EXPO_PUBLIC_API_URL is not set — set it in .env and restart to enable scanning');
+      devWarn('[Scanner] EXPO_PUBLIC_API_URL is not set — set it in .env and restart to enable scanning');
       setErrorMsg("Scanning isn't available right now — please try again later.");
       setScanState('error');
       isBusy.current = false;
       return;
     }
 
-    console.log('[Scanner] → GET', `${apiUrl}/scan/${scan.data}`);
+    devLog('[Scanner] → GET', `${apiUrl}/scan/${scan.data}`);
 
     try {
       const outcome = await fetchScan(scan.data);
       // C1: ONE structured line per scan, always, whatever the outcome. This is
       // what turns "the scanner isn't working" into something diagnosable.
-      console.log('[scan]', formatDiag(outcome.diag), JSON.stringify(outcome.diag));
+      devLog('[scan]', formatDiag(outcome.diag), JSON.stringify(outcome.diag));
       // Every outcome carries its diag to the result screen — the screens that
       // need it most are the ones with no result to show.
       scanResultStore.setDiag(outcome.diag);
@@ -141,6 +146,10 @@ export default function ScanScreen() {
       } else if (outcome.kind === 'unavailable') {
         // Reachability problem, not a missing product — keep the copy temporary.
         router.push({ pathname: '/scanner/result', params: { outcome: 'unavailable' } });
+      } else if (outcome.kind === 'auth') {
+        // The backend rejected the session after a refresh and retry. Say so —
+        // "try the scan again" would be the wrong advice.
+        router.push({ pathname: '/scanner/result', params: { outcome: 'auth' } });
       } else if (outcome.kind === 'upstream_error') {
         setErrorMsg('Server error — please try again.');
         setScanState('error');

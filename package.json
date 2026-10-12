@@ -1,6 +1,6 @@
 {
   "name": "app",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "1.0.0",
   "dependencies": {
     "@expo-google-fonts/bricolage-grotesque": "^0.4.1",
@@ -27,6 +27,7 @@
     "expo-speech-recognition": "^56.0.1",
     "expo-splash-screen": "~56.0.12",
     "expo-status-bar": "~56.0.4",
+    "expo-store-review": "~56.0.4",
     "expo-symbols": "~56.0.6",
     "expo-system-ui": "~56.0.5",
     "expo-video": "~56.1.4",
@@ -34,6 +35,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.85.3",
+    "react-native-android-widget": "^0.22.1",
     "react-native-gesture-handler": "~2.31.1",
     "react-native-reanimated": "4.3.1",
     "react-native-safe-area-context": "~5.7.0",
@@ -45,6 +47,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~56.0.4",
     "typescript": "~6.0.3"
   },
   "scripts": {

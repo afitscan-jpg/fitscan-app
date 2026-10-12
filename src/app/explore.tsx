@@ -248,7 +248,9 @@ export default function NewsScreen() {
       <AmbientBackground />
       <SafeAreaView style={s.flex} edges={['top']}>
         <View style={s.header}>
-          <Text style={s.eyebrow}>Worldwide · updated hourly</Text>
+          {/* The ingest cron (backend .github/workflows/news-cron.yml) runs every
+              4 hours. Change this line if that schedule changes. */}
+          <Text style={s.eyebrow}>Worldwide · updated every 4 hours</Text>
           <Text style={s.title}>Health news</Text>
         </View>
 
@@ -306,8 +308,10 @@ export default function NewsScreen() {
                 <NewsCard key={article.id} article={article} />
               ))}
               <Text style={s.footnote}>
-                Curated from credible sources — WHO, FSSAI, peer-reviewed journals.{'\n'}No
-                clickbait, no fear-mongering.
+                {/* Names only feeds news_router.FEEDS actually pulls. */}
+                Curated from research-focused sources — Harvard Nutrition Source, NIH
+                News in Health, ScienceDaily, Examine and others.{'\n'}No clickbait, no
+                fear-mongering.
               </Text>
             </>
           )}

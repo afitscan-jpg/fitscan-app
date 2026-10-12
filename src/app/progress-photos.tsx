@@ -20,10 +20,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AmbientBackground } from '@/components/ambient-background';
 import { AnimatedPressable } from '@/components/animated-pressable';
+import { ReservedBottomAction } from '@/components/reserved-bottom-action';
 import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
 import { addPhoto, deletePhoto, listPhotos, type ProgressPhoto } from '@/lib/progress-photos';
+import { KeyboardSheet } from '@/components/keyboard-sheet';
 
 type Tab = 'timeline' | 'compare';
 
@@ -264,9 +266,11 @@ export default function ProgressPhotosScreen() {
 
       {/* Add FAB */}
       {!loading && photos.length > 0 ? (
-        <AnimatedPressable style={s.fab} onPress={openAddChooser} pressedScale={0.92} accessibilityLabel="Add photo">
-          <Icon name="plus" color="#fff" size={24} strokeWidth={2.4} />
-        </AnimatedPressable>
+        <ReservedBottomAction style={s.fabWrap}>
+          <AnimatedPressable style={s.fab} onPress={openAddChooser} pressedScale={0.92} accessibilityLabel="Add photo">
+            <Icon name="plus" color="#fff" size={24} strokeWidth={2.4} />
+          </AnimatedPressable>
+        </ReservedBottomAction>
       ) : null}
 
       {/* Full viewer */}
@@ -275,8 +279,8 @@ export default function ProgressPhotosScreen() {
       </Modal>
 
       {/* Add details sheet */}
-      <Modal visible={draftUri !== null} transparent animationType="slide" onRequestClose={() => { if (!saving) setDraftUri(null); }}>
-        {draftUri ? (
+      <KeyboardSheet visible={draftUri !== null} onClose={() => { if (!saving) setDraftUri(null); }}>
+        {() => draftUri ? (
           <DetailsSheet
             uri={draftUri}
             date={draftDate}
@@ -287,7 +291,7 @@ export default function ProgressPhotosScreen() {
             onSave={handleSaveDraft}
           />
         ) : null}
-      </Modal>
+      </KeyboardSheet>
     </View>
   );
 }
@@ -515,9 +519,10 @@ const s = StyleSheet.create({
   cellDate: { fontFamily: Fonts?.bodySemi ?? 'system', fontSize: 11, fontWeight: '600', color: '#fff' },
   cellWeight: { fontFamily: Fonts?.body ?? 'system', fontSize: 10.5, color: 'rgba(255,255,255,0.9)' },
 
-  // FAB
+  // FAB — positioned by the ReservedBottomAction wrapper, which tells the
+  // assistant FAB to stack above it.
+  fabWrap: { right: 22, bottom: 34 },
   fab: {
-    position: 'absolute', right: 22, bottom: 34,
     width: 58, height: 58, borderRadius: 20, backgroundColor: C.green,
     alignItems: 'center', justifyContent: 'center', ...Shadow.lg,
   },

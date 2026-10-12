@@ -11,7 +11,7 @@
 // so the draw/lift use LEGACY RN Animated on the <G> transform props (the ring's
 // proven path) — NEVER useAnimatedProps on SVG, NEVER entering/exiting.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import Svg, { Defs, G, Line, Pattern, Rect, Text as SvgText } from 'react-native-svg';
@@ -66,17 +66,10 @@ export function DailyBars({
 
   // One legacy Animated.Value per bar for the draw (0→1) and the lift (0→1).
   // Rebuilt only if the day count changes (it is a stable 7).
-  const drawRef = useRef<Animated.Value[]>([]);
-  if (drawRef.current.length !== data.length) {
-    drawRef.current = data.map((_, i) => drawRef.current[i] ?? new Animated.Value(0));
-  }
-  const draw = drawRef.current;
-  const liftRef = useRef<Animated.Value[]>([]);
-  if (liftRef.current.length !== data.length) {
-    liftRef.current = data.map((_, i) => liftRef.current[i] ?? new Animated.Value(0));
-  }
-  const lift = liftRef.current;
-  const factO = useRef(new Animated.Value(0)).current;
+  const dayCount = data.length;
+  const draw = useMemo(() => Array.from({ length: dayCount }, () => new Animated.Value(0)), [dayCount]);
+  const lift = useMemo(() => Array.from({ length: dayCount }, () => new Animated.Value(0)), [dayCount]);
+  const [factO] = useState(() => new Animated.Value(0));
 
   // Draw-up ONCE per screen focus (not on every re-render). Reduced motion: the
   // same value drives opacity instead of scaleY (a fade, no transform).
@@ -90,11 +83,11 @@ export function DailyBars({
     ).start();
   }, [draw]);
 
+  // Each focus clears the tapped day and bumps the tick that replays the draw.
   const [focusTick, setFocusTick] = useState(0);
-  useFocusEffect(useCallback(() => { setFocusTick((n) => n + 1); }, []));
+  useFocusEffect(useCallback(() => { setSel(null); setFocusTick((n) => n + 1); }, []));
   useEffect(() => {
     if (w <= 0) return;
-    setSel(null);
     play();
   }, [focusTick, w, play]);
 

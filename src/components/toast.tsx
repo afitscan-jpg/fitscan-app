@@ -31,10 +31,10 @@ const VISIBLE_MS = 3600;
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
-  const opacity = useRef(new Animated.Value(0)).current;
+  const [opacity] = useState(() => new Animated.Value(0));
   // v2 §16 — the toast rises from below the tab bar and settles. translateY only
   // (transform), spring in / timing out. Reduced motion: opacity only, no rise.
-  const translateY = useRef(new Animated.Value(60)).current;
+  const [translateY] = useState(() => new Animated.Value(60));
   const reduce = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

@@ -10,7 +10,7 @@ import { subscribeLogsChanged } from '@/lib/log-events';
 
 export function useLogsChanged(callback: () => void): void {
   const ref = useRef(callback);
-  ref.current = callback;
+  useEffect(() => { ref.current = callback; });
 
   useEffect(() => subscribeLogsChanged(() => ref.current()), []);
 }

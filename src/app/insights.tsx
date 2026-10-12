@@ -87,16 +87,16 @@ export default function InsightsScreen() {
 
   // `silent` refetch keeps the current bars on screen and lets them settle to the
   // new values — used when a log mutation fires elsewhere while this screen is
-  // alive. The initial load shows the skeleton and can surface an error.
-  const load = useCallback((silent = false) => {
-    if (!silent) { setLoading(true); setError(false); }
+  // alive. The initial load shows the skeleton (state starts as loading, so the
+  // mount path sets nothing synchronously) and can surface an error.
+  const load = useCallback((silent: boolean) => {
     getInsights7d()
       .then((d) => { if (mounted.current) setData(d); })
       .catch(() => { if (mounted.current && !silent) setError(true); })
       .finally(() => { if (mounted.current && !silent) setLoading(false); });
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(false); }, [load]);
 
   // React to add/delete/edit anywhere in the app — not just to a fresh mount.
   // The charts settle to the new numbers without replaying their entrance

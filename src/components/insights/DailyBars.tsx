@@ -122,6 +122,14 @@ export function DailyBars({
   const selDatum = sel != null ? data[sel] : null;
   const factText = selDatum ? buildFact(selDatum, target, unit) : ' ';
 
+  // Target label: inside the plot at the LEFT, above the line, on a card-coloured
+  // backing so it stays legible over a bar. Today's bar, its value label and the
+  // SVG's right bound all sit at the right edge, where the label used to clip
+  // ("ta…") and collide with the value label (a stray mark after "target").
+  // Integer, so a derived target never prints as "112.64".
+  const targetLabel = target != null && target > 0 ? `target ${Math.round(target).toLocaleString()}` : null;
+  const targetLabelW = targetLabel ? targetLabel.length * 5.6 + 8 : 0; // monospace 9px ≈ 5.6px/char
+
   return (
     <View
       onLayout={(e) => setW(e.nativeEvent.layout.width)}
@@ -155,11 +163,12 @@ export function DailyBars({
               ) : null}
 
               {/* target — soft dashed NEUTRAL reference */}
-              {target != null && target > 0 ? (
+              {target != null && target > 0 && targetLabel ? (
                 <G>
                   <Line x1={x0} y1={yFor(target)} x2={w - PAD.r} y2={yFor(target)} stroke={CHART.target} strokeWidth={1.5} strokeDasharray="5 4" />
-                  <SvgText x={w - PAD.r} y={yFor(target) - 5} fontSize={9} fill={CHART.target} textAnchor="end" fontFamily="monospace">
-                    target {target.toLocaleString()}
+                  <Rect x={x0 + 4} y={yFor(target) - 15} width={targetLabelW} height={13} rx={4} fill={C.card} />
+                  <SvgText x={x0 + 8} y={yFor(target) - 5} fontSize={9} fill={CHART.target} textAnchor="start" fontFamily="monospace">
+                    {targetLabel}
                   </SvgText>
                 </G>
               ) : null}

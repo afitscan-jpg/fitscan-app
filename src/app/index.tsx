@@ -42,6 +42,7 @@ import { SkeletonPulse } from '@/components/skeleton-pulse';
 import { WeightCard } from '@/components/weight-card';
 import { useCountUp } from '@/hooks/use-count-up';
 import { BrandMark } from '@/components/brand/brand-mark';
+import { Breathe } from '@/components/motion/breathe';
 import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Gradients, Radius, RingGradient, Shadow, Spacing } from '@/constants/theme';
@@ -1780,8 +1781,11 @@ export default function HomeScreen() {
               {/* ── Calorie card ── */}
               <StaggerIn index={0}>
                <GlassCard contentStyle={hs.calCard}>
-                {/* Ring — centered hero */}
-                <CalorieRing eaten={eaten} target={ringTarget} />
+                {/* Ring — centered hero. v2 §14: on an empty day (nothing logged
+                    yet) it breathes — the one ambient element on an empty screen. */}
+                <Breathe active={totals != null && totals.items === 0} haloInset={-6} haloPeak={0.14} style={hs.ringBreathe}>
+                  <CalorieRing eaten={eaten} target={ringTarget} />
+                </Breathe>
                 <Text style={hs.targetBasis}>{targetCaption}</Text>
 
                 {/* Stats row below the ring */}
@@ -2000,6 +2004,7 @@ const hs = StyleSheet.create({
   scroll:{ paddingHorizontal: 22, paddingBottom: 120 },
   scrollInner: { gap: 16 },
 
+  ringBreathe: { alignSelf: 'center' },
   compactBar: {
     position: 'absolute',
     top: 0,

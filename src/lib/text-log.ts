@@ -9,6 +9,7 @@
 // get the same paywall path as every other AI endpoint.
 
 import { authFetch } from './api';
+import { emitLogsChanged } from './log-events';
 
 export type Provenance =
   | 'expert_verified'
@@ -150,7 +151,11 @@ export async function confirmLogItem(opts: {
     );
   }
   if (!res.ok) throw new Error(`log/confirm failed: ${res.status}`);
-  return (await res.json()) as { logged: boolean; food_log_ids: string[] };
+  const out = (await res.json()) as { logged: boolean; food_log_ids: string[] };
+  // The backend wrote the diary row, not db.ts — fire the change signal here so
+  // Insights refetches and Home can reveal the new row (see [[log-events]]).
+  if (out.logged) emitLogsChanged();
+  return out;
 }
 
 export async function logTextFood(text: string, meal: string): Promise<TextLogResponse> {
@@ -163,5 +168,6 @@ export async function logTextFood(text: string, meal: string): Promise<TextLogRe
   const data = (await res.json()) as unknown;
   // Malformed body → throw so the card's existing catch shows the inline error.
   if (!isTextLogResponse(data)) throw new Error('Malformed /log/text response');
+  if (data.logged || (data.food_log_ids?.length ?? 0) > 0) emitLogsChanged();
   return data;
 }

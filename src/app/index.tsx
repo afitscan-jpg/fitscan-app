@@ -21,6 +21,7 @@ import Reanimated, {
   Easing as REasing,
   Extrapolation,
   interpolate,
+  useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useDerivedValue,
@@ -43,6 +44,7 @@ import { WeightCard } from '@/components/weight-card';
 import { useCountUp } from '@/hooks/use-count-up';
 import { BrandMark } from '@/components/brand/brand-mark';
 import { Breathe } from '@/components/motion/breathe';
+import { useLogsChanged } from '@/hooks/use-logs-changed';
 import { CIcon } from '@/components/CalibretaIcon';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Gradients, Radius, RingGradient, Shadow, Spacing } from '@/constants/theme';
@@ -801,7 +803,7 @@ function itemMacroLine(item: TodayEntry): string | null {
   return parts.length ? parts.join(' · ') : null;
 }
 
-function TodayItem({ item, onEdit, onDelete }: { item: TodayEntry; onEdit: () => void; onDelete: () => void }) {
+function TodayItem({ item, onEdit, onDelete, highlight = false }: { item: TodayEntry; onEdit: () => void; onDelete: () => void; highlight?: boolean }) {
   const mealType    = (item.meal_type as string) ?? 'snack';
   const mealLabel   = mealType.charAt(0).toUpperCase() + mealType.slice(1);
   const sourceLabel = item.source === 'scan' ? 'Scanned' : item.source === 'quick_add' ? 'Quick add' : '';
@@ -829,8 +831,20 @@ function TodayItem({ item, onEdit, onDelete }: { item: TodayEntry; onEdit: () =>
     transform: [{ translateY: -18 * (1 - enterV.value) }, { scale: 0.96 + 0.04 * enterV.value }],
   }));
 
+  // Return-from-log reveal: a one-shot soft sage wash (0.18 → 0 over 1.2 s) when
+  // Home scrolls this just-logged row into view. Opacity only, so it still
+  // shows under reduced motion (the scroll is what jumps there, not the wash).
+  const wash = useSharedValue(0);
+  useEffect(() => {
+    if (!highlight) return;
+    wash.value = 0.18;
+    wash.value = withTiming(0, { duration: 1200, easing: REasing.out(REasing.quad) });
+  }, [highlight, wash]);
+  const washStyle = useAnimatedStyle(() => ({ opacity: wash.value }));
+
   return (
     <Reanimated.View style={[ti.card, enterStyle]}>
+      <Reanimated.View pointerEvents="none" style={[ti.wash, washStyle]} />
       <Pressable style={ti.rowMain} onPress={onEdit} accessibilityLabel={`Edit ${item.name}`}>
         <View style={[ti.tile, { backgroundColor: tint.bg, borderColor: tint.border }]}>
           <Text style={[ti.tileLetter, { color: tint.fg }]}>{mealLabel.charAt(0)}</Text>
@@ -879,6 +893,7 @@ const ti = StyleSheet.create({
     marginBottom: 11,
     ...Shadow.sm,
   },
+  wash:      { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 20, backgroundColor: C.green },
   rowMain:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 13, padding: 11 },
   tile:      { width: 52, height: 52, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   tileLetter:{ fontFamily: Fonts?.display ?? 'system', fontSize: 22, fontWeight: '600' },
@@ -1445,6 +1460,24 @@ export default function HomeScreen() {
   const [totals,         setTotals]         = useState<DailyTotals | null>(null);
   const [profile,        setProfile]        = useState<Profile | null>(null);
   const [log,            setLog]            = useState<TodayEntry[]>([]);
+  // v2 — return-from-log reveal. The logs-changed signal firing while Home is NOT
+  // focused means a log happened elsewhere; we snapshot the ids Home had, and the
+  // rows missing from that set after the focus reload are the new ones. A normal
+  // open, a tab switch or Home's own edits never set `pendingReveal`.
+  const focusedRef       = useRef(false);
+  const logRef           = useRef<TodayEntry[]>([]);
+  const pendingRevealRef = useRef<Set<string> | null>(null);
+  const [revealIds, setRevealIds] = useState<Set<string>>(() => new Set());
+  const rowRefs          = useRef(new Map<string, View>());
+  const viewportRef      = useRef<View>(null);
+  const scrollRef        = useAnimatedRef<Reanimated.ScrollView>();
+  useEffect(() => { logRef.current = log; }, [log]);
+  useLogsChanged(() => {
+    // First signal of a batch wins: the snapshot must predate every new row.
+    if (!focusedRef.current && !pendingRevealRef.current) {
+      pendingRevealRef.current = new Set(logRef.current.map((r) => r.id));
+    }
+  });
   const [weekData,       setWeekData]       = useState<DayTotal[]>([]);
   const [water,          setWater]          = useState<WaterData>({ ml: 0, glasses: 0 });
   const [loading,        setLoading]        = useState(true);
@@ -1566,6 +1599,7 @@ export default function HomeScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => {
+    focusedRef.current = true;
     setLoading(true);
     load();
     loadInsight();
@@ -1574,6 +1608,7 @@ export default function HomeScreen() {
     loadWorkouts();
     loadAdaptive();
     loadRemindersNudge();
+    return () => { focusedRef.current = false; };
   }, [load, loadInsight, loadEnt, loadNudge, loadWorkouts, loadAdaptive, loadRemindersNudge]));
 
   function handleDelete(id: string, name: string) {
@@ -1644,6 +1679,42 @@ export default function HomeScreen() {
   const scrollY = useSharedValue(0);
   const scrollHandler = useAnimatedScrollHandler((e) => { scrollY.value = e.contentOffset.y; });
 
+  // Bring a just-logged row into view: measured against the viewport, so a row
+  // already on screen is left alone (only the wash plays). Lands the row just
+  // under the compact header; for the first row, far enough to show the "Today"
+  // header above it. Reduced motion: jump, no animated scroll.
+  const scrollToRow = useCallback((id: string, isFirstRow: boolean) => {
+    const row = rowRefs.current.get(id);
+    const vp = viewportRef.current;
+    if (!row || !vp) return;
+    vp.measureInWindow((_vx, vy, _vw, vh) => {
+      row.measureInWindow((_rx, ry, _rw, rh) => {
+        const top = ry - vy;
+        if (top >= 0 && top + rh <= vh) return;              // already visible
+        const margin = 52 + 12 + (isFirstRow ? 48 : 0);     // compact bar + gap (+ section header)
+        const y = Math.max(0, scrollY.value + top - margin);
+        scrollRef.current?.scrollTo({ y, animated: !reducedMotion });
+      });
+    });
+  }, [reducedMotion, scrollRef, scrollY]);
+
+  // After the focus reload lands: wait ~400 ms for the ring's count-up, then
+  // scroll (if needed) and wash every new row; the wash flag clears after it ends.
+  useEffect(() => {
+    const prev = pendingRevealRef.current;
+    if (!prev) return;
+    pendingRevealRef.current = null;
+    const fresh = log.filter((r) => !prev.has(r.id)).map((r) => r.id);
+    if (fresh.length === 0) return;
+    const isFirstRow = log[0]?.id === fresh[0];
+    const t1 = setTimeout(() => {
+      setRevealIds(new Set(fresh));
+      scrollToRow(fresh[0], isFirstRow);
+    }, 400);
+    const t2 = setTimeout(() => setRevealIds(new Set()), 400 + 1600);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [log, scrollToRow]);
+
   // Greeting parallax (drifts ~0.85× scroll) + overscroll header stretch (wave).
   // v2 §6 — the tall greeting also dissolves as it leaves, handing off to the
   // pinned compact bar below. Opacity is a fade, so it is kept even under reduced
@@ -1712,7 +1783,10 @@ export default function HomeScreen() {
     <View style={hs.root} onTouchStart={onInkTouch}>
       <AmbientBackground />
       <SafeAreaView style={hs.flex} edges={['top']}>
+        {/* Plain View around the scroller: a measurable viewport for the reveal. */}
+        <View ref={viewportRef} style={hs.flex} collapsable={false}>
         <Reanimated.ScrollView
+          ref={scrollRef}
           style={hs.flex}
           contentContainerStyle={hs.scroll}
           showsVerticalScrollIndicator={false}
@@ -1888,12 +1962,18 @@ export default function HomeScreen() {
                   <Text style={hs.empty}>Nothing logged yet — scan or add your first food.</Text>
                 ) : (
                   log.map((item) => (
-                    <TodayItem
+                    <View
                       key={item.id}
-                      item={item}
-                      onEdit={() => setEditing(item)}
-                      onDelete={() => handleDelete(item.id, item.name)}
-                    />
+                      collapsable={false}
+                      ref={(node) => { if (node) rowRefs.current.set(item.id, node); else rowRefs.current.delete(item.id); }}
+                    >
+                      <TodayItem
+                        item={item}
+                        highlight={revealIds.has(item.id)}
+                        onEdit={() => setEditing(item)}
+                        onDelete={() => handleDelete(item.id, item.name)}
+                      />
+                    </View>
                   ))
                 )}
               </View>
@@ -1915,6 +1995,7 @@ export default function HomeScreen() {
           )}
         </Reanimated.View>
         </Reanimated.ScrollView>
+        </View>
 
         {/* v2 §6 — pinned compact header, fades/slides in as the greeting leaves.
             Display-only (pointerEvents none) so it never intercepts a touch. */}

@@ -6,11 +6,12 @@ import { AnimatedPressable } from '@/components/animated-pressable';
 import { SelectChip } from '@/components/motion/select-chip';
 import { Icon } from '@/components/Icon';
 import { C, Fonts, Radius, Shadow } from '@/constants/theme';
-import { PaywallError, RequestRefusedError } from '@/lib/api';
+import { PaywallError } from '@/lib/api';
 import { mealTypeForNow, type MealType } from '@/lib/db';
 import {
   confirmLogItem,
   logTextFood,
+  messageForLogError,
   NeedsConfirmationError,
   type TextLogItem,
   type TextLogResponse,
@@ -79,7 +80,7 @@ function HeldRow({
         setPrompt(e.clarification);
         setEditing(false);
       } else {
-        setError("Couldn't log that — please try again.");
+        setError(messageForLogError(e));
       }
     } finally {
       setBusy(false);
@@ -284,10 +285,10 @@ export function TextLogCard({
       setResult(res);
     } catch (e) {
       if (e instanceof PaywallError) onPaywall(e);
-      // Rate limit / daily ceiling / too long: the server says which and when it
-      // clears. "Please try again" would be wrong advice for all three.
-      else if (e instanceof RequestRefusedError) setError(e.message);
-      else setError("Couldn't log that — please try again.");
+      // Every other failure names its class: refusal (the server's own words),
+      // no connection, server error, or input we could not understand. One
+      // "please try again" for all of them was wrong advice for most.
+      else setError(messageForLogError(e));
     } finally {
       setLoading(false);
     }

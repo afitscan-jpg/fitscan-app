@@ -8,7 +8,7 @@
 // authFetch attaches the bearer token and throws PaywallError on 402, so callers
 // get the same paywall path as every other AI endpoint.
 
-import { authFetch } from './api';
+import { authFetch, PaywallError, RequestRefusedError, TimeoutError } from './api';
 import { emitLogsChanged } from './log-events';
 
 export type Provenance =
@@ -120,6 +120,35 @@ export class NeedsConfirmationError extends Error {
  * the user EDITED the quantity: a corrected amount is then re-checked normally,
  * so 5 just logs and 400 asks again.
  */
+/** The server answered /log/text or /log/confirm with a non-OK status that is
+ *  not a paywall, refusal or confirmation ask. `status` tells the UI whether it
+ *  was our fault (5xx) or the input's (4xx). */
+export class TextLogRequestError extends Error {
+  constructor(public readonly status: number, path: string) {
+    super(`${path} failed: ${status}`);
+    this.name = 'TextLogRequestError';
+  }
+}
+
+/** One message per failure class, so the card never says "please try again"
+ *  when retrying is the wrong advice. Paywall and refusal are handled by the
+ *  caller first (they carry their own copy); this covers the rest.
+ *    no answer / timeout            -> no connection
+ *    5xx                            -> server error (ours, retry later)
+ *    4xx                            -> the input could not be understood
+ *    anything else                  -> the generic retry line */
+export function messageForLogError(e: unknown): string {
+  if (e instanceof RequestRefusedError) return e.message;
+  if (e instanceof TimeoutError) return 'No connection — the server did not answer. Check your network and try again.';
+  if (e instanceof TypeError) return 'No connection — check your network and try again.';   // fetch: network request failed
+  if (e instanceof TextLogRequestError) {
+    if (e.status >= 500) return 'Server error — that one is on our side, not yours. Try again in a minute.';
+    return "Didn't understand that — try the food and amount, like '2 roti' or 'a bowl of dal'.";
+  }
+  if (e instanceof PaywallError) return e.message;
+  return "Couldn't log that — please try again.";
+}
+
 export async function confirmLogItem(opts: {
   canonicalFoodId: string | null;
   userFoodId?: string | null;
@@ -150,7 +179,7 @@ export async function confirmLogItem(opts: {
       body.detail?.kcal ?? null,
     );
   }
-  if (!res.ok) throw new Error(`log/confirm failed: ${res.status}`);
+  if (!res.ok) throw new TextLogRequestError(res.status, 'log/confirm');
   const out = (await res.json()) as { logged: boolean; food_log_ids: string[] };
   // The backend wrote the diary row, not db.ts — fire the change signal here so
   // Insights refetches and Home can reveal the new row (see [[log-events]]).
@@ -164,7 +193,7 @@ export async function logTextFood(text: string, meal: string): Promise<TextLogRe
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, meal, date: localDate() }),
   });
-  if (!res.ok) throw new Error(`log/text failed: ${res.status}`);
+  if (!res.ok) throw new TextLogRequestError(res.status, 'log/text');
   const data = (await res.json()) as unknown;
   // Malformed body → throw so the card's existing catch shows the inline error.
   if (!isTextLogResponse(data)) throw new Error('Malformed /log/text response');
